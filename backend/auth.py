@@ -5,8 +5,9 @@ JWT access + refresh tokens with rotation
 import os
 import secrets
 import hashlib
+import hmac
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 import bcrypt
@@ -66,7 +67,7 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
-def generate_reset_token() -> tuple[str, str]:
+def generate_reset_token() -> Tuple[str, str]:
     """Generate a secure password reset token and its hash"""
     token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(token.encode()).hexdigest()
@@ -78,19 +79,41 @@ def hash_reset_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def verify_reset_token_hash(token: str, stored_hash: str) -> bool:
+    """Compare token hash in constant time to prevent timing attacks"""
+    computed_hash = hashlib.sha256(token.encode()).hexdigest()
+    return hmac.compare_digest(computed_hash, stored_hash)
+
+
 # Admin authentication
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
-IS_PRODUCTION = os.environ.get("ENVIRONMENT", "development") == "production"
+# Detect production: Emergent, Vercel, or explicit ENVIRONMENT
+IS_PRODUCTION = (
+    os.environ.get("ENVIRONMENT") == "production" or
+    os.environ.get("VERCEL_ENV") == "production" or
+    os.environ.get("RAILWAY_ENVIRONMENT") == "production" or
+    bool(os.environ.get("RENDER"))  # Render.com
+)
 
 
 def verify_admin_password(password: str) -> bool:
     """Verify admin password against stored hash"""
-    if not ADMIN_PASSWORD_HASH:
-        # Block default credentials in production
-        if IS_PRODUCTION:
+    # In production, REQUIRE real credentials
+    if IS_PRODUCTION:
+        if not ADMIN_PASSWORD_HASH:
+            # No hash configured in production = fail
             return False
-        # Fallback for development only - use simple password
+        try:
+            return bcrypt.checkpw(
+                password.encode('utf-8'),
+                ADMIN_PASSWORD_HASH.encode('utf-8')
+            )
+        except Exception:
+            return False
+    
+    # Development fallback
+    if not ADMIN_PASSWORD_HASH:
         return password == "admin123"
     
     try:
