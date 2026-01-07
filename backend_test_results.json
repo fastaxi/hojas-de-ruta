@@ -1,0 +1,86 @@
+{
+  "total_tests": 13,
+  "passed_tests": 13,
+  "failed_tests": 0,
+  "success_rate": 100.0,
+  "test_results": [
+    {
+      "test": "API Health Check",
+      "success": true,
+      "details": "Status: ok",
+      "timestamp": "2026-01-07T17:42:44.894833"
+    },
+    {
+      "test": "Health Endpoint",
+      "success": true,
+      "details": "Email configured: False",
+      "timestamp": "2026-01-07T17:42:44.929750"
+    },
+    {
+      "test": "User Registration",
+      "success": true,
+      "details": "User ID: 5171e925-1a77-45fa-91bc-caa089c7f5fb",
+      "timestamp": "2026-01-07T17:42:45.224689"
+    },
+    {
+      "test": "Admin Login",
+      "success": true,
+      "details": "Token received: Yes",
+      "timestamp": "2026-01-07T17:42:45.287699"
+    },
+    {
+      "test": "Admin Get Pending Users",
+      "success": true,
+      "details": "Found 1 pending users",
+      "timestamp": "2026-01-07T17:42:45.326356"
+    },
+    {
+      "test": "User Login (Pending Status)",
+      "success": true,
+      "details": "Message: Este usuario aun no ha sido verificado por el administrador.",
+      "timestamp": "2026-01-07T17:42:45.583178"
+    },
+    {
+      "test": "Admin Approve User",
+      "success": true,
+      "details": "Message: Usuario aprobado",
+      "timestamp": "2026-01-07T17:42:45.622546"
+    },
+    {
+      "test": "User Login (After Approval)",
+      "success": true,
+      "details": "Token received: Yes",
+      "timestamp": "2026-01-07T17:42:45.882490"
+    },
+    {
+      "test": "Route Sheet Validation (Missing Contractor)",
+      "success": true,
+      "details": "Error: Debe proporcionar tel\u00e9fono o email del contratante",
+      "timestamp": "2026-01-07T17:42:45.918044"
+    },
+    {
+      "test": "Flight Number Validation",
+      "success": true,
+      "details": "Missing: N\u00famero de vuelo obligatorio para recogida en aeropuerto, Invalid format: Formato de vuelo inv\u00e1lido. Ejemplo: VY1234",
+      "timestamp": "2026-01-07T17:42:45.988766"
+    },
+    {
+      "test": "Create Valid Route Sheet",
+      "success": true,
+      "details": "Sheet ID: 28807d52-2965-448c-b54d-5aa9948a7af2, Number: 001/2026",
+      "timestamp": "2026-01-07T17:42:46.030842"
+    },
+    {
+      "test": "Get Route Sheets",
+      "success": true,
+      "details": "Found 1 route sheets",
+      "timestamp": "2026-01-07T17:42:46.072137"
+    },
+    {
+      "test": "Annul Route Sheet",
+      "success": true,
+      "details": "Message: Hoja anulada correctamente",
+      "timestamp": "2026-01-07T17:42:46.116925"
+    }
+  ]
+}
