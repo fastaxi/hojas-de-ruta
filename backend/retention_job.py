@@ -55,7 +55,7 @@ async def run_retention_job(dry_run: bool = False):
     try:
         # 1. HIDE: Set user_visible=false for expired sheets
         hide_query = {
-            "hide_at": {"$lte": now_iso},
+            "hide_at": {"$lte": now},  # datetime comparison
             "user_visible": True
         }
         
@@ -72,7 +72,7 @@ async def run_retention_job(dry_run: bool = False):
         # 2. PURGE: Delete sheets past purge_at (backup to TTL)
         # TTL index should handle this, but we run it anyway as safety
         purge_query = {
-            "purge_at": {"$lte": now_iso}
+            "purge_at": {"$lte": now}  # datetime comparison
         }
         
         sheets_to_purge = await db.route_sheets.count_documents(purge_query)
