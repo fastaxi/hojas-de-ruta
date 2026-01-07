@@ -28,7 +28,7 @@ from models import (
 from auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
-    generate_reset_token, verify_admin_password, create_admin_token
+    generate_reset_token, hash_reset_token, verify_admin_password, create_admin_token
 )
 from email_service import (
     send_approval_email, send_password_reset_email, is_email_configured
@@ -70,12 +70,20 @@ async def startup_db():
     await db.drivers.create_index("user_id")
     await db.drivers.create_index("id", unique=True)
     await db.route_sheets.create_index([("user_id", 1), ("created_at", -1)])
-    await db.route_sheets.create_index([("user_id", 1), ("year", 1), ("seq_number", 1)])
+    # CRITICAL: Unique index for atomic numbering
+    await db.route_sheets.create_index(
+        [("user_id", 1), ("year", 1), ("seq_number", 1)], 
+        unique=True
+    )
     await db.route_sheets.create_index("status")
     await db.route_sheets.create_index("user_visible")
     await db.route_sheets.create_index("id", unique=True)
-    await db.password_reset_tokens.create_index("token", unique=True)
+    # Index for purge TTL (optional auto-delete at purge_at)
+    await db.route_sheets.create_index("purge_at", expireAfterSeconds=0)
+    await db.password_reset_tokens.create_index("token_hash", unique=True)
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+    # Counters collection for atomic seq_number
+    await db.counters.create_index([("user_id", 1), ("year", 1)], unique=True)
     
     # Initialize app_config if not exists
     existing_config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
@@ -248,13 +256,13 @@ async def forgot_password(data: ForgotPasswordRequest):
     if not user:
         return {"message": "Si el email existe, recibirás un enlace de recuperación"}
     
-    # Generate reset token
-    token = generate_reset_token()
+    # Generate reset token (plain for email, hash for storage)
+    token, token_hash = generate_reset_token()
     expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
     
     reset_token = PasswordResetToken(
         user_id=user["id"],
-        token=token,
+        token_hash=token_hash,
         expires_at=expires_at
     )
     
@@ -264,7 +272,7 @@ async def forgot_password(data: ForgotPasswordRequest):
     
     await db.password_reset_tokens.insert_one(token_dict)
     
-    # Send email
+    # Send email with plain token (user clicks link with token)
     await send_password_reset_email(user["email"], user["full_name"], token)
     
     return {"message": "Si el email existe, recibirás un enlace de recuperación"}
@@ -273,8 +281,11 @@ async def forgot_password(data: ForgotPasswordRequest):
 @auth_router.post("/reset-password")
 async def reset_password(data: ResetPasswordRequest):
     """Reset password using token"""
+    # Hash the incoming token for lookup
+    token_hash = hash_reset_token(data.token)
+    
     token_doc = await db.password_reset_tokens.find_one(
-        {"token": data.token, "used": False},
+        {"token_hash": token_hash, "used": False},
         {"_id": 0}
     )
     
@@ -296,9 +307,9 @@ async def reset_password(data: ResetPasswordRequest):
         }}
     )
     
-    # Mark token as used
+    # Mark token as used (one-time use)
     await db.password_reset_tokens.update_one(
-        {"token": data.token},
+        {"token_hash": token_hash},
         {"$set": {"used": True}}
     )
     
