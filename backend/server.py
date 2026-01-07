@@ -178,9 +178,8 @@ async def register(data: UserCreate):
         status="PENDING"
     )
     
+    # Keep datetime fields as native datetime for MongoDB
     user_dict = user.model_dump()
-    user_dict['created_at'] = user_dict['created_at'].isoformat()
-    user_dict['updated_at'] = user_dict['updated_at'].isoformat()
     
     await db.users.insert_one(user_dict)
     
@@ -192,8 +191,8 @@ async def register(data: UserCreate):
                 dni=driver_data.dni,
                 user_id=user.id
             )
+            # Keep datetime as native
             driver_dict = driver.model_dump()
-            driver_dict['created_at'] = driver_dict['created_at'].isoformat()
             await db.drivers.insert_one(driver_dict)
     
     logger.info(f"New user registered: {data.email}")
@@ -336,7 +335,7 @@ async def update_me(data: UserUpdate, user: dict = Depends(get_current_user)):
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
     if update_data:
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["updated_at"] = datetime.now(timezone.utc)  # datetime, not string
         await db.users.update_one({"id": user["id"]}, {"$set": update_data})
     
     updated_user = await db.users.find_one({"id": user["id"]}, {"_id": 0})
@@ -361,8 +360,8 @@ async def create_driver(data: DriverCreate, user: dict = Depends(get_current_use
         dni=data.dni,
         user_id=user["id"]
     )
+    # Keep datetime as native
     driver_dict = driver.model_dump()
-    driver_dict['created_at'] = driver_dict['created_at'].isoformat()
     await db.drivers.insert_one(driver_dict)
     return {"id": driver.id, "message": "Chofer añadido"}
 
@@ -555,7 +554,7 @@ async def annul_route_sheet(
         {"id": sheet_id},
         {"$set": {
             "status": "ANNULLED",
-            "annulled_at": datetime.now(timezone.utc).isoformat(),
+            "annulled_at": datetime.now(timezone.utc),  # datetime
             "annul_reason": data.reason
         }}
     )
@@ -718,7 +717,7 @@ async def admin_update_user(
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
     if update_data:
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["updated_at"] = datetime.now(timezone.utc)  # datetime
         result = await db.users.update_one({"id": user_id}, {"$set": update_data})
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -740,7 +739,7 @@ async def admin_approve_user(user_id: str, admin: dict = Depends(get_current_adm
         {"id": user_id},
         {"$set": {
             "status": "APPROVED",
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc)  # datetime
         }}
     )
     
@@ -764,7 +763,8 @@ async def admin_send_reset(user_id: str, admin: dict = Depends(get_current_admin
     
     # Generate reset token (plain for email, hash for storage)
     token, token_hash = generate_reset_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=1)
     
     reset_token = PasswordResetToken(
         user_id=user["id"],
@@ -772,9 +772,8 @@ async def admin_send_reset(user_id: str, admin: dict = Depends(get_current_admin
         expires_at=expires_at
     )
     
+    # Keep datetime as native for TTL
     token_dict = reset_token.model_dump()
-    token_dict['expires_at'] = token_dict['expires_at'].isoformat()
-    token_dict['created_at'] = token_dict['created_at'].isoformat()
     
     await db.password_reset_tokens.insert_one(token_dict)
     
@@ -845,7 +844,7 @@ async def admin_update_config(
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
     if update_data:
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["updated_at"] = datetime.now(timezone.utc)  # datetime
         await db.app_config.update_one(
             {"id": "global"},
             {"$set": update_data},
