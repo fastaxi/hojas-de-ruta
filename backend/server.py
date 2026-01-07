@@ -741,13 +741,13 @@ async def admin_send_reset(user_id: str, admin: dict = Depends(get_current_admin
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    # Generate reset token
-    token = generate_reset_token()
+    # Generate reset token (plain for email, hash for storage)
+    token, token_hash = generate_reset_token()
     expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
     
     reset_token = PasswordResetToken(
         user_id=user["id"],
-        token=token,
+        token_hash=token_hash,
         expires_at=expires_at
     )
     
@@ -757,7 +757,7 @@ async def admin_send_reset(user_id: str, admin: dict = Depends(get_current_admin
     
     await db.password_reset_tokens.insert_one(token_dict)
     
-    # Send email
+    # Send email with plain token
     email_result = await send_password_reset_email(user["email"], user["full_name"], token)
     
     return {
