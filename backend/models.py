@@ -123,6 +123,8 @@ class RouteSheet(BaseModel):
     annul_reason: Optional[str] = None
     user_visible: bool = True
     created_at: datetime = Field(default_factory=utc_now)
+    hide_at: Optional[datetime] = None  # created_at + 14 meses
+    purge_at: Optional[datetime] = None  # created_at + 24 meses
 
 
 class RouteSheetAnnul(BaseModel):
@@ -180,7 +182,7 @@ class PasswordResetToken(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=generate_id)
     user_id: str
-    token: str
+    token_hash: str  # Hasheado, no en claro
     expires_at: datetime
     used: bool = False
     created_at: datetime = Field(default_factory=utc_now)

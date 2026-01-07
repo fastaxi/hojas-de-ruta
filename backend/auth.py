@@ -4,6 +4,7 @@ JWT access + refresh tokens with rotation
 """
 import os
 import secrets
+import hashlib
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from jose import jwt, JWTError
@@ -65,20 +66,31 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
-def generate_reset_token() -> str:
-    """Generate a secure password reset token"""
-    return secrets.token_urlsafe(32)
+def generate_reset_token() -> tuple[str, str]:
+    """Generate a secure password reset token and its hash"""
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    return token, token_hash
+
+
+def hash_reset_token(token: str) -> str:
+    """Hash a reset token for lookup"""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 # Admin authentication
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
+IS_PRODUCTION = os.environ.get("ENVIRONMENT", "development") == "production"
 
 
 def verify_admin_password(password: str) -> bool:
     """Verify admin password against stored hash"""
     if not ADMIN_PASSWORD_HASH:
-        # Fallback for development - use simple password
+        # Block default credentials in production
+        if IS_PRODUCTION:
+            return False
+        # Fallback for development only - use simple password
         return password == "admin123"
     
     try:
