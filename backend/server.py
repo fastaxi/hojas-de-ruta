@@ -412,30 +412,48 @@ async def create_route_sheet(
                 detail="Formato de vuelo inválido. Ejemplo: VY1234"
             )
     
-    # Get next sequence number for user and year
+    # Get current year
     current_year = datetime.now(timezone.utc).year
     
-    # Find highest seq_number for this user and year
-    last_sheet = await db.route_sheets.find_one(
+    # ATOMIC numbering using counters collection
+    # findOneAndUpdate with upsert ensures atomicity even with concurrent requests
+    counter_result = await db.counters.find_one_and_update(
         {"user_id": user["id"], "year": current_year},
-        {"_id": 0, "seq_number": 1},
-        sort=[("seq_number", -1)]
+        {"$inc": {"seq": 1}},
+        upsert=True,
+        return_document=True  # Return the updated document
     )
+    next_seq = counter_result["seq"]
     
-    next_seq = (last_sheet["seq_number"] + 1) if last_sheet else 1
+    # Get app_config for retention periods
+    config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
+    hide_months = config.get("hide_after_months", 14) if config else 14
+    purge_months = config.get("purge_after_months", 24) if config else 24
     
-    # Create route sheet
+    now = datetime.now(timezone.utc)
+    
+    # Create route sheet with retention dates
     sheet = RouteSheet(
         user_id=user["id"],
         year=current_year,
         seq_number=next_seq,
+        hide_at=now + timedelta(days=hide_months * 30),
+        purge_at=now + timedelta(days=purge_months * 30),
         **data.model_dump()
     )
     
     sheet_dict = sheet.model_dump()
     sheet_dict['created_at'] = sheet_dict['created_at'].isoformat()
+    sheet_dict['hide_at'] = sheet_dict['hide_at'].isoformat() if sheet_dict['hide_at'] else None
+    sheet_dict['purge_at'] = sheet_dict['purge_at'].isoformat() if sheet_dict['purge_at'] else None
     
-    await db.route_sheets.insert_one(sheet_dict)
+    try:
+        await db.route_sheets.insert_one(sheet_dict)
+    except Exception as e:
+        # If duplicate key error (shouldn't happen with atomic counter, but safety)
+        if "duplicate key" in str(e).lower():
+            raise HTTPException(status_code=500, detail="Error de numeración, reintente")
+        raise
     
     sheet_number = f"{next_seq:03d}/{current_year}"
     logger.info(f"Route sheet created: {sheet_number} for user {user['id']}")
