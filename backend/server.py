@@ -282,22 +282,34 @@ async def forgot_password(data: ForgotPasswordRequest):
 
 @auth_router.post("/reset-password")
 async def reset_password(data: ResetPasswordRequest):
-    """Reset password using token"""
-    # Hash the incoming token for lookup
+    """Reset password using token (one-time use, atomic validation)"""
+    # Hash the incoming token
     token_hash = hash_reset_token(data.token)
+    now = datetime.now(timezone.utc)
     
-    token_doc = await db.password_reset_tokens.find_one(
-        {"token_hash": token_hash, "used": False},
-        {"_id": 0}
+    # ATOMIC: Find valid token AND mark as used in single operation
+    # This prevents race conditions where two requests use same token
+    token_doc = await db.password_reset_tokens.find_one_and_update(
+        {
+            "token_hash": token_hash,
+            "used": False,
+            "expires_at": {"$gt": now.isoformat()}
+        },
+        {
+            "$set": {
+                "used": True,
+                "used_at": now.isoformat()
+            }
+        },
+        return_document=False  # Return the original (before update)
     )
     
     if not token_doc:
         raise HTTPException(status_code=400, detail="Token inválido o expirado")
     
-    # Check expiration
-    expires_at = datetime.fromisoformat(token_doc["expires_at"].replace("Z", "+00:00"))
-    if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Token expirado")
+    # Verify hash match with constant-time comparison (timing attack protection)
+    if not verify_reset_token_hash(data.token, token_doc["token_hash"]):
+        raise HTTPException(status_code=400, detail="Token inválido")
     
     # Update password
     new_hash = hash_password(data.new_password)
@@ -305,16 +317,11 @@ async def reset_password(data: ResetPasswordRequest):
         {"id": token_doc["user_id"]},
         {"$set": {
             "password_hash": new_hash,
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": now.isoformat()
         }}
     )
     
-    # Mark token as used (one-time use)
-    await db.password_reset_tokens.update_one(
-        {"token_hash": token_hash},
-        {"$set": {"used": True}}
-    )
-    
+    logger.info(f"Password reset for user {token_doc['user_id']}")
     return {"message": "Contraseña actualizada correctamente"}
 
 
