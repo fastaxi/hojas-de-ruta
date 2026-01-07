@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReturnDocument
 import os
 import logging
 import re
@@ -80,8 +81,9 @@ async def startup_db():
     await db.route_sheets.create_index("status")
     await db.route_sheets.create_index("user_visible")
     await db.route_sheets.create_index("id", unique=True)
-    # Index for purge TTL (optional auto-delete at purge_at)
+    # Index for purge TTL (requires BSON Date, not string)
     await db.route_sheets.create_index("purge_at", expireAfterSeconds=0)
+    # Token hash unique + TTL on expires_at
     await db.password_reset_tokens.create_index("token_hash", unique=True)
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     # Counters collection for atomic seq_number
@@ -260,7 +262,8 @@ async def forgot_password(data: ForgotPasswordRequest):
     
     # Generate reset token (plain for email, hash for storage)
     token, token_hash = generate_reset_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=1)
     
     reset_token = PasswordResetToken(
         user_id=user["id"],
@@ -268,9 +271,9 @@ async def forgot_password(data: ForgotPasswordRequest):
         expires_at=expires_at
     )
     
+    # Keep expires_at as datetime for TTL index to work
     token_dict = reset_token.model_dump()
-    token_dict['expires_at'] = token_dict['expires_at'].isoformat()
-    token_dict['created_at'] = token_dict['created_at'].isoformat()
+    # datetime fields stay as datetime (BSON Date)
     
     await db.password_reset_tokens.insert_one(token_dict)
     
@@ -283,33 +286,28 @@ async def forgot_password(data: ForgotPasswordRequest):
 @auth_router.post("/reset-password")
 async def reset_password(data: ResetPasswordRequest):
     """Reset password using token (one-time use, atomic validation)"""
-    # Hash the incoming token
     token_hash = hash_reset_token(data.token)
     now = datetime.now(timezone.utc)
     
     # ATOMIC: Find valid token AND mark as used in single operation
-    # This prevents race conditions where two requests use same token
+    # Compare expires_at as datetime (BSON Date), not string
     token_doc = await db.password_reset_tokens.find_one_and_update(
         {
             "token_hash": token_hash,
             "used": False,
-            "expires_at": {"$gt": now.isoformat()}
+            "expires_at": {"$gt": now}  # datetime comparison
         },
         {
             "$set": {
                 "used": True,
-                "used_at": now.isoformat()
+                "used_at": now  # datetime, not string
             }
         },
-        return_document=False  # Return the original (before update)
+        return_document=ReturnDocument.BEFORE
     )
     
     if not token_doc:
         raise HTTPException(status_code=400, detail="Token inválido o expirado")
-    
-    # Verify hash match with constant-time comparison (timing attack protection)
-    if not verify_reset_token_hash(data.token, token_doc["token_hash"]):
-        raise HTTPException(status_code=400, detail="Token inválido")
     
     # Update password
     new_hash = hash_password(data.new_password)
@@ -317,7 +315,7 @@ async def reset_password(data: ResetPasswordRequest):
         {"id": token_doc["user_id"]},
         {"$set": {
             "password_hash": new_hash,
-            "updated_at": now.isoformat()
+            "updated_at": now  # datetime
         }}
     )
     
@@ -434,12 +432,12 @@ async def create_route_sheet(
     current_year = datetime.now(timezone.utc).year
     
     # findOneAndUpdate with $inc is atomic - no race conditions
-    # Even if insert fails later, number is "burned" (never reused) = correct behavior
+    # ReturnDocument.AFTER ensures we get the incremented value
     counter_result = await db.counters.find_one_and_update(
         {"user_id": user["id"], "year": current_year},
         {"$inc": {"seq": 1}},
         upsert=True,
-        return_document=True
+        return_document=ReturnDocument.AFTER
     )
     next_seq = counter_result["seq"]
     
@@ -463,10 +461,10 @@ async def create_route_sheet(
         **data.model_dump()
     )
     
+    # Keep datetimes as native Python datetime for MongoDB BSON Date storage
+    # TTL indexes require BSON Date, not ISO strings
     sheet_dict = sheet.model_dump()
-    sheet_dict['created_at'] = sheet_dict['created_at'].isoformat()
-    sheet_dict['hide_at'] = sheet_dict['hide_at'].isoformat()
-    sheet_dict['purge_at'] = sheet_dict['purge_at'].isoformat()
+    # created_at, hide_at, purge_at remain as datetime objects
     
     try:
         await db.route_sheets.insert_one(sheet_dict)
