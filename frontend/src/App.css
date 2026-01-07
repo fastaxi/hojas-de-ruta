@@ -1,34 +1,102 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* RutasFast - App Styles */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+/* Base typography */
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Chivo', sans-serif;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.App-link {
-    color: #61dafb;
+::-webkit-scrollbar-track {
+  background: #f5f5f4;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+::-webkit-scrollbar-thumb {
+  background: #a8a29e;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #78716c;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid #701111;
+  outline-offset: 2px;
+}
+
+/* Button active state */
+button:active {
+  transform: scale(0.98);
+}
+
+/* Input placeholder */
+input::placeholder,
+textarea::placeholder {
+  color: #a8a29e;
+}
+
+/* Card hover effect */
+.card-interactive {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-interactive:hover {
+  border-color: #D4AF37;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Loading spinner */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Page transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Mobile safe area */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Print styles for PDF preview */
+@media print {
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }
