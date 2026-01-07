@@ -28,11 +28,13 @@ from models import (
 from auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
-    generate_reset_token, hash_reset_token, verify_admin_password, create_admin_token
+    generate_reset_token, hash_reset_token, verify_reset_token_hash,
+    verify_admin_password, create_admin_token
 )
 from email_service import (
     send_approval_email, send_password_reset_email, is_email_configured
 )
+from dateutil.relativedelta import relativedelta
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -391,15 +393,16 @@ async def create_route_sheet(
     data: RouteSheetCreate,
     user: dict = Depends(get_current_user)
 ):
-    """Create a new route sheet"""
-    # Validations
+    """Create a new route sheet (closed upon save, never editable)"""
+    # ============== VALIDATIONS ==============
+    # 1. Contractor phone OR email required
     if not data.contractor_phone and not data.contractor_email:
         raise HTTPException(
             status_code=400,
             detail="Debe proporcionar teléfono o email del contratante"
         )
     
-    # Flight number validation for airport pickup
+    # 2. Flight number validation for airport pickup
     if data.pickup_type == "AIRPORT":
         if not data.flight_number:
             raise HTTPException(
@@ -412,49 +415,62 @@ async def create_route_sheet(
                 detail="Formato de vuelo inválido. Ejemplo: VY1234"
             )
     
-    # Get current year
+    # 3. Pickup address required for non-airport
+    if data.pickup_type == "OTHER":
+        if not data.pickup_address or not data.pickup_address.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Dirección de recogida obligatoria para recogida fuera del aeropuerto"
+            )
+    
+    # ============== ATOMIC NUMBERING ==============
     current_year = datetime.now(timezone.utc).year
     
-    # ATOMIC numbering using counters collection
-    # findOneAndUpdate with upsert ensures atomicity even with concurrent requests
+    # findOneAndUpdate with $inc is atomic - no race conditions
+    # Even if insert fails later, number is "burned" (never reused) = correct behavior
     counter_result = await db.counters.find_one_and_update(
         {"user_id": user["id"], "year": current_year},
         {"$inc": {"seq": 1}},
         upsert=True,
-        return_document=True  # Return the updated document
+        return_document=True
     )
     next_seq = counter_result["seq"]
     
-    # Get app_config for retention periods
+    # ============== RETENTION DATES ==============
+    # Use relativedelta for precise calendar months (not 30-day approximation)
     config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
     hide_months = config.get("hide_after_months", 14) if config else 14
     purge_months = config.get("purge_after_months", 24) if config else 24
     
     now = datetime.now(timezone.utc)
+    hide_at = now + relativedelta(months=+hide_months)
+    purge_at = now + relativedelta(months=+purge_months)
     
-    # Create route sheet with retention dates
+    # ============== CREATE SHEET ==============
     sheet = RouteSheet(
         user_id=user["id"],
         year=current_year,
         seq_number=next_seq,
-        hide_at=now + timedelta(days=hide_months * 30),
-        purge_at=now + timedelta(days=purge_months * 30),
+        hide_at=hide_at,
+        purge_at=purge_at,
         **data.model_dump()
     )
     
     sheet_dict = sheet.model_dump()
     sheet_dict['created_at'] = sheet_dict['created_at'].isoformat()
-    sheet_dict['hide_at'] = sheet_dict['hide_at'].isoformat() if sheet_dict['hide_at'] else None
-    sheet_dict['purge_at'] = sheet_dict['purge_at'].isoformat() if sheet_dict['purge_at'] else None
+    sheet_dict['hide_at'] = sheet_dict['hide_at'].isoformat()
+    sheet_dict['purge_at'] = sheet_dict['purge_at'].isoformat()
     
     try:
         await db.route_sheets.insert_one(sheet_dict)
     except Exception as e:
-        # If duplicate key error (shouldn't happen with atomic counter, but safety)
+        # Unique index violation shouldn't happen with atomic counter, but safety check
         if "duplicate key" in str(e).lower():
+            logger.error(f"Duplicate sheet number {next_seq}/{current_year} for user {user['id']}")
             raise HTTPException(status_code=500, detail="Error de numeración, reintente")
         raise
     
+    # Format: 001/2026, 1000/2026 (natural expansion beyond 999)
     sheet_number = f"{next_seq:03d}/{current_year}"
     logger.info(f"Route sheet created: {sheet_number} for user {user['id']}")
     
