@@ -1,0 +1,161 @@
+{
+  "identity": {
+    "persona": "E1",
+    "role": "Creative Designer",
+    "mission": "Create a high-clarity, official yet modern tool for taxi drivers in Asturias.",
+    "principles": [
+      "Clarity is King: Legibility under sunlight and night conditions is priority #1.",
+      "Thumb-First Design: All primary actions must be reachable with one hand.",
+      "Official Aesthetic: The app generates legal documents; it must look trustworthy, not playful.",
+      "Speed: Interactions must be instant. No unnecessary animations that slow down the workflow."
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Chivo, sans-serif",
+      "body": "IBM Plex Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "weights": {
+      "headings": "700 (Bold) or 900 (Black)",
+      "body": "400 (Regular) and 600 (SemiBold)"
+    },
+    "sizes": {
+      "h1": "text-3xl md:text-4xl tracking-tight",
+      "h2": "text-2xl md:text-3xl tracking-tight",
+      "h3": "text-xl md:text-2xl font-semibold",
+      "body": "text-base md:text-lg leading-relaxed",
+      "small": "text-sm font-medium tracking-wide uppercase"
+    },
+    "installation": "Import from Google Fonts: https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#701111",
+        "foreground": "#FFFFFF",
+        "50": "#FDF2F2",
+        "100": "#FDE8E8",
+        "200": "#FBD5D5",
+        "300": "#F8B4B4",
+        "400": "#F98080",
+        "500": "#F05252",
+        "600": "#E02424",
+        "700": "#C81E1E",
+        "800": "#9B1C1C",
+        "900": "#701111"
+      },
+      "secondary": {
+        "DEFAULT": "#D4AF37",
+        "foreground": "#1A1A1A",
+        "50": "#FCFBF4",
+        "100": "#F8F6E6",
+        "200": "#EFEAC4",
+        "300": "#E4DCA0",
+        "400": "#D9CD7D",
+        "500": "#D4AF37",
+        "600": "#AA8C2C",
+        "700": "#806921",
+        "800": "#554616",
+        "900": "#2B230B"
+      },
+      "background": "#F5F5F4",
+      "surface": "#FFFFFF",
+      "text": {
+        "primary": "#1C1917",
+        "secondary": "#57534E",
+        "muted": "#A8A29E"
+      },
+      "status": {
+        "success": "#059669",
+        "warning": "#D97706",
+        "error": "#DC2626",
+        "info": "#2563EB"
+      }
+    },
+    "theme_strategy": "Light Mode Default (High Contrast). Dark Mode optional but secondary.",
+    "gradients": "None. Use solid colors for maximum clarity and 'official' feel."
+  },
+  "layout": {
+    "spacing_scale": "Generous. Use p-6 or p-8 for containers. Gap-4 or Gap-6 for grids.",
+    "container": "max-w-md mx-auto for Mobile App (/app). max-w-7xl mx-auto for Admin (/admin).",
+    "grids": {
+      "mobile": "grid-cols-1 gap-6",
+      "admin_dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "admin_table": "w-full border-collapse"
+    },
+    "radius": "rounded-lg (8px) for cards, rounded-full for buttons."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#701111] text-white hover:bg-[#5a0d0d] h-12 text-lg font-semibold rounded-full shadow-md active:scale-95 transition-transform",
+      "secondary": "bg-white border-2 border-[#D4AF37] text-[#701111] hover:bg-[#FFFDF5] h-12 text-lg font-semibold rounded-full",
+      "ghost": "text-[#57534E] hover:text-[#1C1917] hover:bg-stone-100"
+    },
+    "inputs": {
+      "default": "h-14 text-lg bg-white border-stone-300 focus:border-[#701111] focus:ring-1 focus:ring-[#701111] rounded-lg px-4",
+      "label": "text-stone-600 font-medium mb-1.5 block text-sm uppercase tracking-wide"
+    },
+    "cards": {
+      "default": "bg-white border border-stone-200 rounded-xl shadow-sm p-6",
+      "interactive": "bg-white border border-stone-200 rounded-xl shadow-sm p-6 hover:border-[#D4AF37] hover:shadow-md transition-all cursor-pointer"
+    },
+    "navigation": {
+      "mobile_bottom": "fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 h-16 flex items-center justify-around z-50",
+      "admin_sidebar": "fixed left-0 top-0 h-full w-64 bg-[#1C1917] text-stone-300"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": "shadow-sm for cards, shadow-md for floating actions. Avoid large diffuse shadows.",
+    "borders": "1px solid stone-200. Use #D4AF37 (Gold) for active states or highlights.",
+    "textures": "Subtle noise on the background (#F5F5F4) to give a 'paper' feel.",
+    "icons": "Lucide React. Use stroke-width={2} for clarity."
+  },
+  "media": {
+    "image_urls": {
+      "hero_bg": "https://images.pexels.com/photos/17950533/pexels-photo-17950533.jpeg",
+      "auth_bg": "https://images.pexels.com/photos/35488746/pexels-photo-35488746.jpeg",
+      "placeholder_logo": "https://placehold.co/200x80/701111/FFFFFF?text=FAST&font=chivo"
+    },
+    "logo_style": "Text-based 'FAST' in Chivo Black, color #701111."
+  },
+  "motion": {
+    "transitions": "transition-all duration-200 ease-out",
+    "micro_interactions": "Active scale down (0.98) on buttons. Input focus ring expansion.",
+    "page_transition": "Fade in (opacity 0 to 1) over 0.3s."
+  },
+  "accessibility": {
+    "contrast": "Ensure 4.5:1 ratio. Text on Gold background is forbidden (use Gold for borders only).",
+    "touch_targets": "Minimum 44x44px for all interactive elements.",
+    "labels": "Always visible. No placeholder-only inputs."
+  },
+  "tech_stack": {
+    "framework": "React",
+    "styling": "Tailwind CSS",
+    "icons": "lucide-react",
+    "components": "shadcn/ui (customized)"
+  },
+  "instructions_to_main_agent": [
+    "1. SETUP: Install 'Chivo' and 'IBM Plex Sans' fonts immediately.",
+    "2. THEME: Configure tailwind.config.js with the custom colors (Primary: #701111, Secondary: #D4AF37).",
+    "3. LAYOUT: Create two distinct layouts: 'AppLayout' (Mobile, Bottom Nav) and 'AdminLayout' (Desktop, Sidebar).",
+    "4. FORMS: Build the Registration form as a multi-step wizard. Step 1: Personal, Step 2: License, Step 3: Vehicle.",
+    "5. DASHBOARD: The User Dashboard must use Tabs (New Sheet, History, Settings).",
+    "6. PDF: Prepare the 'Export PDF' UI to look like a preview of a physical paper document.",
+    "7. ADMIN: The Admin table must support bulk actions (Approve Users).",
+    "8. CRITICAL: Do not use gradients. Stick to flat, high-contrast colors."
+  ],
+  "universal_guidelines": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) sparingly (only for overlays).",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; }.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations.",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "All interactive and key informational elements MUST include a data-testid attribute."
+  ]
+}
