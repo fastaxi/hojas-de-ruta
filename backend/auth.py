@@ -1,6 +1,6 @@
 """
 RutasFast - Authentication utilities
-JWT access + refresh tokens with rotation
+JWT access + refresh tokens with rotation and cookie support
 """
 import os
 import secrets
@@ -20,6 +20,24 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+# Cookie configuration
+COOKIE_NAME = "refresh_token"
+COOKIE_PATH = "/api/auth"
+COOKIE_MAX_AGE = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60  # in seconds
+
+# Detect production environment
+IS_PRODUCTION = (
+    os.environ.get("ENVIRONMENT") == "production" or
+    os.environ.get("VERCEL_ENV") == "production" or
+    os.environ.get("RAILWAY_ENVIRONMENT") == "production" or
+    bool(os.environ.get("RENDER"))  # Render.com
+)
+
+# Cookie secure flag - must be True in production with HTTPS
+COOKIE_SECURE = IS_PRODUCTION or os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+# SameSite - Lax is safer for cross-site in subdomains; Strict for same-site
+COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "lax")
 
 
 def hash_password(password: str) -> str:
