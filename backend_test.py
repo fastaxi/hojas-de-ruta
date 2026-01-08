@@ -280,17 +280,37 @@ class RutasFastAPITester:
         return success
 
     def test_get_route_sheets(self):
-        """Test getting user's route sheets"""
+        """Test getting user's route sheets with filters"""
         if not self.user_token:
             self.log_test("Get Route Sheets", False, "No user token available")
             return False
         
+        # Test basic get
         success, data = self.make_request('GET', '/route-sheets', token=self.user_token)
         
-        sheet_count = len(data) if isinstance(data, list) else 0
-        self.log_test("Get Route Sheets", success, 
-                     f"Found {sheet_count} route sheets")
-        return success
+        if success and isinstance(data, dict):
+            sheet_count = len(data.get('sheets', []))
+            self.log_test("Get Route Sheets", success, 
+                         f"Found {sheet_count} route sheets")
+        else:
+            self.log_test("Get Route Sheets", False, f"Unexpected response format: {data}")
+            return False
+        
+        # Test date filtering
+        from_date = "2024-01-01"
+        to_date = "2024-12-31"
+        success2, data2 = self.make_request('GET', f'/route-sheets?from_date={from_date}&to_date={to_date}', 
+                                          token=self.user_token)
+        
+        if success2 and isinstance(data2, dict):
+            filtered_count = len(data2.get('sheets', []))
+            self.log_test("Get Route Sheets (Date Filter)", success2, 
+                         f"Found {filtered_count} sheets in date range")
+        else:
+            self.log_test("Get Route Sheets (Date Filter)", False, f"Date filter failed: {data2}")
+            return False
+        
+        return success and success2
 
     def test_annul_route_sheet(self):
         """Test annulling a route sheet"""
