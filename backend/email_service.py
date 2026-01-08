@@ -60,17 +60,22 @@ async def send_email(
     try:
         # Run sync SDK in thread to keep FastAPI non-blocking
         email = await asyncio.to_thread(resend.Emails.send, params)
-        logger.info(f"Email sent: {subject} -> {to_email}")
+        logger.info(f"Email sent successfully: {subject} -> {to_email} (ID: {email.get('id')})")
         return {
             "success": True,
             "message": f"Email enviado a {to_email}",
             "email_id": email.get("id")
         }
     except Exception as e:
-        logger.error(f"Failed to send email: {str(e)}")
+        error_msg = str(e)
+        # Check for common Resend errors
+        if "testing emails" in error_msg.lower() or "verify a domain" in error_msg.lower():
+            logger.warning(f"Resend in testing mode - email not sent to {to_email}. Verify domain at resend.com/domains")
+        else:
+            logger.error(f"Failed to send email to {to_email}: {error_msg}")
         return {
             "success": False,
-            "message": f"Error enviando email: {str(e)}",
+            "message": f"Error enviando email: {error_msg}",
             "email_id": None
         }
 
