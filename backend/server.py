@@ -220,9 +220,12 @@ async def register(data: UserCreate):
     }
 
 
-@auth_router.post("/login", response_model=TokenResponse)
+@auth_router.post("/login")
 async def login(data: LoginRequest):
-    """Login user - must be approved"""
+    """
+    Login user - returns access token in JSON, sets refresh token in httpOnly cookie.
+    Must be approved.
+    """
     user = await db.users.find_one({"email": data.email}, {"_id": 0})
     
     if not user or not verify_password(data.password, user["password_hash"]):
@@ -234,13 +237,34 @@ async def login(data: LoginRequest):
             detail="Este usuario aun no ha sido verificado por el administrador."
         )
     
-    access_token = create_access_token(user["id"], user["email"])
-    refresh_token = create_refresh_token(user["id"])
+    # Get or initialize token_version
+    token_version = user.get("token_version", 0)
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token
+    access_token = create_access_token(user["id"], user["email"])
+    refresh_token = create_refresh_token(user["id"], token_version)
+    
+    # Create response with access token in JSON
+    response = JSONResponse(content={
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "status": user["status"]
+        }
+    })
+    
+    # Set refresh token in httpOnly cookie
+    cookie_settings = get_cookie_settings()
+    response.set_cookie(
+        value=refresh_token,
+        **cookie_settings
     )
+    
+    logger.info(f"User logged in: {user['email']}")
+    return response
 
 
 @auth_router.post("/refresh", response_model=TokenResponse)
