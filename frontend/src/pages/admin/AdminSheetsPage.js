@@ -23,8 +23,8 @@ export function AdminSheetsPage() {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    status: '',
-    user_visible: '',
+    status: 'all',
+    user_visible: 'all',
     from_date: '',
     to_date: ''
   });
@@ -35,7 +35,8 @@ export function AdminSheetsPage() {
     try {
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== '') params.append(key, value);
+        // Skip 'all' values and empty strings
+        if (value !== '' && value !== 'all') params.append(key, value);
       });
       
       const data = await adminRequest('get', `/admin/route-sheets?${params}`);
@@ -111,7 +112,7 @@ export function AdminSheetsPage() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="ACTIVE">Activas</SelectItem>
                   <SelectItem value="ANNULLED">Anuladas</SelectItem>
                 </SelectContent>
@@ -124,7 +125,7 @@ export function AdminSheetsPage() {
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
                   <SelectItem value="true">Visibles</SelectItem>
                   <SelectItem value="false">Ocultas</SelectItem>
                 </SelectContent>
@@ -153,7 +154,7 @@ export function AdminSheetsPage() {
             <div className="flex items-end">
               <Button
                 variant="outline"
-                onClick={() => setFilters({ status: '', user_visible: '', from_date: '', to_date: '' })}
+                onClick={() => setFilters({ status: 'all', user_visible: 'all', from_date: '', to_date: '' })}
                 className="w-full"
               >
                 Limpiar filtros
