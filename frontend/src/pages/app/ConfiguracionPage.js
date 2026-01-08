@@ -116,7 +116,7 @@ export function ConfiguracionPage() {
     setError('');
 
     try {
-      await axios.put(`${API_URL}/me`, profileData, authHeader);
+      await axios.put(`${API_URL}/me`, profileData);
       if (refreshUser) await refreshUser();
       showSuccess('Perfil actualizado correctamente');
     } catch (err) {
@@ -140,7 +140,7 @@ export function ConfiguracionPage() {
     setError('');
 
     try {
-      await axios.put(`${API_URL}/me`, vehicleData, authHeader);
+      await axios.put(`${API_URL}/me`, vehicleData);
       if (refreshUser) await refreshUser();
       showSuccess('Vehículo actualizado correctamente');
     } catch (err) {
@@ -177,10 +177,10 @@ export function ConfiguracionPage() {
     setSavingDriver(true);
     try {
       if (editingDriver) {
-        await axios.put(`${API_URL}/me/drivers/${editingDriver.id}`, driverForm, authHeader);
+        await axios.put(`${API_URL}/me/drivers/${editingDriver.id}`, driverForm);
         showSuccess('Chofer actualizado');
       } else {
-        await axios.post(`${API_URL}/me/drivers`, driverForm, authHeader);
+        await axios.post(`${API_URL}/me/drivers`, driverForm);
         showSuccess('Chofer añadido');
       }
       setDriverDialog(false);
@@ -194,7 +194,7 @@ export function ConfiguracionPage() {
 
   const handleDeleteDriver = async (driverId) => {
     try {
-      await axios.delete(`${API_URL}/me/drivers/${driverId}`, authHeader);
+      await axios.delete(`${API_URL}/me/drivers/${driverId}`);
       showSuccess('Chofer eliminado');
       setDeleteConfirm(null);
       fetchDrivers();
