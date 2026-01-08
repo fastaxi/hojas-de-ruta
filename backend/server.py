@@ -75,6 +75,7 @@ async def startup_db():
     await db.drivers.create_index("user_id")
     await db.drivers.create_index("id", unique=True)
     await db.route_sheets.create_index([("user_id", 1), ("created_at", -1)])
+    await db.route_sheets.create_index([("user_id", 1), ("pickup_datetime", -1)])
     # CRITICAL: Unique index for atomic numbering
     await db.route_sheets.create_index(
         [("user_id", 1), ("year", 1), ("seq_number", 1)], 
@@ -696,7 +697,7 @@ async def get_route_sheets_pdf_range(
     sheets = await db.route_sheets.find(
         query,
         {"_id": 0}
-    ).sort("created_at", 1).to_list(1000)
+    ).sort("pickup_datetime", 1).to_list(1000)
     
     if not sheets:
         raise HTTPException(status_code=404, detail="No hay hojas en el rango seleccionado")
