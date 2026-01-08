@@ -154,3 +154,15 @@ def create_admin_token() -> str:
         "iat": datetime.now(timezone.utc)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def get_cookie_settings() -> dict:
+    """Get cookie settings based on environment"""
+    return {
+        "key": COOKIE_NAME,
+        "path": COOKIE_PATH,
+        "httponly": True,
+        "secure": COOKIE_SECURE,
+        "samesite": COOKIE_SAMESITE,
+        "max_age": COOKIE_MAX_AGE
+    }
