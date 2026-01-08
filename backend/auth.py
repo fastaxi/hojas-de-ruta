@@ -63,15 +63,16 @@ def create_access_token(user_id: str, email: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def create_refresh_token(user_id: str) -> str:
-    """Create JWT refresh token"""
+def create_refresh_token(user_id: str, token_version: int = 0) -> str:
+    """Create JWT refresh token with token_version for revocation"""
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {
         "sub": user_id,
         "type": "refresh",
         "exp": expire,
         "iat": datetime.now(timezone.utc),
-        "jti": secrets.token_hex(16)  # Unique token ID for rotation
+        "jti": secrets.token_hex(16),  # Unique token ID for rotation
+        "v": token_version  # Token version for logout/revocation
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
