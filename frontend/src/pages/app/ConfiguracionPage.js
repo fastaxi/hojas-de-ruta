@@ -1,22 +1,27 @@
 /**
  * RutasFast - Configuración Page (User settings)
+ * Profile, Vehicle, Drivers CRUD, Logout
  */
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { 
-  User, Car, Users, Loader2, Check, Plus, Trash2, Save, AlertCircle
+  User, Car, Users, Loader2, Check, Plus, Trash2, Save, AlertCircle, 
+  LogOut, Shield, Pencil
 } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function ConfiguracionPage() {
-  const { user, updateProfile } = useAuth();
+  const { user, token, logout, refreshUser } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -39,7 +44,20 @@ export function ConfiguracionPage() {
 
   // Drivers
   const [drivers, setDrivers] = useState([]);
-  const [newDriver, setNewDriver] = useState({ full_name: '', dni: '' });
+  const [loadingDrivers, setLoadingDrivers] = useState(true);
+  
+  // Driver dialog
+  const [driverDialog, setDriverDialog] = useState(false);
+  const [editingDriver, setEditingDriver] = useState(null);
+  const [driverForm, setDriverForm] = useState({ full_name: '', dni: '' });
+  const [savingDriver, setSavingDriver] = useState(false);
+  
+  // Confirm dialogs
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+
+  // Auth header helper
+  const authHeader = { headers: { Authorization: `Bearer ${token}` } };
 
   useEffect(() => {
     if (user) {
@@ -61,73 +79,135 @@ export function ConfiguracionPage() {
 
   const fetchDrivers = async () => {
     try {
-      const response = await axios.get(`${API_URL}/me/drivers`);
+      const response = await axios.get(`${API_URL}/me/drivers`, authHeader);
       setDrivers(response.data);
     } catch (err) {
       console.error('Error fetching drivers:', err);
+    } finally {
+      setLoadingDrivers(false);
     }
   };
 
+  const showSuccess = (msg) => {
+    setSuccess(msg);
+    setError('');
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const showError = (msg) => {
+    setError(msg);
+    setSuccess('');
+  };
+
+  // ============== PROFILE ==============
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
+    
+    // Validations
+    if (!profileData.full_name.trim()) {
+      showError('El nombre es obligatorio');
+      return;
+    }
+    if (!profileData.dni_cif.trim()) {
+      showError('El DNI/CIF es obligatorio');
+      return;
+    }
+    
     setLoading(true);
     setError('');
-    setSuccess('');
 
     try {
-      await updateProfile(profileData);
-      setSuccess('Perfil actualizado');
-      setTimeout(() => setSuccess(''), 3000);
+      await axios.put(`${API_URL}/me`, profileData, authHeader);
+      if (refreshUser) await refreshUser();
+      showSuccess('Perfil actualizado correctamente');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al actualizar');
+      showError(err.response?.data?.detail || 'Error al actualizar perfil');
     } finally {
       setLoading(false);
     }
   };
 
+  // ============== VEHICLE ==============
   const handleVehicleUpdate = async (e) => {
     e.preventDefault();
+    
+    // Validation
+    if (!vehicleData.vehicle_plate.trim()) {
+      showError('La matrícula es obligatoria');
+      return;
+    }
+    
     setLoading(true);
     setError('');
-    setSuccess('');
 
     try {
-      await updateProfile(vehicleData);
-      setSuccess('Vehículo actualizado');
-      setTimeout(() => setSuccess(''), 3000);
+      await axios.put(`${API_URL}/me`, vehicleData, authHeader);
+      if (refreshUser) await refreshUser();
+      showSuccess('Vehículo actualizado correctamente');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al actualizar');
+      showError(err.response?.data?.detail || 'Error al actualizar vehículo');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddDriver = async (e) => {
-    e.preventDefault();
-    if (!newDriver.full_name || !newDriver.dni) return;
+  // ============== DRIVERS ==============
+  const openAddDriver = () => {
+    setEditingDriver(null);
+    setDriverForm({ full_name: '', dni: '' });
+    setDriverDialog(true);
+  };
 
+  const openEditDriver = (driver) => {
+    setEditingDriver(driver);
+    setDriverForm({ full_name: driver.full_name, dni: driver.dni });
+    setDriverDialog(true);
+  };
+
+  const handleSaveDriver = async () => {
+    // Validations
+    if (!driverForm.full_name.trim()) {
+      showError('El nombre del chofer es obligatorio');
+      return;
+    }
+    if (!driverForm.dni.trim()) {
+      showError('El DNI del chofer es obligatorio');
+      return;
+    }
+    
+    setSavingDriver(true);
     try {
-      await axios.post(`${API_URL}/me/drivers`, newDriver);
-      setNewDriver({ full_name: '', dni: '' });
+      if (editingDriver) {
+        await axios.put(`${API_URL}/me/drivers/${editingDriver.id}`, driverForm, authHeader);
+        showSuccess('Chofer actualizado');
+      } else {
+        await axios.post(`${API_URL}/me/drivers`, driverForm, authHeader);
+        showSuccess('Chofer añadido');
+      }
+      setDriverDialog(false);
       fetchDrivers();
-      setSuccess('Chofer añadido');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al añadir chofer');
+      showError(err.response?.data?.detail || 'Error al guardar chofer');
+    } finally {
+      setSavingDriver(false);
     }
   };
 
   const handleDeleteDriver = async (driverId) => {
-    if (!window.confirm('¿Eliminar este chofer?')) return;
-
     try {
-      await axios.delete(`${API_URL}/me/drivers/${driverId}`);
+      await axios.delete(`${API_URL}/me/drivers/${driverId}`, authHeader);
+      showSuccess('Chofer eliminado');
+      setDeleteConfirm(null);
       fetchDrivers();
-      setSuccess('Chofer eliminado');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al eliminar');
+      showError(err.response?.data?.detail || 'Error al eliminar chofer');
     }
+  };
+
+  // ============== LOGOUT ==============
+  const handleLogout = () => {
+    logout();
+    navigate('/app/login');
   };
 
   return (
@@ -136,7 +216,7 @@ export function ConfiguracionPage() {
         <h1 className="text-2xl font-bold text-stone-900" style={{ fontFamily: 'Chivo, sans-serif' }}>
           Configuración
         </h1>
-        <p className="text-stone-600">Gestiona tu perfil y vehículo</p>
+        <p className="text-stone-600">Gestiona tu perfil, vehículo y conductores</p>
       </div>
 
       {/* Messages */}
@@ -154,7 +234,7 @@ export function ConfiguracionPage() {
       )}
 
       <Tabs defaultValue="perfil" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-12">
+        <TabsList className="grid w-full grid-cols-4 h-12">
           <TabsTrigger value="perfil" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white">
             <User className="w-4 h-4 mr-2" />
             Perfil
@@ -167,36 +247,44 @@ export function ConfiguracionPage() {
             <Users className="w-4 h-4 mr-2" />
             Choferes
           </TabsTrigger>
+          <TabsTrigger value="seguridad" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white">
+            <Shield className="w-4 h-4 mr-2" />
+            Seguridad
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
         <TabsContent value="perfil">
           <Card className="border-0 shadow-lg">
-            <CardContent className="pt-6">
+            <CardHeader>
+              <CardTitle>Datos Personales</CardTitle>
+              <CardDescription>Información de tu licencia y contacto</CardDescription>
+            </CardHeader>
+            <CardContent>
               <form onSubmit={handleProfileUpdate} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                    Nombre y Apellidos
-                  </Label>
-                  <Input
-                    value={profileData.full_name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, full_name: e.target.value }))}
-                    className="h-12"
-                    data-testid="config-fullname"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                    DNI/CIF
-                  </Label>
-                  <Input
-                    value={profileData.dni_cif}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, dni_cif: e.target.value }))}
-                    className="h-12"
-                    data-testid="config-dni"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      Nombre Completo *
+                    </Label>
+                    <Input
+                      value={profileData.full_name}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, full_name: e.target.value }))}
+                      className="h-12"
+                      data-testid="config-fullname"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      DNI/CIF *
+                    </Label>
+                    <Input
+                      value={profileData.dni_cif}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, dni_cif: e.target.value }))}
+                      className="h-12"
+                      data-testid="config-dni"
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                       Nº Licencia
@@ -219,22 +307,33 @@ export function ConfiguracionPage() {
                       data-testid="config-council"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                    Teléfono
-                  </Label>
-                  <Input
-                    value={profileData.phone}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="h-12"
-                    data-testid="config-phone"
-                  />
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      Teléfono
+                    </Label>
+                    <Input
+                      value={profileData.phone}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="h-12"
+                      data-testid="config-phone"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      Email (no editable)
+                    </Label>
+                    <Input
+                      value={user?.email || ''}
+                      disabled
+                      className="h-12 bg-stone-100 text-stone-500"
+                    />
+                    <p className="text-xs text-stone-500">El email no puede modificarse por seguridad</p>
+                  </div>
                 </div>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-12 rounded-full bg-maroon-900 hover:bg-maroon-800"
+                  className="h-12 px-6 rounded-full bg-maroon-900 hover:bg-maroon-800"
                   data-testid="save-profile-btn"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Guardar Perfil</>}
@@ -247,45 +346,51 @@ export function ConfiguracionPage() {
         {/* Vehicle Tab */}
         <TabsContent value="vehiculo">
           <Card className="border-0 shadow-lg">
-            <CardContent className="pt-6">
+            <CardHeader>
+              <CardTitle>Datos del Vehículo</CardTitle>
+              <CardDescription>Información de tu vehículo de trabajo</CardDescription>
+            </CardHeader>
+            <CardContent>
               <form onSubmit={handleVehicleUpdate} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                    Marca
-                  </Label>
-                  <Input
-                    value={vehicleData.vehicle_brand}
-                    onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_brand: e.target.value }))}
-                    className="h-12"
-                    data-testid="config-vehicle-brand"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                    Modelo
-                  </Label>
-                  <Input
-                    value={vehicleData.vehicle_model}
-                    onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_model: e.target.value }))}
-                    className="h-12"
-                    data-testid="config-vehicle-model"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                    Matrícula
-                  </Label>
-                  <Input
-                    value={vehicleData.vehicle_plate}
-                    onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_plate: e.target.value }))}
-                    className="h-12"
-                    data-testid="config-vehicle-plate"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      Marca
+                    </Label>
+                    <Input
+                      value={vehicleData.vehicle_brand}
+                      onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_brand: e.target.value }))}
+                      className="h-12"
+                      data-testid="config-vehicle-brand"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      Modelo
+                    </Label>
+                    <Input
+                      value={vehicleData.vehicle_model}
+                      onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_model: e.target.value }))}
+                      className="h-12"
+                      data-testid="config-vehicle-model"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      Matrícula *
+                    </Label>
+                    <Input
+                      value={vehicleData.vehicle_plate}
+                      onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_plate: e.target.value.toUpperCase() }))}
+                      className="h-12"
+                      data-testid="config-vehicle-plate"
+                    />
+                  </div>
                 </div>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-12 rounded-full bg-maroon-900 hover:bg-maroon-800"
+                  className="h-12 px-6 rounded-full bg-maroon-900 hover:bg-maroon-800"
                   data-testid="save-vehicle-btn"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Guardar Vehículo</>}
@@ -299,70 +404,206 @@ export function ConfiguracionPage() {
         <TabsContent value="choferes">
           <Card className="border-0 shadow-lg">
             <CardHeader>
-              <CardTitle className="text-lg">Mis Choferes</CardTitle>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Conductores Adicionales</CardTitle>
+                  <CardDescription>Choferes que pueden conducir tu vehículo</CardDescription>
+                </div>
+                <Button
+                  onClick={openAddDriver}
+                  className="h-10 rounded-full bg-maroon-900 hover:bg-maroon-800"
+                  data-testid="add-driver-btn"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Añadir
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Driver list */}
-              {drivers.length === 0 ? (
-                <p className="text-stone-500 text-center py-4">No tienes choferes registrados</p>
+            <CardContent>
+              {loadingDrivers ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-maroon-900" />
+                </div>
+              ) : drivers.length === 0 ? (
+                <div className="text-center py-8 text-stone-500">
+                  <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>No tienes conductores adicionales</p>
+                  <p className="text-sm">Añade choferes que puedan usar tu vehículo</p>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {drivers.map((driver) => (
                     <div 
                       key={driver.id}
-                      className="flex items-center justify-between p-3 bg-stone-50 rounded-lg"
+                      className="flex items-center justify-between p-4 bg-stone-50 rounded-lg"
                     >
                       <div>
                         <p className="font-medium text-stone-900">{driver.full_name}</p>
                         <p className="text-sm text-stone-500">DNI: {driver.dni}</p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteDriver(driver.id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        data-testid={`delete-driver-${driver.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDriver(driver)}
+                          data-testid={`edit-driver-${driver.id}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteConfirm(driver)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          data-testid={`delete-driver-${driver.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              {/* Add new driver */}
-              <form onSubmit={handleAddDriver} className="pt-4 border-t border-stone-200 space-y-3">
-                <p className="text-sm font-medium text-stone-700">Añadir nuevo chofer</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    value={newDriver.full_name}
-                    onChange={(e) => setNewDriver(prev => ({ ...prev, full_name: e.target.value }))}
-                    placeholder="Nombre y apellidos"
-                    className="h-11"
-                    data-testid="new-driver-name"
-                  />
-                  <Input
-                    value={newDriver.dni}
-                    onChange={(e) => setNewDriver(prev => ({ ...prev, dni: e.target.value }))}
-                    placeholder="DNI"
-                    className="h-11"
-                    data-testid="new-driver-dni"
-                  />
+        {/* Security Tab */}
+        <TabsContent value="seguridad">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle>Seguridad de la Cuenta</CardTitle>
+              <CardDescription>Gestiona tu sesión y contraseña</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-stone-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-stone-900">Cerrar Sesión</p>
+                  <p className="text-sm text-stone-500">Salir de tu cuenta en este dispositivo</p>
                 </div>
                 <Button
-                  type="submit"
                   variant="outline"
-                  className="w-full h-11 border-maroon-900 text-maroon-900 hover:bg-maroon-50"
-                  data-testid="add-driver-btn"
+                  onClick={() => setLogoutConfirm(true)}
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                  data-testid="logout-btn"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Añadir Chofer
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Cerrar Sesión
                 </Button>
-              </form>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-stone-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-stone-900">Cambiar Contraseña</p>
+                  <p className="text-sm text-stone-500">Usa la opción de recuperar contraseña</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    logout();
+                    navigate('/app/forgot-password');
+                  }}
+                  data-testid="change-password-btn"
+                >
+                  Cambiar
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Driver Dialog */}
+      <Dialog open={driverDialog} onOpenChange={setDriverDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingDriver ? 'Editar Chofer' : 'Añadir Chofer'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nombre Completo *</Label>
+              <Input
+                value={driverForm.full_name}
+                onChange={(e) => setDriverForm({...driverForm, full_name: e.target.value})}
+                placeholder="Nombre y apellidos"
+                data-testid="driver-name-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>DNI *</Label>
+              <Input
+                value={driverForm.dni}
+                onChange={(e) => setDriverForm({...driverForm, dni: e.target.value.toUpperCase()})}
+                placeholder="12345678A"
+                data-testid="driver-dni-input"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDriverDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveDriver}
+              disabled={savingDriver}
+              className="bg-maroon-900 hover:bg-maroon-800"
+              data-testid="save-driver-btn"
+            >
+              {savingDriver ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Driver Confirm */}
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar Chofer</DialogTitle>
+          </DialogHeader>
+          <p className="py-4 text-stone-600">
+            ¿Estás seguro de eliminar a <strong>{deleteConfirm?.full_name}</strong>?
+            Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => handleDeleteDriver(deleteConfirm.id)}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-delete-driver"
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logout Confirm */}
+      <Dialog open={logoutConfirm} onOpenChange={setLogoutConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cerrar Sesión</DialogTitle>
+          </DialogHeader>
+          <p className="py-4 text-stone-600">
+            ¿Estás seguro de que quieres cerrar sesión?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogoutConfirm(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-logout"
+            >
+              Cerrar Sesión
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
