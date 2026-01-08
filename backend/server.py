@@ -267,13 +267,21 @@ async def login(data: LoginRequest):
     return response
 
 
-@auth_router.post("/refresh", response_model=TokenResponse)
-async def refresh_tokens(data: RefreshRequest):
-    """Refresh access token using refresh token"""
-    payload = decode_token(data.refresh_token)
+@auth_router.post("/refresh")
+async def refresh_tokens(
+    refresh_token: Optional[str] = Cookie(None, alias="refresh_token")
+):
+    """
+    Refresh access token using refresh token from httpOnly cookie.
+    Returns new access token in JSON and rotates refresh token in cookie.
+    """
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No hay sesión activa")
+    
+    payload = decode_token(refresh_token)
     
     if not payload or payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Refresh token inválido")
+        raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
     
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0})
     if not user:
@@ -282,14 +290,38 @@ async def refresh_tokens(data: RefreshRequest):
     if user["status"] != "APPROVED":
         raise HTTPException(status_code=403, detail="Usuario no verificado")
     
+    # Check token_version for revocation (logout invalidates all tokens)
+    current_version = user.get("token_version", 0)
+    token_version = payload.get("v", 0)
+    
+    if token_version < current_version:
+        raise HTTPException(status_code=401, detail="Sesión revocada. Por favor, inicia sesión de nuevo.")
+    
     # Create new tokens (rotation)
     access_token = create_access_token(user["id"], user["email"])
-    refresh_token = create_refresh_token(user["id"])
+    new_refresh_token = create_refresh_token(user["id"], current_version)
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token
+    # Create response with access token in JSON
+    response = JSONResponse(content={
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "status": user["status"]
+        }
+    })
+    
+    # Rotate refresh token in cookie
+    cookie_settings = get_cookie_settings()
+    response.set_cookie(
+        value=new_refresh_token,
+        **cookie_settings
     )
+    
+    return response
 
 
 @auth_router.post("/forgot-password")
