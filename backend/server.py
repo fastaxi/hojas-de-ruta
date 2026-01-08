@@ -2,18 +2,20 @@
 RutasFast - Main FastAPI Server
 Backend for taxi route sheet management app
 """
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
+from bson import ObjectId
 import os
 import logging
 import re
+import pytz
 from pathlib import Path
 from typing import Optional, List
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 import io
 
 # Local imports
@@ -102,6 +104,20 @@ async def startup_db():
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+# Timezone for date filtering
+MADRID_TZ = pytz.timezone('Europe/Madrid')
+
+
+def date_to_utc_range(d: date) -> tuple[datetime, datetime]:
+    """Convert a local date (Europe/Madrid) to UTC datetime range"""
+    # Start of day in Madrid
+    start_local = MADRID_TZ.localize(datetime(d.year, d.month, d.day, 0, 0, 0))
+    # End of day in Madrid
+    end_local = MADRID_TZ.localize(datetime(d.year, d.month, d.day, 23, 59, 59, 999999))
+    # Convert to UTC
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
 
 # ============== DEPENDENCIES ==============
