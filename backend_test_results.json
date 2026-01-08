@@ -1,170 +1,230 @@
 {
-  "total_tests": 27,
-  "passed_tests": 27,
-  "failed_tests": 0,
-  "success_rate": 100.0,
+  "total_tests": 37,
+  "passed_tests": 36,
+  "failed_tests": 1,
+  "success_rate": 97.2972972972973,
   "test_results": [
     {
       "test": "API Health Check",
       "success": true,
       "details": "Status: ok",
-      "timestamp": "2026-01-08T08:38:51.896192"
+      "timestamp": "2026-01-08T09:52:31.237334"
     },
     {
       "test": "Health Endpoint",
       "success": true,
       "details": "Email configured: True",
-      "timestamp": "2026-01-08T08:38:51.935040"
+      "timestamp": "2026-01-08T09:52:31.304459"
     },
     {
       "test": "Email Service Health Check",
       "success": true,
       "details": "Email configured: True (expected: True)",
-      "timestamp": "2026-01-08T08:38:51.974236"
+      "timestamp": "2026-01-08T09:52:31.352280"
     },
     {
       "test": "User Registration",
       "success": true,
-      "details": "User ID: 2d3ce502-33b1-4e62-95de-a2910cd1d238",
-      "timestamp": "2026-01-08T08:38:52.273761"
+      "details": "User ID: fd0e6dba-0f48-485b-adea-3d3f369f533f",
+      "timestamp": "2026-01-08T09:52:31.654647"
     },
     {
       "test": "Duplicate Email Registration",
       "success": true,
       "details": "Error: Este email ya est\u00e1 registrado",
-      "timestamp": "2026-01-08T08:38:52.312333"
+      "timestamp": "2026-01-08T09:52:31.707913"
     },
     {
       "test": "Admin Login",
       "success": true,
       "details": "Token received: Yes",
-      "timestamp": "2026-01-08T08:38:52.356079"
+      "timestamp": "2026-01-08T09:52:31.752667"
     },
     {
       "test": "Admin Get Pending Users",
       "success": true,
       "details": "Found 1 pending users",
-      "timestamp": "2026-01-08T08:38:52.396307"
+      "timestamp": "2026-01-08T09:52:31.815549"
     },
     {
       "test": "User Login (Pending Status)",
       "success": true,
       "details": "Message: Este usuario aun no ha sido verificado por el administrador.",
-      "timestamp": "2026-01-08T08:38:52.655858"
+      "timestamp": "2026-01-08T09:52:32.149495"
     },
     {
       "test": "Admin Approve User",
       "success": true,
       "details": "Message: Usuario aprobado",
-      "timestamp": "2026-01-08T08:38:52.921213"
+      "timestamp": "2026-01-08T09:52:32.466932"
     },
     {
       "test": "User Login (After Approval)",
       "success": true,
       "details": "Token received: Yes",
-      "timestamp": "2026-01-08T08:38:53.223089"
+      "timestamp": "2026-01-08T09:52:32.772411"
     },
     {
       "test": "Route Sheet Validation (Missing Contractor)",
       "success": true,
       "details": "Error: Debe proporcionar tel\u00e9fono o email del contratante",
-      "timestamp": "2026-01-08T08:38:53.261503"
+      "timestamp": "2026-01-08T09:52:32.826871"
     },
     {
       "test": "Flight Number Validation",
       "success": true,
       "details": "Missing: N\u00famero de vuelo obligatorio para recogida en aeropuerto, Invalid format: Formato de vuelo inv\u00e1lido. Ejemplo: VY1234",
-      "timestamp": "2026-01-08T08:38:53.379314"
+      "timestamp": "2026-01-08T09:52:32.909664"
     },
     {
       "test": "Create Valid Route Sheet",
       "success": true,
-      "details": "Sheet ID: b5ed4416-075d-4174-9776-63355f8dc945, Number: 001/2026",
-      "timestamp": "2026-01-08T08:38:53.424056"
+      "details": "Sheet ID: 68bd3f0b-1238-48d7-8071-ec8a185ca0f0, Number: 001/2026",
+      "timestamp": "2026-01-08T09:52:32.995866"
     },
     {
       "test": "Sequential Sheet Numbering",
       "success": true,
       "details": "Sheet numbers: ['002/2026', '003/2026', '004/2026']",
-      "timestamp": "2026-01-08T08:38:53.563228"
+      "timestamp": "2026-01-08T09:52:33.184995"
     },
     {
       "test": "Get Route Sheets",
       "success": true,
       "details": "Found 4 route sheets",
-      "timestamp": "2026-01-08T08:38:53.599799"
+      "timestamp": "2026-01-08T09:52:33.245248"
     },
     {
       "test": "Get Route Sheets (Date Filter)",
       "success": true,
       "details": "Found 4 sheets in date range",
-      "timestamp": "2026-01-08T08:38:53.638668"
+      "timestamp": "2026-01-08T09:52:33.303068"
     },
     {
       "test": "Annul Route Sheet",
       "success": true,
       "details": "Message: Hoja anulada correctamente",
-      "timestamp": "2026-01-08T08:38:53.673106"
+      "timestamp": "2026-01-08T09:52:33.346885"
     },
     {
       "test": "Annul Route Sheet (Double Annul)",
       "success": true,
       "details": "Error: La hoja ya est\u00e1 anulada",
-      "timestamp": "2026-01-08T08:38:53.707711"
+      "timestamp": "2026-01-08T09:52:33.389136"
     },
     {
       "test": "PDF Generation (Single Sheet)",
       "success": true,
       "details": "Status: 200, Content-Type: application/pdf",
-      "timestamp": "2026-01-08T08:38:54.029124"
+      "timestamp": "2026-01-08T09:52:33.694895"
     },
     {
       "test": "PDF Generation (Range)",
       "success": true,
       "details": "Status: 200, Content-Type: application/pdf",
-      "timestamp": "2026-01-08T08:38:54.102245"
+      "timestamp": "2026-01-08T09:52:33.771292"
     },
     {
       "test": "Admin Route Sheets",
       "success": true,
-      "details": "Found 41 route sheets (admin view)",
-      "timestamp": "2026-01-08T08:38:54.152959"
+      "details": "Found 46 route sheets (admin view)",
+      "timestamp": "2026-01-08T09:52:33.844688"
     },
     {
       "test": "Admin Config",
       "success": true,
       "details": "Config loaded: Yes",
-      "timestamp": "2026-01-08T08:38:54.188299"
+      "timestamp": "2026-01-08T09:52:33.880812"
     },
     {
       "test": "Admin Users List",
       "success": true,
-      "details": "Found 7 users",
-      "timestamp": "2026-01-08T08:38:54.226438"
+      "details": "Found 8 users",
+      "timestamp": "2026-01-08T09:52:33.915916"
     },
     {
       "test": "Admin Retention Job (Dry Run)",
       "success": true,
-      "details": "Stats: {'total': 41, 'visible': 41, 'hidden': 0}, To hide: 0, To purge: 0",
-      "timestamp": "2026-01-08T08:38:54.262844"
+      "details": "Stats: {'total': 46, 'visible': 46, 'hidden': 0}, To hide: 0, To purge: 0",
+      "timestamp": "2026-01-08T09:52:33.959451"
     },
     {
       "test": "Admin Retention Job (Execute)",
       "success": true,
-      "details": "Before: {'total': 41, 'visible': 41, 'hidden': 0}, After: {'total': 41, 'visible': 41, 'hidden': 0}, Hidden: 0, Purged: 0",
-      "timestamp": "2026-01-08T08:38:54.328355"
+      "details": "Before: {'total': 46, 'visible': 46, 'hidden': 0}, After: {'total': 46, 'visible': 46, 'hidden': 0}, Hidden: 0, Purged: 0",
+      "timestamp": "2026-01-08T09:52:34.034503"
     },
     {
       "test": "Admin Config Validation",
       "success": true,
       "details": "Invalid config error: purge_after_months (10) debe ser mayor que hide_after_months (12), Valid config: Configuraci\u00f3n actualizada",
-      "timestamp": "2026-01-08T08:38:54.395547"
+      "timestamp": "2026-01-08T09:52:34.107566"
     },
     {
       "test": "Admin Config Edge Cases",
       "success": true,
       "details": "Equal values error: purge_after_months (12) debe ser mayor que hide_after_months (12), Min values error: Los meses de retenci\u00f3n deben ser al menos 1",
-      "timestamp": "2026-01-08T08:38:54.507935"
+      "timestamp": "2026-01-08T09:52:34.224436"
+    },
+    {
+      "test": "User Profile Get",
+      "success": true,
+      "details": "Profile data: Test User 095231, Email: test095231@example.com",
+      "timestamp": "2026-01-08T09:52:34.263480"
+    },
+    {
+      "test": "User Profile Update",
+      "success": true,
+      "details": "Name: Updated User 095234, DNI: 876543214",
+      "timestamp": "2026-01-08T09:52:34.407584"
+    },
+    {
+      "test": "User Profile Email Not Modifiable",
+      "success": true,
+      "details": "Original: test095231@example.com, After update: test095231@example.com",
+      "timestamp": "2026-01-08T09:52:34.565340"
+    },
+    {
+      "test": "Vehicle Update",
+      "success": true,
+      "details": "Brand: Updated Brand, Plate: UPD234",
+      "timestamp": "2026-01-08T09:52:34.642157"
+    },
+    {
+      "test": "Vehicle Plate Validation",
+      "success": true,
+      "details": "Empty plate handling: Accepted - No error",
+      "timestamp": "2026-01-08T09:52:34.709473"
+    },
+    {
+      "test": "Drivers CRUD Operations",
+      "success": true,
+      "details": "Created: True, Updated: True, Deleted: True, Final count: 0",
+      "timestamp": "2026-01-08T09:52:34.979534"
+    },
+    {
+      "test": "Drivers Validation",
+      "success": false,
+      "details": "Empty name error: No error, Empty DNI error: No error",
+      "timestamp": "2026-01-08T09:52:35.051894"
+    },
+    {
+      "test": "Drivers Unauthorized Access",
+      "success": true,
+      "details": "Update error: Chofer no encontrado, Delete error: Chofer no encontrado",
+      "timestamp": "2026-01-08T09:52:35.174002"
+    },
+    {
+      "test": "Existing Approved User Login",
+      "success": true,
+      "details": "Successfully logged in as testuser_jan8@example.com",
+      "timestamp": "2026-01-08T09:52:35.447208"
+    },
+    {
+      "test": "Existing User Configuration APIs",
+      "success": true,
+      "details": "Profile: testuser_jan8@example.com, Drivers: 1",
+      "timestamp": "2026-01-08T09:52:35.565056"
     }
   ]
 }
