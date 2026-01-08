@@ -467,6 +467,22 @@ async def create_route_sheet(
     purge_at = now + relativedelta(months=+purge_months)
     
     # ============== CREATE SHEET ==============
+    # Convert pickup_datetime from ISO string to datetime for MongoDB filtering
+    pickup_dt_str = data.pickup_datetime
+    try:
+        # Parse ISO datetime string and ensure UTC
+        if 'Z' in pickup_dt_str:
+            pickup_dt = datetime.fromisoformat(pickup_dt_str.replace('Z', '+00:00'))
+        elif '+' in pickup_dt_str or pickup_dt_str.count('-') > 2:
+            pickup_dt = datetime.fromisoformat(pickup_dt_str)
+        else:
+            # Assume local time (Europe/Madrid), convert to UTC
+            naive_dt = datetime.fromisoformat(pickup_dt_str)
+            local_dt = MADRID_TZ.localize(naive_dt)
+            pickup_dt = local_dt.astimezone(timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato de fecha/hora inválido")
+    
     sheet = RouteSheet(
         user_id=user["id"],
         year=current_year,
@@ -479,6 +495,8 @@ async def create_route_sheet(
     # Keep datetimes as native Python datetime for MongoDB BSON Date storage
     # TTL indexes require BSON Date, not ISO strings
     sheet_dict = sheet.model_dump()
+    # CRITICAL: Store pickup_datetime as datetime object for date range queries
+    sheet_dict["pickup_datetime"] = pickup_dt
     # created_at, hide_at, purge_at remain as datetime objects
     
     try:
