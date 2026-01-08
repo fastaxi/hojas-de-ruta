@@ -7,17 +7,23 @@ import asyncio
 import logging
 import resend
 from typing import Optional
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables FIRST
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
 
 logger = logging.getLogger(__name__)
 
-# Initialize Resend
+# Initialize Resend (after dotenv loads)
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:3000")
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
-    logger.info("Resend email service configured")
+    logger.info(f"Resend email service configured (from: {EMAIL_FROM})")
 else:
     logger.warning("RESEND_API_KEY not configured - email service disabled")
 
