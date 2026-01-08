@@ -324,6 +324,42 @@ async def refresh_tokens(
     return response
 
 
+@auth_router.post("/logout")
+async def logout(
+    refresh_token: Optional[str] = Cookie(None, alias="refresh_token")
+):
+    """
+    Logout user - invalidates all refresh tokens by incrementing token_version.
+    Clears the refresh token cookie.
+    """
+    response = JSONResponse(content={"message": "Sesión cerrada correctamente"})
+    
+    # Clear the cookie regardless
+    cookie_settings = get_cookie_settings()
+    response.delete_cookie(
+        key=cookie_settings["key"],
+        path=cookie_settings["path"],
+        httponly=cookie_settings["httponly"],
+        secure=cookie_settings["secure"],
+        samesite=cookie_settings["samesite"]
+    )
+    
+    # If we have a valid token, increment user's token_version to invalidate all sessions
+    if refresh_token:
+        payload = decode_token(refresh_token)
+        if payload and payload.get("type") == "refresh":
+            user_id = payload.get("sub")
+            if user_id:
+                # Increment token_version - this invalidates ALL refresh tokens for this user
+                await db.users.update_one(
+                    {"id": user_id},
+                    {"$inc": {"token_version": 1}}
+                )
+                logger.info(f"User logged out (all sessions invalidated): {user_id}")
+    
+    return response
+
+
 @auth_router.post("/forgot-password")
 async def forgot_password(data: ForgotPasswordRequest):
     """Request password reset email"""
