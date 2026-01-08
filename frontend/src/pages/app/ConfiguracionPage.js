@@ -20,7 +20,7 @@ import {
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function ConfiguracionPage() {
-  const { user, token, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -56,8 +56,7 @@ export function ConfiguracionPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
 
-  // Auth header helper
-  const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+  // Note: axios already has auth headers configured via AuthContext
 
   useEffect(() => {
     if (user) {
@@ -79,7 +78,7 @@ export function ConfiguracionPage() {
 
   const fetchDrivers = async () => {
     try {
-      const response = await axios.get(`${API_URL}/me/drivers`, authHeader);
+      const response = await axios.get(`${API_URL}/me/drivers`);
       setDrivers(response.data);
     } catch (err) {
       console.error('Error fetching drivers:', err);
