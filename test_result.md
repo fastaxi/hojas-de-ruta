@@ -295,3 +295,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Completed backend P0 improvements (pickup_datetime filtering, cursor pagination). Fixed multiple frontend issues with SelectItem empty values and API response format handling. All core flows appear to work correctly in manual testing. Requesting full e2e test suite to verify."
+  - agent: "testing"
+    message: "COMPREHENSIVE BACKEND TESTING COMPLETED ✅ All 22 backend tests passed including: 1) Full user registration & admin approval flow 2) Route sheet creation with validations (flight numbers, contractor info, sequential numbering) 3) Date filtering and pagination 4) PDF generation (single & range) 5) Annulment functionality with double-annul prevention 6) Admin endpoints (users, sheets, config) 7) Authentication flows. Tested with both new users and existing approved user (testuser_jan8@example.com). All APIs working correctly with proper error handling and business logic validation."
