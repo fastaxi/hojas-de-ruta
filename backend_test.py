@@ -341,6 +341,156 @@ class RutasFastAPITester:
         
         return success
 
+    def test_pdf_generation(self):
+        """Test PDF generation for route sheets"""
+        if not self.user_token:
+            self.log_test("PDF Generation", False, "No user token available")
+            return False
+        
+        # Create a new route sheet for PDF testing (since previous one was annulled)
+        valid_data = {
+            "contractor_phone": "612345678",
+            "contractor_email": "contractor@example.com",
+            "prebooked_date": "2024-12-25",
+            "prebooked_locality": "Oviedo",
+            "pickup_type": "OTHER",
+            "pickup_address": "Calle Uría 1",
+            "pickup_datetime": "2024-12-25T15:00:00Z",
+            "destination": "Aeropuerto de Asturias"
+        }
+        
+        success, data = self.make_request('POST', '/route-sheets', valid_data, 
+                                        token=self.user_token, expected_status=200)
+        
+        if not success:
+            self.log_test("PDF Generation (Create Sheet)", False, "Failed to create sheet for PDF test")
+            return False
+        
+        pdf_sheet_id = data.get('id')
+        
+        # Test single sheet PDF
+        url = f"{self.base_url}/api/route-sheets/{pdf_sheet_id}/pdf"
+        headers = {'Authorization': f'Bearer {self.user_token}'}
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            pdf_success = response.status_code == 200 and response.headers.get('content-type') == 'application/pdf'
+            
+            self.log_test("PDF Generation (Single Sheet)", pdf_success, 
+                         f"Status: {response.status_code}, Content-Type: {response.headers.get('content-type', 'unknown')}")
+        except Exception as e:
+            self.log_test("PDF Generation (Single Sheet)", False, f"Request failed: {str(e)}")
+            pdf_success = False
+        
+        # Test range PDF
+        range_url = f"{self.base_url}/api/route-sheets/pdf/range?from_date=2024-01-01&to_date=2024-12-31"
+        try:
+            response = requests.get(range_url, headers=headers, timeout=10)
+            range_pdf_success = response.status_code == 200 and response.headers.get('content-type') == 'application/pdf'
+            
+            self.log_test("PDF Generation (Range)", range_pdf_success, 
+                         f"Status: {response.status_code}, Content-Type: {response.headers.get('content-type', 'unknown')}")
+        except Exception as e:
+            self.log_test("PDF Generation (Range)", False, f"Request failed: {str(e)}")
+            range_pdf_success = False
+        
+        return pdf_success and range_pdf_success
+
+    def test_admin_endpoints(self):
+        """Test admin-specific endpoints"""
+        if not self.admin_token:
+            self.log_test("Admin Endpoints", False, "No admin token available")
+            return False
+        
+        # Test admin route sheets view
+        success1, data1 = self.make_request('GET', '/admin/route-sheets', token=self.admin_token)
+        
+        sheet_count = len(data1) if isinstance(data1, list) else 0
+        self.log_test("Admin Route Sheets", success1, 
+                     f"Found {sheet_count} route sheets (admin view)")
+        
+        # Test admin config
+        success2, data2 = self.make_request('GET', '/admin/config', token=self.admin_token)
+        
+        self.log_test("Admin Config", success2, 
+                     f"Config loaded: {'Yes' if isinstance(data2, dict) else 'No'}")
+        
+        # Test admin users list
+        success3, data3 = self.make_request('GET', '/admin/users', token=self.admin_token)
+        
+        user_count = len(data3) if isinstance(data3, list) else 0
+        self.log_test("Admin Users List", success3, 
+                     f"Found {user_count} users")
+        
+        return success1 and success2 and success3
+
+    def test_duplicate_email_registration(self):
+        """Test that duplicate email registration fails"""
+        # Try to register with the same email as our test user
+        if not hasattr(self, 'test_email'):
+            self.log_test("Duplicate Email Registration", False, "No test email available")
+            return False
+        
+        duplicate_data = {
+            "full_name": "Duplicate User",
+            "dni_cif": "87654321A",
+            "license_number": "L-DUPLICATE",
+            "license_council": "Gijón",
+            "phone": "612999999",
+            "email": self.test_email,  # Same email as before
+            "password": "testpass123",
+            "vehicle_brand": "Ford",
+            "vehicle_model": "Focus",
+            "vehicle_plate": "9999 ZZ9",
+            "drivers": []
+        }
+        
+        success, data = self.make_request('POST', '/auth/register', duplicate_data, expected_status=400)
+        expected_error = "Este email ya está registrado"
+        error_correct = expected_error in data.get('detail', '')
+        
+        overall_success = success and error_correct
+        self.log_test("Duplicate Email Registration", overall_success, 
+                     f"Error: {data.get('detail', 'No error message')}")
+        return overall_success
+
+    def test_sequential_sheet_numbering(self):
+        """Test that route sheets get sequential numbers"""
+        if not self.user_token:
+            self.log_test("Sequential Sheet Numbering", False, "No user token available")
+            return False
+        
+        sheet_numbers = []
+        
+        # Create multiple sheets and check numbering
+        for i in range(3):
+            valid_data = {
+                "contractor_phone": f"61234567{i}",
+                "prebooked_date": "2024-12-25",
+                "prebooked_locality": "Oviedo",
+                "pickup_type": "OTHER",
+                "pickup_address": f"Test Address {i}",
+                "pickup_datetime": f"2024-12-25T{10+i}:00:00Z",
+                "destination": f"Test Destination {i}"
+            }
+            
+            success, data = self.make_request('POST', '/route-sheets', valid_data, 
+                                            token=self.user_token, expected_status=200)
+            
+            if success:
+                sheet_numbers.append(data.get('sheet_number'))
+            else:
+                self.log_test("Sequential Sheet Numbering", False, f"Failed to create sheet {i+1}")
+                return False
+        
+        # Check if numbers are sequential
+        numbers_only = [int(num.split('/')[0]) for num in sheet_numbers if num]
+        is_sequential = all(numbers_only[i] == numbers_only[i-1] + 1 for i in range(1, len(numbers_only)))
+        
+        self.log_test("Sequential Sheet Numbering", is_sequential, 
+                     f"Sheet numbers: {sheet_numbers}")
+        return is_sequential
+
     def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting RutasFast Backend API Tests")
