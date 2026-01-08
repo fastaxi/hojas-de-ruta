@@ -502,6 +502,7 @@ class RutasFastAPITester:
         
         # User registration and admin approval flow
         self.test_user_registration()
+        self.test_duplicate_email_registration()
         self.test_admin_login()
         self.test_admin_get_pending_users()
         self.test_user_login_pending_status()
@@ -512,8 +513,13 @@ class RutasFastAPITester:
         self.test_create_route_sheet_validation()
         self.test_flight_number_validation()
         self.test_create_valid_route_sheet()
+        self.test_sequential_sheet_numbering()
         self.test_get_route_sheets()
         self.test_annul_route_sheet()
+        
+        # PDF and admin functionality
+        self.test_pdf_generation()
+        self.test_admin_endpoints()
         
         # Summary
         print("\n" + "=" * 50)
