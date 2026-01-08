@@ -930,8 +930,27 @@ async def admin_update_config(
     data: AppConfigUpdate,
     admin: dict = Depends(get_current_admin)
 ):
-    """Update app configuration"""
+    """Update app configuration with validation"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    # Validate retention months
+    if "hide_after_months" in update_data or "purge_after_months" in update_data:
+        # Get current values
+        current = await db.app_config.find_one({"id": "global"}, {"_id": 0})
+        hide_months = update_data.get("hide_after_months", current.get("hide_after_months", 14) if current else 14)
+        purge_months = update_data.get("purge_after_months", current.get("purge_after_months", 24) if current else 24)
+        
+        if purge_months <= hide_months:
+            raise HTTPException(
+                status_code=400,
+                detail=f"purge_after_months ({purge_months}) debe ser mayor que hide_after_months ({hide_months})"
+            )
+        
+        if hide_months < 1 or purge_months < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Los meses de retención deben ser al menos 1"
+            )
     
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc)  # datetime
@@ -942,6 +961,73 @@ async def admin_update_config(
         )
     
     return {"message": "Configuración actualizada"}
+
+
+@admin_router.post("/run-retention")
+async def admin_run_retention(
+    dry_run: bool = Query(default=True, description="Preview sin hacer cambios"),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Execute retention job manually (admin only).
+    - Hides sheets older than hide_after_months
+    - Purges sheets older than purge_after_months
+    
+    Use dry_run=true (default) to preview without changes.
+    """
+    from retention_job import run_retention_job
+    
+    now = datetime.now(timezone.utc)
+    
+    # Count before
+    total_before = await db.route_sheets.count_documents({})
+    visible_before = await db.route_sheets.count_documents({"user_visible": True})
+    
+    # Get sheets that would be affected
+    hide_query = {"hide_at": {"$lte": now}, "user_visible": True}
+    purge_query = {"purge_at": {"$lte": now}}
+    
+    to_hide = await db.route_sheets.count_documents(hide_query)
+    to_purge = await db.route_sheets.count_documents(purge_query)
+    
+    result = {
+        "dry_run": dry_run,
+        "executed_at": now.isoformat(),
+        "stats_before": {
+            "total": total_before,
+            "visible": visible_before,
+            "hidden": total_before - visible_before
+        },
+        "to_hide": to_hide,
+        "to_purge": to_purge,
+        "message": ""
+    }
+    
+    if dry_run:
+        result["message"] = f"DRY RUN: Se ocultarían {to_hide} hojas y se eliminarían {to_purge}"
+    else:
+        try:
+            await run_retention_job(dry_run=False)
+            
+            # Count after
+            total_after = await db.route_sheets.count_documents({})
+            visible_after = await db.route_sheets.count_documents({"user_visible": True})
+            
+            result["stats_after"] = {
+                "total": total_after,
+                "visible": visible_after,
+                "hidden": total_after - visible_after
+            }
+            result["hidden"] = to_hide
+            result["purged"] = total_before - total_after
+            result["message"] = f"Ejecutado: {to_hide} hojas ocultas, {total_before - total_after} hojas eliminadas"
+            
+            logger.info(f"Retention job executed by admin: {result['message']}")
+        except Exception as e:
+            logger.error(f"Retention job failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Error ejecutando retention: {str(e)}")
+    
+    return result
 
 
 # Include routers
