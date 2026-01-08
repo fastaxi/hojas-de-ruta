@@ -321,9 +321,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Full e2e user flow: register -> login -> create sheet -> view history"
-    - "Admin flow: login -> view users -> approve user -> view sheets"
-    - "PDF download functionality"
+    - "Email Service (Resend Integration) - COMPLETED"
+    - "Admin Retention Job Endpoint - COMPLETED"
+    - "Admin Config Validation - COMPLETED"
+    - "Full e2e user flow: register -> login -> create sheet -> view history - COMPLETED"
+    - "Admin flow: login -> view users -> approve user -> view sheets - COMPLETED"
+    - "PDF download functionality - COMPLETED"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
