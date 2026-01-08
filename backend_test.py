@@ -424,6 +424,151 @@ class RutasFastAPITester:
         
         return success1 and success2 and success3
 
+    def test_email_service_health(self):
+        """Test email service configuration in health endpoint"""
+        success, data = self.make_request('GET', '/health')
+        
+        if success:
+            email_configured = data.get('email_configured', False)
+            # Email should be configured with Resend integration
+            expected_configured = True
+            config_correct = email_configured == expected_configured
+            
+            self.log_test("Email Service Health Check", config_correct, 
+                         f"Email configured: {email_configured} (expected: {expected_configured})")
+            return config_correct
+        else:
+            self.log_test("Email Service Health Check", False, f"Health endpoint failed: {data}")
+            return False
+
+    def test_admin_retention_job_dry_run(self):
+        """Test admin retention job endpoint with dry_run=true"""
+        if not self.admin_token:
+            self.log_test("Admin Retention Job (Dry Run)", False, "No admin token available")
+            return False
+        
+        success, data = self.make_request('POST', '/admin/run-retention?dry_run=true', 
+                                        token=self.admin_token, expected_status=200)
+        
+        if success:
+            # Check required fields in response
+            required_fields = ['dry_run', 'executed_at', 'stats_before', 'to_hide', 'to_purge', 'message']
+            has_all_fields = all(field in data for field in required_fields)
+            
+            # Verify dry_run is true
+            is_dry_run = data.get('dry_run') == True
+            
+            # Check stats structure
+            stats_before = data.get('stats_before', {})
+            has_stats = all(key in stats_before for key in ['total', 'visible', 'hidden'])
+            
+            overall_success = has_all_fields and is_dry_run and has_stats
+            
+            self.log_test("Admin Retention Job (Dry Run)", overall_success, 
+                         f"Stats: {stats_before}, To hide: {data.get('to_hide')}, To purge: {data.get('to_purge')}")
+            return overall_success
+        else:
+            self.log_test("Admin Retention Job (Dry Run)", False, f"Request failed: {data}")
+            return False
+
+    def test_admin_retention_job_execute(self):
+        """Test admin retention job endpoint with dry_run=false"""
+        if not self.admin_token:
+            self.log_test("Admin Retention Job (Execute)", False, "No admin token available")
+            return False
+        
+        success, data = self.make_request('POST', '/admin/run-retention?dry_run=false', 
+                                        token=self.admin_token, expected_status=200)
+        
+        if success:
+            # Check required fields in response
+            required_fields = ['dry_run', 'executed_at', 'stats_before', 'stats_after', 'hidden', 'purged', 'message']
+            has_all_fields = all(field in data for field in required_fields)
+            
+            # Verify dry_run is false
+            is_execute = data.get('dry_run') == False
+            
+            # Check stats structure
+            stats_before = data.get('stats_before', {})
+            stats_after = data.get('stats_after', {})
+            has_stats = (all(key in stats_before for key in ['total', 'visible', 'hidden']) and
+                        all(key in stats_after for key in ['total', 'visible', 'hidden']))
+            
+            overall_success = has_all_fields and is_execute and has_stats
+            
+            self.log_test("Admin Retention Job (Execute)", overall_success, 
+                         f"Before: {stats_before}, After: {stats_after}, Hidden: {data.get('hidden')}, Purged: {data.get('purged')}")
+            return overall_success
+        else:
+            self.log_test("Admin Retention Job (Execute)", False, f"Request failed: {data}")
+            return False
+
+    def test_admin_config_validation(self):
+        """Test admin config validation for retention months"""
+        if not self.admin_token:
+            self.log_test("Admin Config Validation", False, "No admin token available")
+            return False
+        
+        # Test invalid config: purge_after_months <= hide_after_months
+        invalid_config = {
+            "hide_after_months": 12,
+            "purge_after_months": 10  # Should be > hide_after_months
+        }
+        
+        success1, data1 = self.make_request('PUT', '/admin/config', invalid_config, 
+                                          token=self.admin_token, expected_status=400)
+        
+        expected_error = "purge_after_months (10) debe ser mayor que hide_after_months (12)"
+        error_correct = expected_error in data1.get('detail', '')
+        
+        # Test valid config: purge_after_months > hide_after_months
+        valid_config = {
+            "hide_after_months": 12,
+            "purge_after_months": 24  # Should be > hide_after_months
+        }
+        
+        success2, data2 = self.make_request('PUT', '/admin/config', valid_config, 
+                                          token=self.admin_token, expected_status=200)
+        
+        overall_success = success1 and error_correct and success2
+        
+        self.log_test("Admin Config Validation", overall_success, 
+                     f"Invalid config error: {data1.get('detail', 'No error')}, Valid config: {data2.get('message', 'No message')}")
+        return overall_success
+
+    def test_admin_config_edge_cases(self):
+        """Test admin config validation edge cases"""
+        if not self.admin_token:
+            self.log_test("Admin Config Edge Cases", False, "No admin token available")
+            return False
+        
+        # Test equal values (should fail)
+        equal_config = {
+            "hide_after_months": 12,
+            "purge_after_months": 12  # Equal should fail
+        }
+        
+        success1, data1 = self.make_request('PUT', '/admin/config', equal_config, 
+                                          token=self.admin_token, expected_status=400)
+        
+        # Test minimum values (should fail if < 1)
+        min_config = {
+            "hide_after_months": 0,
+            "purge_after_months": 1
+        }
+        
+        success2, data2 = self.make_request('PUT', '/admin/config', min_config, 
+                                          token=self.admin_token, expected_status=400)
+        
+        expected_min_error = "Los meses de retención deben ser al menos 1"
+        min_error_correct = expected_min_error in data2.get('detail', '')
+        
+        overall_success = success1 and success2 and min_error_correct
+        
+        self.log_test("Admin Config Edge Cases", overall_success, 
+                     f"Equal values error: {data1.get('detail', 'No error')}, Min values error: {data2.get('detail', 'No error')}")
+        return overall_success
+
     def test_duplicate_email_registration(self):
         """Test that duplicate email registration fails"""
         # Try to register with the same email as our test user
