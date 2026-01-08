@@ -91,8 +91,17 @@ export function NuevaHojaPage() {
     setError('');
 
     try {
+      // Clean up empty strings to null for optional fields
       const submitData = {
-        ...formData,
+        contractor_phone: formData.contractor_phone || null,
+        contractor_email: formData.contractor_email || null,
+        prebooked_date: formData.prebooked_date,
+        prebooked_locality: formData.prebooked_locality,
+        pickup_type: formData.pickup_type,
+        flight_number: formData.flight_number || null,
+        pickup_address: formData.pickup_address || null,
+        pickup_datetime: formData.pickup_datetime,
+        destination: formData.destination,
         conductor_driver_id: formData.conductor_driver_id === 'titular' ? null : formData.conductor_driver_id
       };
 
@@ -113,7 +122,15 @@ export function NuevaHojaPage() {
         destination: ''
       });
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al crear la hoja');
+      // Handle validation errors from backend
+      const errorDetail = err.response?.data?.detail;
+      if (Array.isArray(errorDetail)) {
+        // Pydantic validation error
+        const messages = errorDetail.map(e => e.msg).join(', ');
+        setError(messages);
+      } else {
+        setError(errorDetail || 'Error al crear la hoja');
+      }
     } finally {
       setLoading(false);
     }
