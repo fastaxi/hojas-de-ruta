@@ -1,6 +1,6 @@
 {
-  "total_tests": 13,
-  "passed_tests": 13,
+  "total_tests": 22,
+  "passed_tests": 22,
   "failed_tests": 0,
   "success_rate": 100.0,
   "test_results": [
@@ -8,79 +8,133 @@
       "test": "API Health Check",
       "success": true,
       "details": "Status: ok",
-      "timestamp": "2026-01-08T07:52:15.753566"
+      "timestamp": "2026-01-08T07:53:23.894631"
     },
     {
       "test": "Health Endpoint",
       "success": true,
       "details": "Email configured: False",
-      "timestamp": "2026-01-08T07:52:15.792000"
+      "timestamp": "2026-01-08T07:53:23.936159"
     },
     {
       "test": "User Registration",
       "success": true,
-      "details": "User ID: 2f54dbc7-5f8f-4f65-9776-905bb9150dd2",
-      "timestamp": "2026-01-08T07:52:16.086429"
+      "details": "User ID: 9466fed5-f10b-40e2-990e-08f5c0d96494",
+      "timestamp": "2026-01-08T07:53:24.202319"
+    },
+    {
+      "test": "Duplicate Email Registration",
+      "success": true,
+      "details": "Error: Este email ya est\u00e1 registrado",
+      "timestamp": "2026-01-08T07:53:24.241747"
     },
     {
       "test": "Admin Login",
       "success": true,
       "details": "Token received: Yes",
-      "timestamp": "2026-01-08T07:52:16.130124"
+      "timestamp": "2026-01-08T07:53:24.316660"
     },
     {
       "test": "Admin Get Pending Users",
       "success": true,
       "details": "Found 1 pending users",
-      "timestamp": "2026-01-08T07:52:16.185944"
+      "timestamp": "2026-01-08T07:53:24.356113"
     },
     {
       "test": "User Login (Pending Status)",
       "success": true,
       "details": "Message: Este usuario aun no ha sido verificado por el administrador.",
-      "timestamp": "2026-01-08T07:52:16.450374"
+      "timestamp": "2026-01-08T07:53:24.615923"
     },
     {
       "test": "Admin Approve User",
       "success": true,
       "details": "Message: Usuario aprobado",
-      "timestamp": "2026-01-08T07:52:16.485510"
+      "timestamp": "2026-01-08T07:53:24.656862"
     },
     {
       "test": "User Login (After Approval)",
       "success": true,
       "details": "Token received: Yes",
-      "timestamp": "2026-01-08T07:52:16.752558"
+      "timestamp": "2026-01-08T07:53:24.940230"
     },
     {
       "test": "Route Sheet Validation (Missing Contractor)",
       "success": true,
       "details": "Error: Debe proporcionar tel\u00e9fono o email del contratante",
-      "timestamp": "2026-01-08T07:52:16.793055"
+      "timestamp": "2026-01-08T07:53:24.999423"
     },
     {
       "test": "Flight Number Validation",
       "success": true,
       "details": "Missing: N\u00famero de vuelo obligatorio para recogida en aeropuerto, Invalid format: Formato de vuelo inv\u00e1lido. Ejemplo: VY1234",
-      "timestamp": "2026-01-08T07:52:16.908873"
+      "timestamp": "2026-01-08T07:53:25.082805"
     },
     {
       "test": "Create Valid Route Sheet",
       "success": true,
-      "details": "Sheet ID: a36a3598-1631-446c-bb95-fb81bb9382d8, Number: 001/2026",
-      "timestamp": "2026-01-08T07:52:16.991281"
+      "details": "Sheet ID: 3a7c5107-fc86-4d5f-a2e1-9544767b057e, Number: 001/2026",
+      "timestamp": "2026-01-08T07:53:25.121962"
+    },
+    {
+      "test": "Sequential Sheet Numbering",
+      "success": true,
+      "details": "Sheet numbers: ['002/2026', '003/2026', '004/2026']",
+      "timestamp": "2026-01-08T07:53:25.236993"
     },
     {
       "test": "Get Route Sheets",
       "success": true,
-      "details": "Found 0 route sheets",
-      "timestamp": "2026-01-08T07:52:17.034119"
+      "details": "Found 4 route sheets",
+      "timestamp": "2026-01-08T07:53:25.289743"
+    },
+    {
+      "test": "Get Route Sheets (Date Filter)",
+      "success": true,
+      "details": "Found 4 sheets in date range",
+      "timestamp": "2026-01-08T07:53:25.328741"
     },
     {
       "test": "Annul Route Sheet",
       "success": true,
       "details": "Message: Hoja anulada correctamente",
-      "timestamp": "2026-01-08T07:52:17.075228"
+      "timestamp": "2026-01-08T07:53:25.373483"
+    },
+    {
+      "test": "Annul Route Sheet (Double Annul)",
+      "success": true,
+      "details": "Error: La hoja ya est\u00e1 anulada",
+      "timestamp": "2026-01-08T07:53:25.427031"
+    },
+    {
+      "test": "PDF Generation (Single Sheet)",
+      "success": true,
+      "details": "Status: 200, Content-Type: application/pdf",
+      "timestamp": "2026-01-08T07:53:25.525004"
+    },
+    {
+      "test": "PDF Generation (Range)",
+      "success": true,
+      "details": "Status: 200, Content-Type: application/pdf",
+      "timestamp": "2026-01-08T07:53:25.595685"
+    },
+    {
+      "test": "Admin Route Sheets",
+      "success": true,
+      "details": "Found 35 route sheets (admin view)",
+      "timestamp": "2026-01-08T07:53:25.662588"
+    },
+    {
+      "test": "Admin Config",
+      "success": true,
+      "details": "Config loaded: Yes",
+      "timestamp": "2026-01-08T07:53:25.706937"
+    },
+    {
+      "test": "Admin Users List",
+      "success": true,
+      "details": "Found 5 users",
+      "timestamp": "2026-01-08T07:53:25.744471"
     }
   ]
 }
