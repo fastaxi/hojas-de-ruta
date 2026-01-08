@@ -8,79 +8,79 @@
       "test": "API Health Check",
       "success": true,
       "details": "Status: ok",
-      "timestamp": "2026-01-07T17:42:44.894833"
+      "timestamp": "2026-01-08T07:52:15.753566"
     },
     {
       "test": "Health Endpoint",
       "success": true,
       "details": "Email configured: False",
-      "timestamp": "2026-01-07T17:42:44.929750"
+      "timestamp": "2026-01-08T07:52:15.792000"
     },
     {
       "test": "User Registration",
       "success": true,
-      "details": "User ID: 5171e925-1a77-45fa-91bc-caa089c7f5fb",
-      "timestamp": "2026-01-07T17:42:45.224689"
+      "details": "User ID: 2f54dbc7-5f8f-4f65-9776-905bb9150dd2",
+      "timestamp": "2026-01-08T07:52:16.086429"
     },
     {
       "test": "Admin Login",
       "success": true,
       "details": "Token received: Yes",
-      "timestamp": "2026-01-07T17:42:45.287699"
+      "timestamp": "2026-01-08T07:52:16.130124"
     },
     {
       "test": "Admin Get Pending Users",
       "success": true,
       "details": "Found 1 pending users",
-      "timestamp": "2026-01-07T17:42:45.326356"
+      "timestamp": "2026-01-08T07:52:16.185944"
     },
     {
       "test": "User Login (Pending Status)",
       "success": true,
       "details": "Message: Este usuario aun no ha sido verificado por el administrador.",
-      "timestamp": "2026-01-07T17:42:45.583178"
+      "timestamp": "2026-01-08T07:52:16.450374"
     },
     {
       "test": "Admin Approve User",
       "success": true,
       "details": "Message: Usuario aprobado",
-      "timestamp": "2026-01-07T17:42:45.622546"
+      "timestamp": "2026-01-08T07:52:16.485510"
     },
     {
       "test": "User Login (After Approval)",
       "success": true,
       "details": "Token received: Yes",
-      "timestamp": "2026-01-07T17:42:45.882490"
+      "timestamp": "2026-01-08T07:52:16.752558"
     },
     {
       "test": "Route Sheet Validation (Missing Contractor)",
       "success": true,
       "details": "Error: Debe proporcionar tel\u00e9fono o email del contratante",
-      "timestamp": "2026-01-07T17:42:45.918044"
+      "timestamp": "2026-01-08T07:52:16.793055"
     },
     {
       "test": "Flight Number Validation",
       "success": true,
       "details": "Missing: N\u00famero de vuelo obligatorio para recogida en aeropuerto, Invalid format: Formato de vuelo inv\u00e1lido. Ejemplo: VY1234",
-      "timestamp": "2026-01-07T17:42:45.988766"
+      "timestamp": "2026-01-08T07:52:16.908873"
     },
     {
       "test": "Create Valid Route Sheet",
       "success": true,
-      "details": "Sheet ID: 28807d52-2965-448c-b54d-5aa9948a7af2, Number: 001/2026",
-      "timestamp": "2026-01-07T17:42:46.030842"
+      "details": "Sheet ID: a36a3598-1631-446c-bb95-fb81bb9382d8, Number: 001/2026",
+      "timestamp": "2026-01-08T07:52:16.991281"
     },
     {
       "test": "Get Route Sheets",
       "success": true,
-      "details": "Found 1 route sheets",
-      "timestamp": "2026-01-07T17:42:46.072137"
+      "details": "Found 0 route sheets",
+      "timestamp": "2026-01-08T07:52:17.034119"
     },
     {
       "test": "Annul Route Sheet",
       "success": true,
       "details": "Message: Hoja anulada correctamente",
-      "timestamp": "2026-01-07T17:42:46.116925"
+      "timestamp": "2026-01-08T07:52:17.075228"
     }
   ]
 }
