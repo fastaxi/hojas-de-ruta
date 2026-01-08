@@ -239,6 +239,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Implemented profile editing (name, DNI, license, council, phone - email NOT editable), vehicle editing (brand, model, plate), drivers CRUD with dialog, logout with confirmation. All synced with /api/me and /api/me/drivers endpoints."
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE BACKEND TESTING COMPLETED ✅ All User Configuration APIs working correctly: 1) Profile Update (PUT /api/me) - successfully updates full_name, dni_cif, license_number, license_council, phone while email remains non-modifiable 2) Vehicle Update (PUT /api/me) - updates vehicle_brand, vehicle_model, vehicle_plate with proper persistence 3) Drivers CRUD (/api/me/drivers) - GET, POST, PUT, DELETE all working correctly with proper validation and authorization 4) Data Sync Verification - all updates persist correctly and are returned in subsequent GET requests. Tested with both new test users and existing approved user (testuser_jan8@example.com) who has 1 existing driver. Backend validation is frontend-focused (empty strings accepted by backend). All 10 configuration-specific tests passed."
 
 frontend:
   - task: "Landing Page"
