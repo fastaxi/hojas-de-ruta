@@ -8,13 +8,15 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { Loader2, Save, Check, Settings, FileText, Clock } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Loader2, Save, Check, FileText, Clock, Play, AlertCircle, Trash2 } from 'lucide-react';
 
 export function AdminConfigPage() {
   const { adminRequest } = useAdminAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
   const [config, setConfig] = useState({
     header_title: '',
     header_line1: '',
@@ -23,6 +25,11 @@ export function AdminConfigPage() {
     hide_after_months: 14,
     purge_after_months: 24
   });
+
+  // Retention job state
+  const [retentionDialog, setRetentionDialog] = useState(false);
+  const [retentionResult, setRetentionResult] = useState(null);
+  const [runningRetention, setRunningRetention] = useState(false);
 
   useEffect(() => {
     fetchConfig();
@@ -41,6 +48,14 @@ export function AdminConfigPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setError('');
+    
+    // Frontend validation
+    if (config.purge_after_months <= config.hide_after_months) {
+      setError('Los meses de eliminación deben ser mayores que los de ocultación');
+      return;
+    }
+    
     setSaving(true);
 
     try {
@@ -48,14 +63,31 @@ export function AdminConfigPage() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      console.error('Error saving config:', err);
+      const detail = err.response?.data?.detail;
+      setError(detail || 'Error al guardar la configuración');
     } finally {
       setSaving(false);
     }
   };
 
+  const runRetentionJob = async (dryRun = true) => {
+    setRunningRetention(true);
+    try {
+      const result = await adminRequest('post', `/admin/run-retention?dry_run=${dryRun}`);
+      setRetentionResult(result);
+    } catch (err) {
+      setRetentionResult({
+        error: true,
+        message: err.response?.data?.detail || 'Error ejecutando el job'
+      });
+    } finally {
+      setRunningRetention(false);
+    }
+  };
+
   const updateField = (field, value) => {
     setConfig(prev => ({ ...prev, [field]: value }));
+    setError('');
   };
 
   if (loading) {
@@ -79,6 +111,13 @@ export function AdminConfigPage() {
         <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
           <Check className="w-5 h-5" />
           <p>Configuración guardada correctamente</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          <AlertCircle className="w-5 h-5" />
+          <p>{error}</p>
         </div>
       )}
 
@@ -158,7 +197,7 @@ export function AdminConfigPage() {
               Configura cuándo se ocultan y eliminan las hojas de ruta
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
@@ -195,6 +234,31 @@ export function AdminConfigPage() {
                 </p>
               </div>
             </div>
+            
+            {/* Retention Job Button */}
+            <div className="pt-4 border-t border-stone-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900">Ejecutar Job de Retención</p>
+                  <p className="text-sm text-stone-500">
+                    Procesa manualmente las hojas pendientes de ocultar/eliminar
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setRetentionResult(null);
+                    setRetentionDialog(true);
+                  }}
+                  className="border-maroon-900 text-maroon-900"
+                  data-testid="run-retention-btn"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Ejecutar
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -217,6 +281,102 @@ export function AdminConfigPage() {
           )}
         </Button>
       </form>
+
+      {/* Retention Job Dialog */}
+      <Dialog open={retentionDialog} onOpenChange={setRetentionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-maroon-900" />
+              Ejecutar Job de Retención
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {!retentionResult ? (
+              <div className="space-y-4">
+                <p className="text-stone-600">
+                  Este proceso ocultará las hojas más antiguas de {config.hide_after_months} meses
+                  y eliminará permanentemente las de más de {config.purge_after_months} meses.
+                </p>
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-amber-800 text-sm">
+                    <strong>Recomendación:</strong> Ejecuta primero en modo simulación para ver qué hojas se afectarán.
+                  </p>
+                </div>
+              </div>
+            ) : retentionResult.error ? (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                {retentionResult.message}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${retentionResult.dry_run ? 'bg-blue-50 border border-blue-200' : 'bg-green-50 border border-green-200'}`}>
+                  <p className={retentionResult.dry_run ? 'text-blue-800' : 'text-green-800'}>
+                    {retentionResult.message}
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-stone-500">Total hojas</p>
+                    <p className="font-bold text-stone-900">{retentionResult.stats_before?.total || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-stone-500">Visibles</p>
+                    <p className="font-bold text-stone-900">{retentionResult.stats_before?.visible || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-stone-500">A ocultar</p>
+                    <p className="font-bold text-amber-600">{retentionResult.to_hide}</p>
+                  </div>
+                  <div>
+                    <p className="text-stone-500">A eliminar</p>
+                    <p className="font-bold text-red-600">{retentionResult.to_purge}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {runningRetention ? (
+              <Button disabled className="bg-maroon-900">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Ejecutando...
+              </Button>
+            ) : !retentionResult ? (
+              <>
+                <Button variant="outline" onClick={() => runRetentionJob(true)}>
+                  Simular (dry run)
+                </Button>
+                <Button 
+                  onClick={() => runRetentionJob(false)}
+                  className="bg-maroon-900 hover:bg-maroon-800"
+                >
+                  Ejecutar
+                </Button>
+              </>
+            ) : retentionResult.dry_run && !retentionResult.error ? (
+              <>
+                <Button variant="outline" onClick={() => setRetentionResult(null)}>
+                  Volver
+                </Button>
+                <Button 
+                  onClick={() => runRetentionJob(false)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Confirmar Ejecución
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={() => setRetentionDialog(false)}>
+                Cerrar
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
