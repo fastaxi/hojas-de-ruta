@@ -42,7 +42,8 @@ export function HistoricoPage() {
       if (includeAnnulled) params.append('include_annulled', 'true');
       
       const response = await axios.get(`${API_URL}/route-sheets?${params}`);
-      setSheets(response.data);
+      // API returns { sheets: [], next_cursor: null, count: 0 }
+      setSheets(response.data.sheets || []);
     } catch (err) {
       console.error('Error fetching sheets:', err);
     } finally {
