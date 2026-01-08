@@ -11,7 +11,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from pymongo import MongoClient
 
-API_URL = os.environ.get('API_URL', 'https://fastroutes-1.preview.emergentagent.com')
+API_URL = os.environ.get('API_URL', 'https://rutasfast.preview.emergentagent.com')
 MONGO_URL = "mongodb://localhost:27017"
 DB_NAME = "rutasfast_db"
 

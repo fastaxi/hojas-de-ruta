@@ -1,0 +1,177 @@
+<analysis>**original_problem_statement:**
+The user wants to build a full-stack application named RutasFast for taxi drivers in Asturias, Spain.
+
+**PRODUCT REQUIREMENTS:**
+- **Platform:** Originally an Expo React Native app, but the user agreed to start with a responsive React web PWA for both the user-facing app and an admin panel.
+- **Backend:** FastAPI with MongoDB (switched from PostgreSQL).
+- **Core User Features:**
+    - Secure user registration (email, password, personal/license info) with a  status.
+    - Login for approved users. Unapproved users see a specific message: Este usuario aun no ha sido verificado por el administrador.
+    - Create numbered Hojas de Ruta (Route Sheets) which are immutable once saved.
+    - View a history of route sheets with filtering.
+    - Annulling sheets (soft delete) instead of hard deleting.
+    - Export individual or a range of route sheets to a single PDF.
+    - Manage personal profile, vehicle, and optional additional drivers.
+    - Password recovery via email.
+- **Core Admin Features:**
+    - A separate web admin panel ().
+    - Login with credentials from environment variables.
+    - View and filter all users (pending/approved).
+    - Approve pending users, which triggers an approval email.
+    - View all route sheets from all users, with advanced filters.
+    - Edit global text content that appears on all generated PDFs (header, footer legend).
+- **Key Business Logic:**
+    - **Sheet Numbering:** Atomic and unique per user, per year (e.g., ). Numbers are never reused.
+    - **Data Retention:** Sheets are hidden from the user after 14 months () and hard-deleted from the database after 24 months. This is managed by a daily automated job.
+    - **PDF Generation:** PDFs must have a professional layout, include the company logo (FAST), and display a clear ANULADA watermark if the sheet was annulled.
+
+**User's preferred language**: Español
+
+**what currently exists?**
+A functional backend skeleton has been developed using FastAPI and MongoDB. It includes:
+-   User and Admin authentication endpoints (JWT-based).
+-   User registration flow with an approval mechanism.
+-   Core models for , , , and .
+-   A robust, atomic, and concurrent-safe numbering system for route sheets.
+-   A complete data retention mechanism with  and  datetime fields, TTL indexes for automatic purging, and a daily job script ().
+-   A secure password reset flow using hashed, single-use tokens with TTL.
+-   A detailed PDF generation service () using ReportLab, which creates professionally formatted documents.
+-   API endpoints with cursor-based pagination for admin views.
+A basic frontend skeleton with routing for user and admin sections has been created, but the UI is not yet functional.
+
+**Last working item**:
+-   **Last item agent was working:** The agent was implementing a detailed list of critical improvements based on the user's technical audit to enhance the quality and correctness of the backend MVP. This involved refining data filtering, pagination, and PDF generation logic.
+-   **Status:** IN PROGRESS
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** both. The agent should run the existing test script at  to verify backend logic and use the screenshot tool to visually inspect a newly generated PDF to confirm the layout changes.
+-   **User Testing Done:** N
+
+**All Pending/In progress Issue list**:
+-   **Issue 1: Finalize the implementation of the user's latest technical audit (P0)**
+    -   **Attempted fixes:** The agent started editing  and  to align the code with the user's feedback.
+    -   **Next debug checklist:**
+        1.  In , ensure all user-facing route sheet endpoints ( and ) filter by  instead of .
+        2.  Verify the FastAPI endpoint definitions for date ranges use the Thu Jan  8 07:41:58 UTC 2026 type and correctly convert them to timezone-aware  objects for querying MongoDB.
+        3.  Implement cursor-based pagination on the main user endpoint .
+        4.  Review  to confirm the PDF layout uses a 2-column table for the header and that long text fields (like destination) wrap correctly.
+        5.  Run the tests in  and add new assertions for the  filtering and user-facing pagination.
+    -   **Why fix this issue and what will be achieved with the fix?** This will complete the core backend MVP to the user's specified quality standards, ensuring data filtering is correct, performant, and aligns with business requirements.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** Both
+
+**In progress Task List**:
+-   **Task 1: Complete and verify the user's technical audit feedback (P0)**
+    -   **Where to resume:** Resume by finishing the edits in  to implement cursor pagination for the user list endpoint and switching all date filters to use . Then, test all changes.
+    -   **What will be achieved with this?** A robust, production-ready backend core.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Both
+    -   **Blocked on something:** No
+
+**Upcoming and Future Tasks**
+-   **Upcoming Tasks:**
+    -   **P0: Implement the full UI for all user and admin pages.** This includes building forms, displaying data, and handling user interactions for features that are already implemented in the backend.
+    -   **P1: Integrate the Resend API for sending real emails.** This requires obtaining the  from the user.
+    -   **P1: Implement remaining API endpoints and corresponding frontend UI:**
+        -   User profile and vehicle editing ().
+        -   User driver management (CRUD on ).
+        -   Annulling a route sheet.
+        -   Admin editing of user profiles.
+        -   Admin editing of the global PDF configuration ().
+    -   **P2: Set up a cron job to run the  script daily.**
+-   **Future Tasks:**
+    -   Convert the React web application to an Expo React Native mobile app as per the original project goal.
+    -   Enhance web security by moving the refresh token to an  cookie.
+
+**Completed work in this session**
+-   **Recently completed:**
+    -   Built the foundational full-stack application skeleton.
+    -   Implemented a secure and robust backend with FastAPI and MongoDB.
+    -   Developed a concurrent-safe atomic numbering system for route sheets.
+    -   Implemented a complete data retention and auto-purging system with a daily job.
+    -   Created a secure password reset flow with hashed, single-use tokens.
+    -   Refined the PDF generation to produce a professional-looking document.
+    -   Implemented cursor-based pagination on all admin list endpoints.
+    -   Hardened security by blocking default admin credentials in production.
+    -   Passed a suite of critical tests for concurrency and data retention logic.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+-   **Backend**: FastAPI, Motor (async MongoDB driver), Pydantic
+-   **Frontend**: React, React Router, Tailwind CSS
+-   **Database**: MongoDB
+-   **Authentication**: JWT (Access + Refresh tokens)
+-   **PDF Generation**: ReportLab
+-   **Core Principles**: Asynchronous programming, Atomic database operations, Timezone-aware date handling
+
+**key DB schema**
+-   **users**: ,  (unique), ,  (PENDING|APPROVED), vehicle details.
+-   **route_sheets**: , , , ,  (datetime),  (ACTIVE|ANNULLED),  (datetime),  (datetime, TTL index).
+-   **counters**: Document per  and  to atomically increment .
+-   **password_reset_tokens**:  (unique), ,  (datetime, TTL index),  (boolean).
+
+**changes in tech stack**
+-   The database was changed from the user's initial request of **PostgreSQL** to **MongoDB**, with the user's explicit approval.
+
+**All files of reference**
+-   **/app/backend/server.py**: Contains all API endpoint logic, including the complex filtering and pagination that is currently being worked on.
+-   **/app/backend/models.py**: Defines all data structures and validation rules for the application.
+-   **/app/backend/pdf_generator.py**: Handles the creation of the PDF documents, a critical feature.
+-   **/app/backend/auth.py**: Manages all security-related logic for users and admins.
+-   **/app/backend/retention_job.py**: Script that enforces the data retention business rules.
+-   **/app/backend/critical_tests.py**: Test script to validate core backend functionality.
+
+**key api endpoints**
+-   **User Auth**: , , 
+-   **User Data**: , , 
+-   **Route Sheets**: , , , 
+-   **Admin**: , , , 
+
+**Critical Info for New Agent**
+-   The user is technically proficient and provides detailed, actionable feedback. Adhere strictly to their requests.
+-   The switch from PostgreSQL to MongoDB is final. All database operations must be idiomatic to MongoDB.
+-   **Timezones are critical**: The application's users are in Spain. All date/time operations must handle the  timezone correctly for user input and display, while storing and comparing data in UTC.
+-   **User Data Visibility**: All user-facing API endpoints that return route sheets MUST strictly filter by . This is a hard requirement.
+
+**documents and test reports created in this job**
+-   
+-   
+-   
+-   
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **Pending**: User is waiting for the agent to implement the latest set of critical improvements regarding data filtering, pagination, and PDF layout.
+2.  **User Request**: Provides the final, detailed specification for the backend MVP, instructing the agent to switch date filters to , use proper Thu Jan  8 07:41:59 UTC 2026 types in FastAPI, implement cursor pagination for users, and refine the PDF layout. (Completed: In Progress)
+3.  **User Feedback**: Acknowledges the agent's work and provides a detailed review of the PDF generator and API filter logic, asking for specific code snippets. (Completed: Agent provided snippets)
+4.  **User Request**: Asks the agent to implement several final quality improvements for the MVP, focusing on data visibility rules, PDF seriousness, and API pagination. (Completed: In Progress)
+5.  **User Inquiry**: Asks about GitHub connection issues. (Completed: Agent provided support info)
+6.  **User Approval**: Gives the go-ahead on the agent's corrections for data retention and atomic numbering, confirming the core logic is now solid. (Completed)
+7.  **User Feedback**: Points out critical flaws in the agent's implementation related to storing dates as strings (which breaks TTL indexes) and provides the correct, robust patterns to fix them. (Completed: Agent fixed)
+8.  **User Approval**: Gives the go-ahead and asks for a final check on the implementation of the core logic by requesting two specific code snippets (sheet creation and password reset). (Completed: Agent provided snippets)
+9.  **User Feedback**: Provides an in-depth technical audit of the implemented skeleton, identifying key risks like race conditions in numbering, incorrect data retention logic, and security vulnerabilities in password reset tokens. (Completed: Agent fixed)
+10. **User Request**: Asks to see the generated  and the list of API endpoints from  for review. (Completed: Agent provided code)
+
+**Project Health Check:**
+-   **Broken**: The frontend is non-functional as it is only a skeleton.
+-   **Mocked**: The email sending functionality in  is mocked and does not send real emails.
+
+**3rd Party Integrations**
+-   **Resend**: For transactional emails (user approval, password reset). Not yet fully integrated; requires a user-provided API key.
+
+**Testing status**
+-   **Testing agent used after significant changes:** YES, the  was used once on the initial skeleton.
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** []
+-   **Known regressions:** None.
+
+**Credentials to test flow:**
+-   **Admin**:
+    -   Username: 
+    -   Password: 
+    -   (Note: These are default development credentials and will be blocked in a production environment).
+-   **User**: A new user must be created via the  endpoint and then approved by the admin.
+
+**What agent forgot to execute**
+-   The agent has not yet implemented cursor-based pagination on the main user-facing endpoint () as requested in the user's last set of instructions. It has been implemented for admin endpoints, but not yet for the user side.</analysis>
