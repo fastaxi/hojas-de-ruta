@@ -327,6 +327,18 @@ class RutasFastAPITester:
         
         self.log_test("Annul Route Sheet", success, 
                      f"Message: {data.get('message', 'No message')}")
+        
+        # Test that we can't annul twice
+        if success:
+            success2, data2 = self.make_request('POST', f'/route-sheets/{self.test_route_sheet_id}/annul', 
+                                              annul_data, token=self.user_token, expected_status=400)
+            expected_error = "La hoja ya está anulada"
+            error_correct = expected_error in data2.get('detail', '')
+            
+            self.log_test("Annul Route Sheet (Double Annul)", success2 and error_correct, 
+                         f"Error: {data2.get('detail', 'No error message')}")
+            return success and success2 and error_correct
+        
         return success
 
     def run_all_tests(self):
