@@ -228,6 +228,18 @@ backend:
         agent: "testing"
         comment: "Admin config validation working perfectly. Correctly validates purge_after_months > hide_after_months constraint. Rejects invalid configurations (equal values, negative values, purge <= hide) with proper error messages. Accepts valid configurations and updates successfully. Edge cases handled properly including minimum value validation."
 
+  - task: "User Configuration Page (/app/configuracion)"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/app/ConfiguracionPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented profile editing (name, DNI, license, council, phone - email NOT editable), vehicle editing (brand, model, plate), drivers CRUD with dialog, logout with confirmation. All synced with /api/me and /api/me/drivers endpoints."
+
 frontend:
   - task: "Landing Page"
     implemented: true
