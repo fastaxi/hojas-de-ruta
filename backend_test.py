@@ -645,6 +645,9 @@ class RutasFastAPITester:
         self.test_health_check()
         self.test_health_endpoint()
         
+        # NEW: Email service health check
+        self.test_email_service_health()
+        
         # User registration and admin approval flow
         self.test_user_registration()
         self.test_duplicate_email_registration()
@@ -665,6 +668,14 @@ class RutasFastAPITester:
         # PDF and admin functionality
         self.test_pdf_generation()
         self.test_admin_endpoints()
+        
+        # NEW: Admin retention job tests
+        self.test_admin_retention_job_dry_run()
+        self.test_admin_retention_job_execute()
+        
+        # NEW: Admin config validation tests
+        self.test_admin_config_validation()
+        self.test_admin_config_edge_cases()
         
         # Summary
         print("\n" + "=" * 50)
