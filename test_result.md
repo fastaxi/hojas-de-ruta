@@ -192,6 +192,42 @@ backend:
         agent: "testing"
         comment: "Comprehensive testing completed. Annulment works correctly, prevents double annulment, returns proper error messages. Tested with both new test users and existing approved test user (testuser_jan8@example.com). All validation and business logic working as expected."
 
+  - task: "Email Service (Resend Integration)"
+    implemented: true
+    working: true
+    file: "/app/backend/email_service.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Email service fully functional. Health endpoint correctly returns email_configured: true. Verified domain ivan@taxiasturias.com successfully sends emails (approval and password reset). Unverified domains show proper testing mode warnings. Resend API integration working correctly with proper error handling."
+
+  - task: "Admin Retention Job Endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Admin retention job endpoint fully functional. Both dry_run=true and dry_run=false modes working correctly. Returns proper stats (total, visible, hidden sheets, to_hide, to_purge counts). Dry run mode previews without making changes. Execute mode properly hides and purges sheets based on retention policy. Backend logs confirm successful execution."
+
+  - task: "Admin Config Validation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Admin config validation working perfectly. Correctly validates purge_after_months > hide_after_months constraint. Rejects invalid configurations (equal values, negative values, purge <= hide) with proper error messages. Accepts valid configurations and updates successfully. Edge cases handled properly including minimum value validation."
+
 frontend:
   - task: "Landing Page"
     implemented: true
