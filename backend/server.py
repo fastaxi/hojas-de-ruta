@@ -501,39 +501,69 @@ async def create_route_sheet(
     }
 
 
-@sheets_router.get("", response_model=List[dict])
+@sheets_router.get("", response_model=dict)
 async def get_route_sheets(
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None,
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
     include_annulled: bool = False,
+    limit: int = Query(default=50, le=200),
+    cursor: Optional[str] = None,
     user: dict = Depends(get_current_user)
 ):
-    """Get user's route sheets with filters (only user_visible=true)"""
-    # ALWAYS filter by user_visible=true for user endpoints
+    """
+    Get user's route sheets with filters and pagination.
+    - Filters by pickup_datetime (not created_at)
+    - Always filters user_visible=true
+    - Excludes annulled by default
+    - Cursor pagination by _id
+    """
+    # Base query: always user_visible=true for user endpoints
     query = {"user_id": user["id"], "user_visible": True}
     
-    # Exclude annulled by default unless explicitly requested
+    # Exclude annulled by default
     if not include_annulled:
         query["status"] = "ACTIVE"
     
-    if from_date:
-        query["created_at"] = {"$gte": from_date}
-    if to_date:
-        if "created_at" in query:
-            query["created_at"]["$lte"] = to_date
-        else:
-            query["created_at"] = {"$lte": to_date}
+    # Date range filter on pickup_datetime (converted to UTC from Europe/Madrid)
+    if from_date or to_date:
+        pickup_filter = {}
+        if from_date:
+            from_start, _ = date_to_utc_range(from_date)
+            pickup_filter["$gte"] = from_start
+        if to_date:
+            _, to_end = date_to_utc_range(to_date)
+            pickup_filter["$lte"] = to_end
+        if pickup_filter:
+            query["pickup_datetime"] = pickup_filter
     
+    # Cursor pagination (by _id for stability)
+    if cursor:
+        try:
+            query["_id"] = {"$lt": ObjectId(cursor)}
+        except:
+            pass  # Invalid cursor, ignore
+    
+    # Query with stable sort: pickup_datetime desc, _id desc
     sheets = await db.route_sheets.find(
-        query,
-        {"_id": 0}
-    ).sort("created_at", -1).to_list(1000)
+        query
+    ).sort([("pickup_datetime", -1), ("_id", -1)]).limit(limit).to_list(limit)
     
-    # Add formatted sheet number
+    # Build response
+    result_sheets = []
+    next_cursor = None
+    
     for sheet in sheets:
+        # Store _id for cursor before removing
+        sheet_id = sheet.pop("_id")
+        next_cursor = str(sheet_id)
         sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
+        result_sheets.append(sheet)
     
-    return sheets
+    return {
+        "sheets": result_sheets,
+        "next_cursor": next_cursor if len(result_sheets) == limit else None,
+        "count": len(result_sheets)
+    }
 
 
 @sheets_router.get("/{sheet_id}", response_model=dict)
@@ -624,16 +654,25 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
 
 @sheets_router.get("/pdf/range")
 async def get_route_sheets_pdf_range(
-    from_date: str,
-    to_date: str,
+    from_date: date,
+    to_date: date,
     user: dict = Depends(get_current_user)
 ):
-    """Generate PDF for multiple route sheets in date range (only user_visible=true, ACTIVE)"""
+    """
+    Generate PDF for multiple route sheets in date range.
+    - Filters by pickup_datetime (Europe/Madrid to UTC)
+    - Always user_visible=true
+    - Never includes annulled sheets
+    """
+    # Convert dates to UTC range
+    from_start, _ = date_to_utc_range(from_date)
+    _, to_end = date_to_utc_range(to_date)
+    
     query = {
         "user_id": user["id"],
-        "user_visible": True,  # ALWAYS filter for user
-        "status": "ACTIVE",    # Only active sheets in PDF range
-        "created_at": {"$gte": from_date, "$lte": to_date}
+        "user_visible": True,
+        "status": "ACTIVE",  # Never include annulled in range PDF
+        "pickup_datetime": {"$gte": from_start, "$lte": to_end}
     }
     
     sheets = await db.route_sheets.find(
