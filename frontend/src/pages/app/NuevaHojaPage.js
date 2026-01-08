@@ -22,7 +22,7 @@ export function NuevaHojaPage() {
   const [drivers, setDrivers] = useState([]);
 
   const [formData, setFormData] = useState({
-    conductor_driver_id: '',
+    conductor_driver_id: 'titular',
     contractor_phone: '',
     contractor_email: '',
     prebooked_date: new Date().toISOString().split('T')[0],
@@ -93,7 +93,7 @@ export function NuevaHojaPage() {
     try {
       const submitData = {
         ...formData,
-        conductor_driver_id: formData.conductor_driver_id || null
+        conductor_driver_id: formData.conductor_driver_id === 'titular' ? null : formData.conductor_driver_id
       };
 
       const response = await axios.post(`${API_URL}/route-sheets`, submitData);
@@ -101,7 +101,7 @@ export function NuevaHojaPage() {
       
       // Reset form
       setFormData({
-        conductor_driver_id: '',
+        conductor_driver_id: 'titular',
         contractor_phone: '',
         contractor_email: '',
         prebooked_date: new Date().toISOString().split('T')[0],
@@ -179,7 +179,7 @@ export function NuevaHojaPage() {
                   <SelectValue placeholder="Selecciona conductor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Titular ({user?.full_name})</SelectItem>
+                  <SelectItem value="titular">Titular ({user?.full_name})</SelectItem>
                   {drivers.map(driver => (
                     <SelectItem key={driver.id} value={driver.id}>
                       {driver.full_name}
