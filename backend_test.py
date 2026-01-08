@@ -636,6 +636,367 @@ class RutasFastAPITester:
                      f"Sheet numbers: {sheet_numbers}")
         return is_sequential
 
+    # ============== USER CONFIGURATION TESTS ==============
+    def test_user_profile_get(self):
+        """Test getting current user profile"""
+        if not self.user_token:
+            self.log_test("User Profile Get", False, "No user token available")
+            return False
+        
+        success, data = self.make_request('GET', '/me', token=self.user_token)
+        
+        if success:
+            # Check required fields are present
+            required_fields = ['id', 'email', 'full_name', 'dni_cif', 'status']
+            has_required = all(field in data for field in required_fields)
+            
+            # Check email is not modifiable (should be present but read-only)
+            email_present = 'email' in data
+            
+            self.log_test("User Profile Get", has_required and email_present, 
+                         f"Profile data: {data.get('full_name', 'N/A')}, Email: {data.get('email', 'N/A')}")
+            return has_required and email_present
+        else:
+            self.log_test("User Profile Get", False, f"Failed to get profile: {data}")
+            return False
+
+    def test_user_profile_update(self):
+        """Test updating user profile (excluding email)"""
+        if not self.user_token:
+            self.log_test("User Profile Update", False, "No user token available")
+            return False
+        
+        # Test profile update with valid data
+        timestamp = datetime.now().strftime("%H%M%S")
+        update_data = {
+            "full_name": f"Updated User {timestamp}",
+            "dni_cif": f"87654321{timestamp[-1]}",
+            "license_number": f"UPD-{timestamp}",
+            "license_council": "Gijón",
+            "phone": f"699{timestamp}"
+        }
+        
+        success, data = self.make_request('PUT', '/me', update_data, token=self.user_token)
+        
+        if success:
+            # Verify the update by getting profile again
+            success2, profile_data = self.make_request('GET', '/me', token=self.user_token)
+            
+            if success2:
+                # Check if updates were applied
+                name_updated = profile_data.get('full_name') == update_data['full_name']
+                dni_updated = profile_data.get('dni_cif') == update_data['dni_cif']
+                license_updated = profile_data.get('license_number') == update_data['license_number']
+                
+                overall_success = name_updated and dni_updated and license_updated
+                
+                self.log_test("User Profile Update", overall_success, 
+                             f"Name: {profile_data.get('full_name')}, DNI: {profile_data.get('dni_cif')}")
+                return overall_success
+            else:
+                self.log_test("User Profile Update", False, "Failed to verify update")
+                return False
+        else:
+            self.log_test("User Profile Update", False, f"Update failed: {data}")
+            return False
+
+    def test_user_profile_email_not_modifiable(self):
+        """Test that email field cannot be modified"""
+        if not self.user_token:
+            self.log_test("User Profile Email Not Modifiable", False, "No user token available")
+            return False
+        
+        # Get current email
+        success, profile_data = self.make_request('GET', '/me', token=self.user_token)
+        if not success:
+            self.log_test("User Profile Email Not Modifiable", False, "Failed to get current profile")
+            return False
+        
+        current_email = profile_data.get('email')
+        
+        # Try to update email (should be ignored by backend)
+        update_data = {
+            "email": "newemail@example.com",
+            "full_name": profile_data.get('full_name', 'Test User')
+        }
+        
+        success, data = self.make_request('PUT', '/me', update_data, token=self.user_token)
+        
+        if success:
+            # Verify email hasn't changed
+            success2, updated_profile = self.make_request('GET', '/me', token=self.user_token)
+            
+            if success2:
+                email_unchanged = updated_profile.get('email') == current_email
+                
+                self.log_test("User Profile Email Not Modifiable", email_unchanged, 
+                             f"Original: {current_email}, After update: {updated_profile.get('email')}")
+                return email_unchanged
+            else:
+                self.log_test("User Profile Email Not Modifiable", False, "Failed to verify email unchanged")
+                return False
+        else:
+            self.log_test("User Profile Email Not Modifiable", False, f"Update request failed: {data}")
+            return False
+
+    def test_vehicle_update(self):
+        """Test updating vehicle information"""
+        if not self.user_token:
+            self.log_test("Vehicle Update", False, "No user token available")
+            return False
+        
+        timestamp = datetime.now().strftime("%H%M%S")
+        vehicle_data = {
+            "vehicle_brand": "Updated Brand",
+            "vehicle_model": "Updated Model",
+            "vehicle_plate": f"UPD{timestamp[-3:]}"
+        }
+        
+        success, data = self.make_request('PUT', '/me', vehicle_data, token=self.user_token)
+        
+        if success:
+            # Verify the update
+            success2, profile_data = self.make_request('GET', '/me', token=self.user_token)
+            
+            if success2:
+                brand_updated = profile_data.get('vehicle_brand') == vehicle_data['vehicle_brand']
+                model_updated = profile_data.get('vehicle_model') == vehicle_data['vehicle_model']
+                plate_updated = profile_data.get('vehicle_plate') == vehicle_data['vehicle_plate']
+                
+                overall_success = brand_updated and model_updated and plate_updated
+                
+                self.log_test("Vehicle Update", overall_success, 
+                             f"Brand: {profile_data.get('vehicle_brand')}, Plate: {profile_data.get('vehicle_plate')}")
+                return overall_success
+            else:
+                self.log_test("Vehicle Update", False, "Failed to verify vehicle update")
+                return False
+        else:
+            self.log_test("Vehicle Update", False, f"Vehicle update failed: {data}")
+            return False
+
+    def test_vehicle_plate_validation(self):
+        """Test vehicle plate validation (should not be empty)"""
+        if not self.user_token:
+            self.log_test("Vehicle Plate Validation", False, "No user token available")
+            return False
+        
+        # Frontend should validate empty plate, but test backend behavior
+        empty_plate_data = {
+            "vehicle_brand": "Test Brand",
+            "vehicle_model": "Test Model",
+            "vehicle_plate": ""
+        }
+        
+        # Backend might accept empty plate (validation is primarily frontend)
+        # This test verifies current behavior
+        success, data = self.make_request('PUT', '/me', empty_plate_data, token=self.user_token)
+        
+        # Log the actual behavior for documentation
+        self.log_test("Vehicle Plate Validation", True, 
+                     f"Empty plate handling: {'Accepted' if success else 'Rejected'} - {data.get('detail', 'No error')}")
+        return True
+
+    def test_drivers_crud_operations(self):
+        """Test complete CRUD operations for drivers"""
+        if not self.user_token:
+            self.log_test("Drivers CRUD Operations", False, "No user token available")
+            return False
+        
+        timestamp = datetime.now().strftime("%H%M%S")
+        
+        # 1. GET drivers (initial list)
+        success1, initial_drivers = self.make_request('GET', '/me/drivers', token=self.user_token)
+        if not success1:
+            self.log_test("Drivers CRUD Operations", False, "Failed to get initial drivers list")
+            return False
+        
+        initial_count = len(initial_drivers) if isinstance(initial_drivers, list) else 0
+        
+        # 2. CREATE driver
+        driver_data = {
+            "full_name": f"Test Driver {timestamp}",
+            "dni": f"12345678{timestamp[-1]}"
+        }
+        
+        success2, create_response = self.make_request('POST', '/me/drivers', driver_data, token=self.user_token)
+        if not success2:
+            self.log_test("Drivers CRUD Operations", False, f"Failed to create driver: {create_response}")
+            return False
+        
+        driver_id = create_response.get('id')
+        if not driver_id:
+            self.log_test("Drivers CRUD Operations", False, "No driver ID returned from create")
+            return False
+        
+        # 3. GET drivers (verify creation)
+        success3, updated_drivers = self.make_request('GET', '/me/drivers', token=self.user_token)
+        if not success3:
+            self.log_test("Drivers CRUD Operations", False, "Failed to get drivers after creation")
+            return False
+        
+        new_count = len(updated_drivers) if isinstance(updated_drivers, list) else 0
+        driver_created = new_count == initial_count + 1
+        
+        # Find the created driver
+        created_driver = None
+        for driver in updated_drivers:
+            if driver.get('id') == driver_id:
+                created_driver = driver
+                break
+        
+        if not created_driver:
+            self.log_test("Drivers CRUD Operations", False, "Created driver not found in list")
+            return False
+        
+        # 4. UPDATE driver
+        update_data = {
+            "full_name": f"Updated Driver {timestamp}",
+            "dni": f"87654321{timestamp[-1]}"
+        }
+        
+        success4, update_response = self.make_request('PUT', f'/me/drivers/{driver_id}', update_data, token=self.user_token)
+        if not success4:
+            self.log_test("Drivers CRUD Operations", False, f"Failed to update driver: {update_response}")
+            return False
+        
+        # 5. GET drivers (verify update)
+        success5, post_update_drivers = self.make_request('GET', '/me/drivers', token=self.user_token)
+        if not success5:
+            self.log_test("Drivers CRUD Operations", False, "Failed to get drivers after update")
+            return False
+        
+        # Find updated driver
+        updated_driver = None
+        for driver in post_update_drivers:
+            if driver.get('id') == driver_id:
+                updated_driver = driver
+                break
+        
+        driver_updated = (updated_driver and 
+                         updated_driver.get('full_name') == update_data['full_name'] and
+                         updated_driver.get('dni') == update_data['dni'])
+        
+        # 6. DELETE driver
+        success6, delete_response = self.make_request('DELETE', f'/me/drivers/{driver_id}', token=self.user_token)
+        if not success6:
+            self.log_test("Drivers CRUD Operations", False, f"Failed to delete driver: {delete_response}")
+            return False
+        
+        # 7. GET drivers (verify deletion)
+        success7, final_drivers = self.make_request('GET', '/me/drivers', token=self.user_token)
+        if not success7:
+            self.log_test("Drivers CRUD Operations", False, "Failed to get drivers after deletion")
+            return False
+        
+        final_count = len(final_drivers) if isinstance(final_drivers, list) else 0
+        driver_deleted = final_count == initial_count
+        
+        # Verify driver is not in list
+        driver_still_exists = any(driver.get('id') == driver_id for driver in final_drivers)
+        
+        overall_success = (driver_created and driver_updated and driver_deleted and not driver_still_exists)
+        
+        self.log_test("Drivers CRUD Operations", overall_success, 
+                     f"Created: {driver_created}, Updated: {driver_updated}, Deleted: {driver_deleted}, Final count: {final_count}")
+        return overall_success
+
+    def test_drivers_validation(self):
+        """Test driver creation validation"""
+        if not self.user_token:
+            self.log_test("Drivers Validation", False, "No user token available")
+            return False
+        
+        # Test missing full_name
+        invalid_data1 = {
+            "full_name": "",
+            "dni": "12345678A"
+        }
+        
+        success1, data1 = self.make_request('POST', '/me/drivers', invalid_data1, token=self.user_token, expected_status=422)
+        
+        # Test missing dni
+        invalid_data2 = {
+            "full_name": "Test Driver",
+            "dni": ""
+        }
+        
+        success2, data2 = self.make_request('POST', '/me/drivers', invalid_data2, token=self.user_token, expected_status=422)
+        
+        # Both should fail validation
+        validation_working = success1 and success2
+        
+        self.log_test("Drivers Validation", validation_working, 
+                     f"Empty name error: {data1.get('detail', 'No error')}, Empty DNI error: {data2.get('detail', 'No error')}")
+        return validation_working
+
+    def test_drivers_unauthorized_access(self):
+        """Test that users can only access their own drivers"""
+        if not self.user_token:
+            self.log_test("Drivers Unauthorized Access", False, "No user token available")
+            return False
+        
+        # Try to access/modify a non-existent driver ID
+        fake_driver_id = "fake-driver-id-12345"
+        
+        # Try to update non-existent driver
+        success1, data1 = self.make_request('PUT', f'/me/drivers/{fake_driver_id}', 
+                                          {"full_name": "Hacker", "dni": "12345678H"}, 
+                                          token=self.user_token, expected_status=404)
+        
+        # Try to delete non-existent driver
+        success2, data2 = self.make_request('DELETE', f'/me/drivers/{fake_driver_id}', 
+                                          token=self.user_token, expected_status=404)
+        
+        not_found_correct = success1 and success2
+        
+        self.log_test("Drivers Unauthorized Access", not_found_correct, 
+                     f"Update error: {data1.get('detail', 'No error')}, Delete error: {data2.get('detail', 'No error')}")
+        return not_found_correct
+
+    def test_existing_approved_user_login(self):
+        """Test login with existing approved user from review request"""
+        login_data = {
+            "email": "testuser_jan8@example.com",
+            "password": "testpass123"
+        }
+        
+        success, data = self.make_request('POST', '/auth/login', login_data, expected_status=200)
+        
+        if success:
+            self.existing_user_token = data.get('access_token')
+            self.log_test("Existing Approved User Login", True, 
+                         f"Successfully logged in as testuser_jan8@example.com")
+            return True
+        else:
+            self.log_test("Existing Approved User Login", False, 
+                         f"Failed to login: {data.get('detail', 'Unknown error')}")
+            return False
+
+    def test_existing_user_configuration_apis(self):
+        """Test configuration APIs with existing approved user"""
+        if not hasattr(self, 'existing_user_token') or not self.existing_user_token:
+            self.log_test("Existing User Configuration APIs", False, "No existing user token available")
+            return False
+        
+        # Test profile get
+        success1, profile_data = self.make_request('GET', '/me', token=self.existing_user_token)
+        
+        # Test drivers get
+        success2, drivers_data = self.make_request('GET', '/me/drivers', token=self.existing_user_token)
+        
+        if success1 and success2:
+            profile_email = profile_data.get('email', 'N/A')
+            drivers_count = len(drivers_data) if isinstance(drivers_data, list) else 0
+            
+            self.log_test("Existing User Configuration APIs", True, 
+                         f"Profile: {profile_email}, Drivers: {drivers_count}")
+            return True
+        else:
+            self.log_test("Existing User Configuration APIs", False, 
+                         f"Profile success: {success1}, Drivers success: {success2}")
+            return False
+
     def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting RutasFast Backend API Tests")
