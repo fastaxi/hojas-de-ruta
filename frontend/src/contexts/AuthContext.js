@@ -1,103 +1,139 @@
 /**
  * RutasFast - Auth Context
- * Manages JWT authentication state with auto-refresh
+ * Manages JWT authentication with httpOnly cookie for refresh token
+ * Access token stored in memory (React state) only - NOT in localStorage
  */
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const AuthContext = createContext(null);
 
+// Configure axios to send cookies
+axios.defaults.withCredentials = true;
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [accessToken, setAccessToken] = useState(localStorage.getItem('accessToken'));
-  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+  const [accessToken, setAccessToken] = useState(null);
+  
+  // Ref to track if we're currently refreshing to prevent duplicate requests
+  const isRefreshing = useRef(false);
+  const refreshPromise = useRef(null);
 
-  // Configure axios defaults
+  // Setup axios interceptor for automatic token refresh on 401
   useEffect(() => {
-    if (accessToken) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-    } else {
-      delete axios.defaults.headers.common['Authorization'];
-    }
-  }, [accessToken]);
+    const requestInterceptor = axios.interceptors.request.use(
+      (config) => {
+        // Add access token to requests if we have one
+        if (accessToken) {
+          config.headers.Authorization = `Bearer ${accessToken}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
 
-  // Fetch user profile
-  const fetchUser = useCallback(async () => {
-    if (!accessToken) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await axios.get(`${API_URL}/me`);
-      setUser(response.data);
-    } catch (error) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        // Try to refresh token
-        await tryRefreshToken();
-      } else {
-        console.error('Error fetching user:', error);
-        logout();
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        
+        // If 401 and we haven't tried to refresh yet
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          // If we're already refreshing, wait for that to complete
+          if (isRefreshing.current && refreshPromise.current) {
+            try {
+              const newToken = await refreshPromise.current;
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              return axios(originalRequest);
+            } catch (refreshError) {
+              return Promise.reject(refreshError);
+            }
+          }
+          
+          // Start refresh
+          isRefreshing.current = true;
+          refreshPromise.current = tryRefreshToken();
+          
+          try {
+            const newToken = await refreshPromise.current;
+            if (newToken) {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              return axios(originalRequest);
+            }
+          } catch (refreshError) {
+            // Refresh failed, logout
+            handleLogout();
+            return Promise.reject(refreshError);
+          } finally {
+            isRefreshing.current = false;
+            refreshPromise.current = null;
+          }
+        }
+        
+        return Promise.reject(error);
       }
-    } finally {
-      setLoading(false);
-    }
+    );
+
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+      axios.interceptors.response.eject(responseInterceptor);
+    };
   }, [accessToken]);
 
-  // Refresh token
+  // Try to refresh token (returns new access token or throws)
   const tryRefreshToken = async () => {
-    if (!refreshToken) {
-      logout();
-      return;
-    }
-
     try {
-      const response = await axios.post(`${API_URL}/auth/refresh`, {
-        refresh_token: refreshToken
-      });
-      
-      const { access_token, refresh_token: newRefreshToken } = response.data;
+      // Call refresh endpoint - browser will send cookie automatically
+      const response = await axios.post(`${API_URL}/auth/refresh`);
+      const { access_token, user: userData } = response.data;
       
       setAccessToken(access_token);
-      setRefreshToken(newRefreshToken);
-      localStorage.setItem('accessToken', access_token);
-      localStorage.setItem('refreshToken', newRefreshToken);
+      setUser(userData);
       
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      
-      // Retry fetching user
-      const userResponse = await axios.get(`${API_URL}/me`);
-      setUser(userResponse.data);
+      return access_token;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      logout();
+      throw error;
     }
   };
 
+  // Bootstrap: try to restore session on mount
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    const initAuth = async () => {
+      try {
+        // Try to refresh - if we have a valid cookie, this will work
+        await tryRefreshToken();
+      } catch (error) {
+        // No valid session, user needs to login
+        console.log('No active session');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
 
   // Login
   const login = async (email, password) => {
     const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-    const { access_token, refresh_token } = response.data;
+    const { access_token, user: userData } = response.data;
     
     setAccessToken(access_token);
-    setRefreshToken(refresh_token);
-    localStorage.setItem('accessToken', access_token);
-    localStorage.setItem('refreshToken', refresh_token);
+    setUser(userData);
     
-    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+    // Fetch full user profile
+    const profileResponse = await axios.get(`${API_URL}/me`, {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+    setUser(profileResponse.data);
     
-    // Fetch user data
-    const userResponse = await axios.get(`${API_URL}/me`);
-    setUser(userResponse.data);
-    
-    return userResponse.data;
+    return profileResponse.data;
   };
 
   // Register
@@ -106,14 +142,17 @@ export function AuthProvider({ children }) {
     return response.data;
   };
 
-  // Logout
-  const logout = useCallback(() => {
-    setUser(null);
-    setAccessToken(null);
-    setRefreshToken(null);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    delete axios.defaults.headers.common['Authorization'];
+  // Logout - calls backend to clear cookie and invalidate tokens
+  const handleLogout = useCallback(async () => {
+    try {
+      await axios.post(`${API_URL}/auth/logout`);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear local state regardless of API response
+      setUser(null);
+      setAccessToken(null);
+    }
   }, []);
 
   // Forgot password
@@ -138,17 +177,29 @@ export function AuthProvider({ children }) {
     return response.data;
   };
 
+  // Refresh user data from API
+  const refreshUser = useCallback(async () => {
+    if (!accessToken) return;
+    
+    try {
+      const response = await axios.get(`${API_URL}/me`);
+      setUser(response.data);
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
+  }, [accessToken]);
+
   const value = {
     user,
     loading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !!accessToken,
     login,
     register,
-    logout,
+    logout: handleLogout,
     forgotPassword,
     resetPassword,
     updateProfile,
-    refreshUser: fetchUser
+    refreshUser
   };
 
   return (
