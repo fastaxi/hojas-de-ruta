@@ -492,9 +492,11 @@ async def get_route_sheets(
     include_annulled: bool = False,
     user: dict = Depends(get_current_user)
 ):
-    """Get user's route sheets with filters"""
+    """Get user's route sheets with filters (only user_visible=true)"""
+    # ALWAYS filter by user_visible=true for user endpoints
     query = {"user_id": user["id"], "user_visible": True}
     
+    # Exclude annulled by default unless explicitly requested
     if not include_annulled:
         query["status"] = "ACTIVE"
     
@@ -520,9 +522,9 @@ async def get_route_sheets(
 
 @sheets_router.get("/{sheet_id}", response_model=dict)
 async def get_route_sheet(sheet_id: str, user: dict = Depends(get_current_user)):
-    """Get a specific route sheet"""
+    """Get a specific route sheet (only if user_visible=true)"""
     sheet = await db.route_sheets.find_one(
-        {"id": sheet_id, "user_id": user["id"]},
+        {"id": sheet_id, "user_id": user["id"], "user_visible": True},
         {"_id": 0}
     )
     if not sheet:
@@ -564,9 +566,9 @@ async def annul_route_sheet(
 
 @sheets_router.get("/{sheet_id}/pdf")
 async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_user)):
-    """Generate PDF for a single route sheet"""
+    """Generate PDF for a single route sheet (only if user_visible=true)"""
     sheet = await db.route_sheets.find_one(
-        {"id": sheet_id, "user_id": user["id"]},
+        {"id": sheet_id, "user_id": user["id"], "user_visible": True},
         {"_id": 0}
     )
     if not sheet:
@@ -610,11 +612,11 @@ async def get_route_sheets_pdf_range(
     to_date: str,
     user: dict = Depends(get_current_user)
 ):
-    """Generate PDF for multiple route sheets in date range"""
+    """Generate PDF for multiple route sheets in date range (only user_visible=true, ACTIVE)"""
     query = {
         "user_id": user["id"],
-        "user_visible": True,
-        "status": "ACTIVE",
+        "user_visible": True,  # ALWAYS filter for user
+        "status": "ACTIVE",    # Only active sheets in PDF range
         "created_at": {"$gte": from_date, "$lte": to_date}
     }
     
