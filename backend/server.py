@@ -2,8 +2,8 @@
 RutasFast - Main FastAPI Server
 Backend for taxi route sheet management app
 """
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Cookie, Request
+from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -32,7 +32,8 @@ from auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
     generate_reset_token, hash_reset_token, verify_reset_token_hash,
-    verify_admin_password, create_admin_token
+    verify_admin_password, create_admin_token, get_cookie_settings,
+    ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from email_service import (
     send_approval_email, send_password_reset_email, is_email_configured
