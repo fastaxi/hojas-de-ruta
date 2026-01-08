@@ -179,15 +179,18 @@ backend:
 
   - task: "Annul Route Sheet"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Backend implemented, needs frontend and e2e testing"
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing completed. Annulment works correctly, prevents double annulment, returns proper error messages. Tested with both new test users and existing approved test user (testuser_jan8@example.com). All validation and business logic working as expected."
 
 frontend:
   - task: "Landing Page"
