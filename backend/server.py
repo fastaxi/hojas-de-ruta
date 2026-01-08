@@ -672,9 +672,11 @@ async def admin_login(data: AdminLoginRequest):
 async def admin_get_users(
     status: Optional[str] = None,
     search: Optional[str] = None,
+    limit: int = 50,
+    cursor: Optional[str] = None,
     admin: dict = Depends(get_current_admin)
 ):
-    """Get all users (admin)"""
+    """Get all users (admin) with pagination"""
     query = {}
     
     if status:
@@ -687,10 +689,14 @@ async def admin_get_users(
             {"dni_cif": {"$regex": search, "$options": "i"}}
         ]
     
+    # Cursor-based pagination using created_at
+    if cursor:
+        query["created_at"] = {"$lt": cursor}
+    
     users = await db.users.find(
         query,
         {"_id": 0, "password_hash": 0}
-    ).sort("created_at", -1).to_list(1000)
+    ).sort("created_at", -1).limit(limit).to_list(limit)
     
     return users
 
@@ -795,9 +801,11 @@ async def admin_get_route_sheets(
     to_date: Optional[str] = None,
     status: Optional[str] = None,
     user_visible: Optional[bool] = None,
+    limit: int = 50,
+    cursor: Optional[str] = None,
     admin: dict = Depends(get_current_admin)
 ):
-    """Get all route sheets (admin)"""
+    """Get all route sheets (admin) with pagination - can see ALL including hidden"""
     query = {}
     
     if user_id:
@@ -814,12 +822,18 @@ async def admin_get_route_sheets(
         else:
             query["created_at"] = {"$lte": to_date}
     
-    sheets = await db.route_sheets.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # Cursor-based pagination
+    if cursor:
+        if "created_at" in query:
+            query["created_at"]["$lt"] = cursor
+        else:
+            query["created_at"] = {"$lt": cursor}
     
-    # Add formatted sheet number and user email
+    sheets = await db.route_sheets.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Add formatted sheet number and user info
     for sheet in sheets:
         sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
-        # Get user email
         user = await db.users.find_one({"id": sheet["user_id"]}, {"_id": 0, "email": 1, "full_name": 1})
         if user:
             sheet["user_email"] = user.get("email")
