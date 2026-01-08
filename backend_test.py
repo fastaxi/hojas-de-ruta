@@ -1038,6 +1038,25 @@ class RutasFastAPITester:
         self.test_admin_config_validation()
         self.test_admin_config_edge_cases()
         
+        # NEW: User Configuration Page Tests
+        print("\n" + "=" * 30)
+        print("🔧 Testing User Configuration APIs")
+        print("=" * 30)
+        
+        # Test with new user
+        self.test_user_profile_get()
+        self.test_user_profile_update()
+        self.test_user_profile_email_not_modifiable()
+        self.test_vehicle_update()
+        self.test_vehicle_plate_validation()
+        self.test_drivers_crud_operations()
+        self.test_drivers_validation()
+        self.test_drivers_unauthorized_access()
+        
+        # Test with existing approved user
+        self.test_existing_approved_user_login()
+        self.test_existing_user_configuration_apis()
+        
         # Summary
         print("\n" + "=" * 50)
         print(f"📊 Test Results: {self.tests_passed}/{self.tests_run} passed")
