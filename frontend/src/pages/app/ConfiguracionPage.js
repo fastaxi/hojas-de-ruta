@@ -204,8 +204,8 @@ export function ConfiguracionPage() {
   };
 
   // ============== LOGOUT ==============
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/app/login');
   };
 
