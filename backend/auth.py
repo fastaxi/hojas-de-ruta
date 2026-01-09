@@ -105,23 +105,58 @@ def verify_reset_token_hash(token: str, stored_hash: str) -> bool:
 
 
 # Admin authentication
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
 ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
-# Detect production: Emergent, Vercel, or explicit ENVIRONMENT
-IS_PRODUCTION = (
-    os.environ.get("ENVIRONMENT") == "production" or
-    os.environ.get("VERCEL_ENV") == "production" or
-    os.environ.get("RAILWAY_ENVIRONMENT") == "production" or
-    bool(os.environ.get("RENDER"))  # Render.com
-)
+
+# Default dev credentials (only used in non-production when env vars not set)
+DEFAULT_DEV_USERNAME = "admin"
+DEFAULT_DEV_PASSWORD = "admin123"
 
 
-def verify_admin_password(password: str) -> bool:
-    """Verify admin password against stored hash"""
-    # In production, REQUIRE real credentials
+def is_admin_configured() -> bool:
+    """Check if admin credentials are properly configured"""
+    if IS_PRODUCTION:
+        # In production, both username and password hash MUST be set
+        return bool(ADMIN_USERNAME and ADMIN_PASSWORD_HASH)
+    else:
+        # In dev, either env vars are set OR we use defaults
+        return True
+
+
+def get_admin_username() -> str:
+    """Get admin username (from env or default in dev)"""
+    if ADMIN_USERNAME:
+        return ADMIN_USERNAME
+    if not IS_PRODUCTION:
+        return DEFAULT_DEV_USERNAME
+    return ""  # Production without config
+
+
+def verify_admin_password(username: str, password: str) -> bool:
+    """
+    Verify admin credentials.
+    
+    Production rules:
+    - MUST have ADMIN_USERNAME and ADMIN_PASSWORD_HASH in env
+    - Default credentials NEVER work
+    
+    Development rules:
+    - If env vars set, use them
+    - Otherwise, allow admin/admin123 for convenience
+    """
+    # Get expected username
+    expected_username = get_admin_username()
+    
+    # Username check first
+    if not expected_username or username != expected_username:
+        return False
+    
+    # Production: REQUIRE proper hash, NEVER allow default password
     if IS_PRODUCTION:
         if not ADMIN_PASSWORD_HASH:
-            # No hash configured in production = fail
+            return False
+        # Block default password even if somehow username matched
+        if password == DEFAULT_DEV_PASSWORD:
             return False
         try:
             return bcrypt.checkpw(
@@ -131,17 +166,18 @@ def verify_admin_password(password: str) -> bool:
         except Exception:
             return False
     
-    # Development fallback
-    if not ADMIN_PASSWORD_HASH:
-        return password == "admin123"
+    # Development: check env hash if available, else allow default
+    if ADMIN_PASSWORD_HASH:
+        try:
+            return bcrypt.checkpw(
+                password.encode('utf-8'),
+                ADMIN_PASSWORD_HASH.encode('utf-8')
+            )
+        except Exception:
+            return False
     
-    try:
-        return bcrypt.checkpw(
-            password.encode('utf-8'),
-            ADMIN_PASSWORD_HASH.encode('utf-8')
-        )
-    except Exception:
-        return False
+    # Dev fallback: default credentials
+    return password == DEFAULT_DEV_PASSWORD
 
 
 def create_admin_token() -> str:
