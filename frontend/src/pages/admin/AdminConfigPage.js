@@ -1,7 +1,7 @@
 /**
  * RutasFast - Admin Config Page
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '../../contexts/AdminAuthContext';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -9,7 +9,7 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Loader2, Save, Check, FileText, Clock, Play, AlertCircle, Trash2 } from 'lucide-react';
+import { Loader2, Save, Check, FileText, Clock, Play, AlertCircle, Trash2, RefreshCw, History } from 'lucide-react';
 
 export function AdminConfigPage() {
   const { adminRequest } = useAdminAuth();
