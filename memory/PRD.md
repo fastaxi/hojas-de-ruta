@@ -116,13 +116,11 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 16. ✅ Admin hardening (credenciales via env vars en producción)
 17. ✅ Rate limiting en login admin
 18. ✅ UI responsive (PWA-ready)
-19. ✅ **Retención automatizada**: Endpoint interno con token técnico, logging en `retention_runs`, UI con "Última Ejecución"
+19. ✅ **Retención automatizada**: Endpoint interno con token técnico, lock de concurrencia, logging con stats_after
+20. ✅ **Auditoría de resets**: Logs con admin, user, timestamp, IP. UI en modal de usuario. NUNCA se guarda contraseña.
 
 ## Backlog P0 (Próximos pasos)
 1. ⬜ Logo FAST real en assets
-
-## Backlog P0/P1
-1. ⬜ Auditoría de resets de contraseña (admin_audit_logs más completa)
 
 ## Backlog P1
 1. ⬜ UI para cambio de contraseña de usuario logueado (tab "Seguridad" en configuración)
