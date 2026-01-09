@@ -97,8 +97,13 @@ function AppRoutes() {
       {/* App Routes (Users) */}
       <Route path="/app/login" element={<LoginPage />} />
       <Route path="/app/registro" element={<RegisterPage />} />
-      <Route path="/app/recuperar" element={<ForgotPasswordPage />} />
-      <Route path="/app/reset-password" element={<ResetPasswordPage />} />
+      
+      {/* Change password - protected but allows mustChangePassword */}
+      <Route path="/app/cambiar-password" element={
+        <ChangePasswordRoute>
+          <CambiarPasswordPage />
+        </ChangePasswordRoute>
+      } />
       
       <Route path="/app" element={
         <ProtectedUserRoute>
