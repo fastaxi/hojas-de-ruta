@@ -25,7 +25,7 @@ from models import (
     RouteSheet, RouteSheetCreate, RouteSheetAnnul,
     AppConfig, AppConfigUpdate,
     LoginRequest, TokenResponse, RefreshRequest,
-    ForgotPasswordRequest, ResetPasswordRequest, PasswordResetToken,
+    ChangePasswordRequest,
     AdminLoginRequest
 )
 from auth import (
