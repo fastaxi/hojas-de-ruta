@@ -27,11 +27,13 @@ COOKIE_PATH = "/api/auth"
 COOKIE_MAX_AGE = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60  # in seconds
 
 # Detect production environment
+# Priority: explicit ENVIRONMENT > platform-specific vars
+# Note: RENDER detection may give false positives in some CI environments
 IS_PRODUCTION = (
-    os.environ.get("ENVIRONMENT") == "production" or
-    os.environ.get("VERCEL_ENV") == "production" or
-    os.environ.get("RAILWAY_ENVIRONMENT") == "production" or
-    bool(os.environ.get("RENDER"))  # Render.com
+    os.environ.get("ENVIRONMENT") == "production" or  # Explicit (preferred)
+    os.environ.get("VERCEL_ENV") == "production" or   # Vercel
+    os.environ.get("RAILWAY_ENVIRONMENT") == "production" or  # Railway
+    (bool(os.environ.get("RENDER")) and os.environ.get("ENVIRONMENT") != "development")  # Render (with dev override)
 )
 
 # Cookie secure flag - must be True in production with HTTPS
