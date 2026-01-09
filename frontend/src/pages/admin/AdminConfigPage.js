@@ -30,10 +30,21 @@ export function AdminConfigPage() {
   const [retentionDialog, setRetentionDialog] = useState(false);
   const [retentionResult, setRetentionResult] = useState(null);
   const [runningRetention, setRunningRetention] = useState(false);
+  const [lastRetentionRun, setLastRetentionRun] = useState(null);
+
+  const fetchLastRetentionRun = useCallback(async () => {
+    try {
+      const data = await adminRequest('get', '/admin/retention-runs/last');
+      setLastRetentionRun(data);
+    } catch (err) {
+      console.error('Error fetching last retention run:', err);
+    }
+  }, [adminRequest]);
 
   useEffect(() => {
     fetchConfig();
-  }, []);
+    fetchLastRetentionRun();
+  }, [fetchLastRetentionRun]);
 
   const fetchConfig = async () => {
     try {
