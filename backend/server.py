@@ -1339,6 +1339,10 @@ async def admin_run_retention(
                 "stats_before": {
                     "total": total_before,
                     "visible": visible_before
+                },
+                "stats_after": {
+                    "total": total_after,
+                    "visible": visible_after
                 }
             }
             await db.retention_runs.insert_one(run_log)
