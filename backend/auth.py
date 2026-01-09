@@ -115,14 +115,16 @@ DEFAULT_DEV_USERNAME = "admin"
 DEFAULT_DEV_PASSWORD = "admin123"
 
 
+def is_admin_env_configured() -> bool:
+    """Check if admin credentials are explicitly configured via env vars"""
+    return bool(ADMIN_USERNAME and ADMIN_PASSWORD_HASH)
+
+
 def is_admin_configured() -> bool:
-    """Check if admin credentials are properly configured"""
+    """Check if admin login is available (either env or dev defaults)"""
     if IS_PRODUCTION:
-        # In production, both username and password hash MUST be set
-        return bool(ADMIN_USERNAME and ADMIN_PASSWORD_HASH)
-    else:
-        # In dev, either env vars are set OR we use defaults
-        return True
+        return is_admin_env_configured()
+    return True  # Dev allows defaults
 
 
 def get_admin_username() -> str:
