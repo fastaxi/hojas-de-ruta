@@ -56,6 +56,30 @@ export function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
+  // Fetch password reset history for selected user
+  const fetchResetHistory = useCallback(async (userId) => {
+    if (!userId) return;
+    setLoadingHistory(true);
+    try {
+      const data = await adminRequest('get', `/admin/users/${userId}/audit/password-resets`);
+      setResetHistory(data || []);
+    } catch (err) {
+      console.error('Error fetching reset history:', err);
+      setResetHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [adminRequest]);
+
+  // Load history when user is selected
+  useEffect(() => {
+    if (selectedUser?.id) {
+      fetchResetHistory(selectedUser.id);
+    } else {
+      setResetHistory([]);
+    }
+  }, [selectedUser, fetchResetHistory]);
+
   const handleApprove = async (userId) => {
     setActionLoading(true);
     try {
