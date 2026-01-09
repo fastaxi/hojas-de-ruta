@@ -170,7 +170,21 @@ async def root():
 
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "email_configured": is_email_configured()}
+    """Health check with service status"""
+    email_from = os.environ.get("EMAIL_FROM", "")
+    email_production_ready = (
+        is_email_configured() and 
+        email_from and 
+        not email_from.endswith("@resend.dev")
+    )
+    
+    return {
+        "status": "healthy",
+        "environment": "production" if IS_PRODUCTION else "development",
+        "email_configured": is_email_configured(),
+        "email_production_ready": email_production_ready,
+        "admin_configured": is_admin_configured()
+    }
 
 
 # ============== AUTH ENDPOINTS ==============
