@@ -250,6 +250,48 @@ export function AdminConfigPage() {
               </div>
             </div>
             
+            {/* Last Retention Run Info */}
+            <div className="pt-4 border-t border-stone-200">
+              <div className="flex items-center gap-2 mb-3">
+                <History className="w-4 h-4 text-stone-500" />
+                <span className="font-medium text-stone-700 text-sm">Última Ejecución</span>
+              </div>
+              {lastRetentionRun ? (
+                <div className="p-3 bg-stone-50 rounded-lg">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-stone-500 text-xs">Fecha</p>
+                      <p className="font-medium text-stone-900">
+                        {new Date(lastRetentionRun.run_at).toLocaleString('es-ES', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-stone-500 text-xs">Origen</p>
+                      <p className="font-medium text-stone-900">
+                        {lastRetentionRun.trigger === 'internal' ? 'Automático' : 'Manual (Admin)'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-stone-500 text-xs">Ocultas</p>
+                      <p className="font-medium text-amber-600">{lastRetentionRun.hidden_count}</p>
+                    </div>
+                    <div>
+                      <p className="text-stone-500 text-xs">Eliminadas</p>
+                      <p className="font-medium text-red-600">{lastRetentionRun.purged_count}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-stone-500 italic">No hay ejecuciones registradas</p>
+              )}
+            </div>
+            
             {/* Retention Job Button */}
             <div className="pt-4 border-t border-stone-200">
               <div className="flex items-center justify-between">
