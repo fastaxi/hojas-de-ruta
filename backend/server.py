@@ -183,7 +183,8 @@ async def health_check():
         "environment": "production" if IS_PRODUCTION else "development",
         "email_configured": is_email_configured(),
         "email_production_ready": email_production_ready,
-        "admin_configured": is_admin_configured()
+        "admin_configured": is_admin_configured(),        # Login available
+        "admin_env_configured": is_admin_env_configured() # Env vars set (not using defaults)
     }
 
 
