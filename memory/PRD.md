@@ -91,6 +91,11 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 - GET `/admin/config` - Ver config
 - PUT `/admin/config` - Actualizar config
 - POST `/admin/run-retention` - Ejecutar job de retención manualmente
+- GET `/admin/retention-runs` - Historial de ejecuciones de retención
+- GET `/admin/retention-runs/last` - Última ejecución de retención
+
+#### Internal (para schedulers)
+- POST `/internal/run-retention` - Ejecutar retención (requiere header X-Job-Token)
 
 ## Lo Implementado ✅
 1. ✅ Modelo de datos MongoDB con índices
@@ -111,11 +116,13 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 16. ✅ Admin hardening (credenciales via env vars en producción)
 17. ✅ Rate limiting en login admin
 18. ✅ UI responsive (PWA-ready)
-19. ✅ Endpoint manual para job de retención
+19. ✅ **Retención automatizada**: Endpoint interno con token técnico, logging en `retention_runs`, UI con "Última Ejecución"
 
 ## Backlog P0 (Próximos pasos)
-1. ⬜ **Automatizar Job de Retención**: Crear token técnico (RETENTION_JOB_TOKEN), endpoint `/api/internal/run-retention`, logging de ejecuciones, mostrar última ejecución en admin
-2. ⬜ Logo FAST real en assets
+1. ⬜ Logo FAST real en assets
+
+## Backlog P0/P1
+1. ⬜ Auditoría de resets de contraseña (admin_audit_logs más completa)
 
 ## Backlog P1
 1. ⬜ UI para cambio de contraseña de usuario logueado (tab "Seguridad" en configuración)
