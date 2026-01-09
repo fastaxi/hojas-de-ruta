@@ -1130,11 +1130,30 @@ api_router.include_router(sheets_router)
 api_router.include_router(admin_router)
 app.include_router(api_router)
 
-# CORS
+
+# CORS - Sanitized origins, fail-closed in production
+def get_cors_origins() -> list:
+    """Parse and sanitize CORS origins from environment"""
+    raw = os.environ.get("CORS_ORIGINS", "")
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    return origins
+
+
+cors_origins = get_cors_origins()
+
+# Fail closed in production if no origins configured
+if IS_PRODUCTION and not cors_origins:
+    logger.error("CORS_ORIGINS not configured in production - this is a security risk")
+    raise RuntimeError("CORS_ORIGINS must be configured in production")
+
+if not cors_origins:
+    logger.warning("CORS_ORIGINS not set - defaulting to localhost for development")
+    cors_origins = ["http://localhost:3000"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=cors_origins,  # Explicit list, no wildcards with credentials
     allow_methods=["*"],
     allow_headers=["*"],
 )
