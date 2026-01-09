@@ -1304,6 +1304,7 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
     
     Authentication: X-Job-Token header with RETENTION_JOB_TOKEN value.
     Always executes real retention (no dry_run).
+    Uses atomic lock to prevent concurrent executions.
     
     Returns:
         - hidden_count: sheets hidden this run
@@ -1314,22 +1315,49 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
     import time
     start_time = time.time()
     now = datetime.now(timezone.utc)
+    lock_expiry = now + timedelta(minutes=5)  # Lock expires after 5 min max
     
-    # Count before
-    total_before = await db.route_sheets.count_documents({})
-    visible_before = await db.route_sheets.count_documents({"user_visible": True})
+    # Acquire lock atomically
+    lock_result = await db.retention_locks.find_one_and_update(
+        {
+            "_id": "retention_job",
+            "$or": [
+                {"locked": False},
+                {"expires_at": {"$lt": now}}  # Expired lock
+            ]
+        },
+        {
+            "$set": {
+                "locked": True,
+                "acquired_at": now,
+                "expires_at": lock_expiry
+            }
+        },
+        return_document=ReturnDocument.AFTER,
+        upsert=True
+    )
     
-    # Get sheets that will be affected
-    hide_query = {"hide_at": {"$lte": now}, "user_visible": True}
-    purge_query = {"purge_at": {"$lte": now}}
-    
-    to_hide = await db.route_sheets.count_documents(hide_query)
-    to_purge = await db.route_sheets.count_documents(purge_query)
-    
-    hidden_count = 0
-    purged_count = 0
+    if not lock_result or not lock_result.get("locked"):
+        raise HTTPException(
+            status_code=409, 
+            detail="Retention job already running. Try again later."
+        )
     
     try:
+        # Count before
+        total_before = await db.route_sheets.count_documents({})
+        visible_before = await db.route_sheets.count_documents({"user_visible": True})
+        
+        # Get sheets that will be affected
+        hide_query = {"hide_at": {"$lte": now}, "user_visible": True}
+        purge_query = {"purge_at": {"$lte": now}}
+        
+        to_hide = await db.route_sheets.count_documents(hide_query)
+        to_purge = await db.route_sheets.count_documents(purge_query)
+        
+        hidden_count = 0
+        purged_count = 0
+        
         # Execute HIDE
         if to_hide > 0:
             hide_result = await db.route_sheets.update_many(
@@ -1340,7 +1368,7 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
         
         # Execute PURGE (backup to TTL index)
         if to_purge > 0:
-            # Log sheets being purged
+            # Log sheets being purged (without sensitive data)
             sheets = await db.route_sheets.find(
                 purge_query,
                 {"_id": 0, "id": 1, "user_id": 1, "year": 1, "seq_number": 1}
@@ -1351,6 +1379,10 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
             
             purge_result = await db.route_sheets.delete_many(purge_query)
             purged_count = purge_result.deleted_count
+        
+        # Count after
+        total_after = await db.route_sheets.count_documents({})
+        visible_after = await db.route_sheets.count_documents({"user_visible": True})
         
         duration_ms = int((time.time() - start_time) * 1000)
         
@@ -1365,6 +1397,10 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
             "stats_before": {
                 "total": total_before,
                 "visible": visible_before
+            },
+            "stats_after": {
+                "total": total_after,
+                "visible": visible_after
             }
         }
         await db.retention_runs.insert_one(run_log)
@@ -1378,9 +1414,17 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
             "run_at": now.isoformat()
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Internal retention job failed: {e}")
         raise HTTPException(status_code=500, detail=f"Retention job failed: {str(e)}")
+    finally:
+        # Release lock
+        await db.retention_locks.update_one(
+            {"_id": "retention_job"},
+            {"$set": {"locked": False}}
+        )
 
 
 @admin_router.get("/retention-runs")
