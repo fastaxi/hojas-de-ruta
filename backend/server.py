@@ -1007,39 +1007,75 @@ async def admin_approve_user(user_id: str, admin: dict = Depends(get_current_adm
     
     return {
         "message": "Usuario aprobado",
-        "email_sent": email_result["success"]
+        "email_sent": False  # Emails disabled
     }
 
 
-@admin_router.post("/users/{user_id}/send-reset")
-async def admin_send_reset(user_id: str, admin: dict = Depends(get_current_admin)):
-    """Send password reset to user (admin)"""
+def generate_temp_password(length: int = 14) -> str:
+    """Generate a random temporary password (letters, digits, safe symbols)"""
+    alphabet = string.ascii_letters + string.digits
+    # Ensure at least one uppercase, one lowercase, one digit
+    password = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+    ]
+    password += [secrets.choice(alphabet) for _ in range(length - 3)]
+    secrets.SystemRandom().shuffle(password)
+    return ''.join(password)
+
+
+@admin_router.post("/users/{user_id}/reset-password-temp")
+async def admin_reset_password_temp(user_id: str, admin: dict = Depends(get_current_admin)):
+    """
+    Generate temporary password for user (72h expiry).
+    User must change password on next login.
+    The temporary password is returned ONLY in this response - it is NOT stored in plain text.
+    """
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    # Generate reset token (plain for email, hash for storage)
-    token, token_hash = generate_reset_token()
+    # Generate temp password
+    temp_password = generate_temp_password(14)
+    temp_hash = hash_password(temp_password)
     now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(hours=1)
+    expires_at = now + timedelta(hours=72)
     
-    reset_token = PasswordResetToken(
-        user_id=user["id"],
-        token_hash=token_hash,
-        expires_at=expires_at
+    # Update user with temp password
+    await db.users.update_one(
+        {"id": user_id},
+        {
+            "$set": {
+                "password_hash": temp_hash,
+                "must_change_password": True,
+                "temp_password_expires_at": expires_at,
+                "updated_at": now
+            }
+        }
     )
     
-    # Keep datetime as native for TTL
-    token_dict = reset_token.model_dump()
+    # Audit log
+    audit_entry = {
+        "action": "RESET_PASSWORD_TEMP",
+        "admin_username": get_admin_username(),
+        "user_id": user_id,
+        "user_email": user["email"],
+        "timestamp": now,
+        "expires_at": expires_at
+    }
+    await db.admin_audit_logs.insert_one(audit_entry)
     
-    await db.password_reset_tokens.insert_one(token_dict)
+    logger.info(f"Temp password generated for user {user_id} by admin (expires: {expires_at.isoformat()})")
     
-    # Send email with plain token
-    email_result = await send_password_reset_email(user["email"], user["full_name"], token)
-    
+    # Return temp password ONLY HERE - not logged, not stored
     return {
-        "message": "Email de recuperación enviado",
-        "email_sent": email_result["success"]
+        "message": "Contraseña temporal generada",
+        "temp_password": temp_password,  # SHOWN ONLY ONCE
+        "expires_at": expires_at.isoformat(),
+        "expires_in_hours": 72,
+        "user_email": user["email"],
+        "user_name": user["full_name"]
     }
 
 
