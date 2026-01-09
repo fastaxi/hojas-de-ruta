@@ -1247,11 +1247,153 @@ async def admin_run_retention(
     return result
 
 
+# ============== INTERNAL ENDPOINTS (for automated jobs) ==============
+
+async def verify_job_token(x_job_token: Optional[str] = Header(None)) -> str:
+    """Validate job token for internal endpoints"""
+    if not RETENTION_JOB_TOKEN:
+        logger.error("RETENTION_JOB_TOKEN not configured - internal endpoints disabled")
+        raise HTTPException(status_code=503, detail="Job token not configured")
+    
+    if not x_job_token:
+        raise HTTPException(status_code=401, detail="X-Job-Token header required")
+    
+    if x_job_token != RETENTION_JOB_TOKEN:
+        logger.warning(f"Invalid job token attempt")
+        raise HTTPException(status_code=403, detail="Invalid job token")
+    
+    return x_job_token
+
+
+@internal_router.post("/run-retention")
+async def internal_run_retention(token: str = Depends(verify_job_token)):
+    """
+    Execute retention job (for automated schedulers).
+    
+    Authentication: X-Job-Token header with RETENTION_JOB_TOKEN value.
+    Always executes real retention (no dry_run).
+    
+    Returns:
+        - hidden_count: sheets hidden this run
+        - purged_count: sheets purged this run  
+        - duration_ms: execution time
+        - run_at: ISO timestamp
+    """
+    import time
+    start_time = time.time()
+    now = datetime.now(timezone.utc)
+    
+    # Count before
+    total_before = await db.route_sheets.count_documents({})
+    visible_before = await db.route_sheets.count_documents({"user_visible": True})
+    
+    # Get sheets that will be affected
+    hide_query = {"hide_at": {"$lte": now}, "user_visible": True}
+    purge_query = {"purge_at": {"$lte": now}}
+    
+    to_hide = await db.route_sheets.count_documents(hide_query)
+    to_purge = await db.route_sheets.count_documents(purge_query)
+    
+    hidden_count = 0
+    purged_count = 0
+    
+    try:
+        # Execute HIDE
+        if to_hide > 0:
+            hide_result = await db.route_sheets.update_many(
+                hide_query,
+                {"$set": {"user_visible": False}}
+            )
+            hidden_count = hide_result.modified_count
+        
+        # Execute PURGE (backup to TTL index)
+        if to_purge > 0:
+            # Log sheets being purged
+            sheets = await db.route_sheets.find(
+                purge_query,
+                {"_id": 0, "id": 1, "user_id": 1, "year": 1, "seq_number": 1}
+            ).to_list(100)
+            
+            for s in sheets:
+                logger.info(f"Purging sheet: {s['seq_number']:03d}/{s['year']} (user: {s['user_id'][:8]}...)")
+            
+            purge_result = await db.route_sheets.delete_many(purge_query)
+            purged_count = purge_result.deleted_count
+        
+        duration_ms = int((time.time() - start_time) * 1000)
+        
+        # Log to retention_runs collection
+        run_log = {
+            "run_at": now,
+            "hidden_count": hidden_count,
+            "purged_count": purged_count,
+            "dry_run": False,
+            "trigger": "internal",
+            "duration_ms": duration_ms,
+            "stats_before": {
+                "total": total_before,
+                "visible": visible_before
+            }
+        }
+        await db.retention_runs.insert_one(run_log)
+        
+        logger.info(f"Internal retention job completed: hidden={hidden_count}, purged={purged_count}, duration={duration_ms}ms")
+        
+        return {
+            "hidden_count": hidden_count,
+            "purged_count": purged_count,
+            "duration_ms": duration_ms,
+            "run_at": now.isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Internal retention job failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Retention job failed: {str(e)}")
+
+
+@admin_router.get("/retention-runs")
+async def admin_get_retention_runs(
+    limit: int = Query(default=10, le=50),
+    admin: dict = Depends(get_current_admin)
+):
+    """Get recent retention job executions"""
+    runs = await db.retention_runs.find(
+        {},
+        {"_id": 0}
+    ).sort("run_at", -1).limit(limit).to_list(limit)
+    
+    # Convert datetime to ISO string for JSON
+    for run in runs:
+        if isinstance(run.get("run_at"), datetime):
+            run["run_at"] = run["run_at"].isoformat()
+    
+    return runs
+
+
+@admin_router.get("/retention-runs/last")
+async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin)):
+    """Get the most recent retention job execution"""
+    run = await db.retention_runs.find_one(
+        {},
+        {"_id": 0},
+        sort=[("run_at", -1)]
+    )
+    
+    if not run:
+        return None
+    
+    if isinstance(run.get("run_at"), datetime):
+        run["run_at"] = run["run_at"].isoformat()
+    
+    return run
+
+
 # Include routers
 api_router.include_router(auth_router)
 api_router.include_router(user_router)
 api_router.include_router(sheets_router)
 api_router.include_router(admin_router)
+api_router.include_router(internal_router)
 app.include_router(api_router)
 
 
