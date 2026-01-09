@@ -362,6 +362,47 @@ export function AdminUsersPage() {
                   </ul>
                 </div>
               )}
+
+              {/* Password Reset History */}
+              <div className="p-4 bg-stone-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <History className="w-5 h-5 text-stone-500" />
+                  <span className="font-medium">Historial de Resets</span>
+                </div>
+                {loadingHistory ? (
+                  <div className="flex items-center gap-2 text-sm text-stone-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Cargando...
+                  </div>
+                ) : resetHistory.length === 0 ? (
+                  <p className="text-sm text-stone-500 italic">Sin resets registrados</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {resetHistory.slice(0, 5).map((reset, idx) => (
+                      <li key={idx} className="text-sm border-b border-stone-200 pb-2 last:border-0 last:pb-0">
+                        <div className="flex justify-between items-start">
+                          <span className="text-stone-700">
+                            {new Date(reset.timestamp).toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
+                            72h
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-stone-500">
+                          Por: {reset.admin_username}
+                          {reset.client_ip && ` • IP: ${reset.client_ip.substring(0, 15)}`}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           )}
 
