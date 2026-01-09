@@ -56,6 +56,7 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 user_router = APIRouter(prefix="/me", tags=["user"])
 sheets_router = APIRouter(prefix="/route-sheets", tags=["route-sheets"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
+internal_router = APIRouter(prefix="/internal", tags=["internal"])
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +64,9 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Retention job token (for automated schedulers)
+RETENTION_JOB_TOKEN = os.environ.get("RETENTION_JOB_TOKEN")
 
 
 # ============== STARTUP / SHUTDOWN ==============
