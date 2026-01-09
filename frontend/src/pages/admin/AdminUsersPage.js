@@ -7,12 +7,12 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { 
   Search, Check, KeyRound, Loader2, User, Mail, Phone, 
-  Car, FileText, ChevronRight, Users
+  Car, FileText, ChevronRight, Users, Copy, AlertTriangle, CheckCircle
 } from 'lucide-react';
 
 export function AdminUsersPage() {
