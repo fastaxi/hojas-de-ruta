@@ -248,11 +248,15 @@ async def login(data: LoginRequest):
     temp_expires = user.get("temp_password_expires_at")
     
     if must_change and temp_expires:
-        # temp_expires is stored as datetime in MongoDB
-        if isinstance(temp_expires, str):
+        # Ensure temp_expires is timezone-aware UTC
+        if isinstance(temp_expires, datetime):
+            if temp_expires.tzinfo is None:
+                temp_expires = temp_expires.replace(tzinfo=timezone.utc)
+        elif isinstance(temp_expires, str):
             temp_expires = datetime.fromisoformat(temp_expires.replace('Z', '+00:00'))
         
-        if datetime.now(timezone.utc) > temp_expires:
+        now_utc = datetime.now(timezone.utc)
+        if now_utc > temp_expires:
             raise HTTPException(
                 status_code=403,
                 detail="Contraseña temporal expirada. Contacte con la Federación."
