@@ -129,10 +129,15 @@ export function AuthProvider({ children }) {
   // Login
   const login = async (email, password) => {
     const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-    const { access_token, user: userData } = response.data;
+    const { access_token, must_change_password, user: userData } = response.data;
     
     setAccessToken(access_token);
-    setUser(userData);
+    setUser({ ...userData, must_change_password });
+    
+    // If must_change_password, don't fetch full profile yet
+    if (must_change_password) {
+      return { ...userData, must_change_password };
+    }
     
     // Fetch full user profile
     const profileResponse = await axios.get(`${API_URL}/me`, {
@@ -141,6 +146,21 @@ export function AuthProvider({ children }) {
     setUser(profileResponse.data);
     
     return profileResponse.data;
+  };
+
+  // Change password
+  const changePassword = async (currentPassword, newPassword) => {
+    const response = await axios.post(`${API_URL}/me/change-password`, {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+    
+    // After successful change, update user state
+    if (user) {
+      setUser({ ...user, must_change_password: false });
+    }
+    
+    return response.data;
   };
 
   // Register
