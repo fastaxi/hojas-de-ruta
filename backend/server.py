@@ -1032,7 +1032,11 @@ def generate_temp_password(length: int = 14) -> str:
 
 
 @admin_router.post("/users/{user_id}/reset-password-temp")
-async def admin_reset_password_temp(user_id: str, admin: dict = Depends(get_current_admin)):
+async def admin_reset_password_temp(
+    user_id: str, 
+    request: Request,
+    admin: dict = Depends(get_current_admin)
+):
     """
     Generate temporary password for user (72h expiry).
     User must change password on next login.
@@ -1061,14 +1065,21 @@ async def admin_reset_password_temp(user_id: str, admin: dict = Depends(get_curr
         }
     )
     
-    # Audit log
+    # Get client IP (behind proxy)
+    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
+    if client_ip and "," in client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+    
+    # Audit log (NEVER include password)
     audit_entry = {
         "action": "RESET_PASSWORD_TEMP",
         "admin_username": get_admin_username(),
         "user_id": user_id,
         "user_email": user["email"],
+        "user_name": user["full_name"],
         "timestamp": now,
-        "expires_at": expires_at
+        "expires_at": expires_at,
+        "client_ip": client_ip
     }
     await db.admin_audit_logs.insert_one(audit_entry)
     
