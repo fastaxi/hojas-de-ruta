@@ -35,10 +35,9 @@ from auth import (
     is_admin_configured, is_admin_env_configured, get_admin_username,
     ACCESS_TOKEN_EXPIRE_MINUTES, IS_PRODUCTION
 )
-from email_service import (
-    send_approval_email, send_password_reset_email, is_email_configured
-)
 from dateutil.relativedelta import relativedelta
+import secrets
+import string
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
