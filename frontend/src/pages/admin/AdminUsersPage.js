@@ -12,7 +12,7 @@ import { Label } from '../../components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { 
   Search, Check, KeyRound, Loader2, User, Mail, Phone, 
-  Car, FileText, ChevronRight, Users, Copy, AlertTriangle, CheckCircle
+  Car, FileText, ChevronRight, Users, Copy, AlertTriangle, CheckCircle, History
 } from 'lucide-react';
 
 export function AdminUsersPage() {
@@ -31,6 +31,10 @@ export function AdminUsersPage() {
   const [showTempPassword, setShowTempPassword] = useState(false);
   const [tempPasswordData, setTempPasswordData] = useState(null);
   const [copied, setCopied] = useState(false);
+  
+  // Audit history state
+  const [resetHistory, setResetHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
