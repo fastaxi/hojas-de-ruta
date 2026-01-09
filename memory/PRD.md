@@ -94,36 +94,47 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 
 ## Lo Implementado ✅
 1. ✅ Modelo de datos MongoDB con índices
-2. ✅ Autenticación JWT (access + refresh)
-3. ✅ Registro usuario multi-step
-4. ✅ Login con validación de estado PENDING
-5. ✅ Panel admin con aprobación de usuarios
-6. ✅ CRUD choferes
-7. ✅ Creación hojas de ruta con validaciones
-8. ✅ Numeración secuencial por usuario/año
-9. ✅ Anulación de hojas (soft delete)
-10. ✅ Histórico con filtros
-11. ✅ Generación PDF (ReportLab)
-12. ✅ Configuración global editable
-13. ✅ UI responsive (PWA-ready)
+2. ✅ Autenticación segura con httpOnly cookies (refresh) + JWT en memoria (access)
+3. ✅ Token rotation y versionado para seguridad
+4. ✅ Registro usuario multi-step
+5. ✅ Login con validación de estado PENDING
+6. ✅ Panel admin con aprobación de usuarios
+7. ✅ **Reset manual de contraseña por admin** (contraseña temporal 72h)
+8. ✅ Página forzada para cambiar contraseña temporal
+9. ✅ CRUD choferes
+10. ✅ Creación hojas de ruta con validaciones
+11. ✅ Numeración secuencial atómica por usuario/año
+12. ✅ Anulación de hojas (soft delete)
+13. ✅ Histórico con filtros
+14. ✅ Generación PDF (ReportLab) con marca de agua para anuladas
+15. ✅ Configuración global editable
+16. ✅ Admin hardening (credenciales via env vars en producción)
+17. ✅ Rate limiting en login admin
+18. ✅ UI responsive (PWA-ready)
+19. ✅ Endpoint manual para job de retención
 
 ## Backlog P0 (Próximos pasos)
-1. ⬜ Job de retención (ocultar 14 meses, purgar 24 meses)
-2. ⬜ Configurar RESEND_API_KEY para emails reales
-3. ⬜ Logo FAST real en assets
-4. ⬜ Validación DNI español (formato)
+1. ⬜ **Automatizar Job de Retención**: Crear token técnico (RETENTION_JOB_TOKEN), endpoint `/api/internal/run-retention`, logging de ejecuciones, mostrar última ejecución en admin
+2. ⬜ Logo FAST real en assets
 
 ## Backlog P1
-1. ⬜ Exportar PDF por rango de fechas (endpoint existe, falta UI completa)
-2. ⬜ Búsqueda avanzada en histórico
-3. ⬜ Notificaciones push (opcional)
+1. ⬜ UI para cambio de contraseña de usuario logueado (tab "Seguridad" en configuración)
+2. ⬜ Validadores Pydantic más estrictos (strip, empty->None, extra="forbid")
+3. ⬜ Exportar PDF por rango de fechas (endpoint existe, falta UI completa)
 
 ## Backlog P2
-1. ⬜ Estadísticas dashboard admin
-2. ⬜ Exportar datos a CSV
-3. ⬜ Multi-idioma (descartado por ahora)
+1. ⬜ Convertir a React Native (Expo)
+2. ⬜ Estadísticas dashboard admin
+3. ⬜ Exportar datos a CSV
 
 ## Credenciales de Desarrollo
 - **Admin**: usuario `admin`, contraseña `admin123`
-- **MongoDB**: localhost:27017, DB: rutasfast_db
-- **Email**: Deshabilitado (sin RESEND_API_KEY)
+- **MongoDB**: MONGO_URL en .env
+- **Email**: Deshabilitado (reset manual por admin)
+- **Seguridad producción**: ADMIN_USERNAME y ADMIN_PASSWORD_HASH en variables de entorno
+
+## Notas Técnicas Importantes
+1. **Autenticación con cookies**: El refresh token está en una cookie httpOnly. El frontend no lo almacena.
+2. **Email deshabilitado**: `/api/auth/forgot-password` y `/api/auth/reset-password` devuelven 410 Gone.
+3. **Pruebas locales**: La persistencia de sesión solo funciona correctamente usando la URL de preview, no localhost:3000.
+4. **Admin en producción**: Requiere `ADMIN_USERNAME` y `ADMIN_PASSWORD_HASH` en las variables de entorno.
