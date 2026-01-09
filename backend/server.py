@@ -33,7 +33,7 @@ from auth import (
     create_access_token, create_refresh_token, decode_token,
     generate_reset_token, hash_reset_token, verify_reset_token_hash,
     verify_admin_password, create_admin_token, get_cookie_settings,
-    ACCESS_TOKEN_EXPIRE_MINUTES
+    ACCESS_TOKEN_EXPIRE_MINUTES, IS_PRODUCTION
 )
 from email_service import (
     send_approval_email, send_password_reset_email, is_email_configured
