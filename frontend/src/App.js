@@ -15,8 +15,7 @@ import { AdminLayout } from './layouts/AdminLayout';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/app/LoginPage';
 import { RegisterPage } from './pages/app/RegisterPage';
-import { ForgotPasswordPage } from './pages/app/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/app/ResetPasswordPage';
+import { CambiarPasswordPage } from './pages/app/CambiarPasswordPage';
 import { NuevaHojaPage } from './pages/app/NuevaHojaPage';
 import { HistoricoPage } from './pages/app/HistoricoPage';
 import { ConfiguracionPage } from './pages/app/ConfiguracionPage';
@@ -27,8 +26,32 @@ import { AdminConfigPage } from './pages/admin/AdminConfigPage';
 
 import './App.css';
 
-// Protected Route for Users
+// Protected Route for Users - Redirects to change password if needed
 function ProtectedUserRoute({ children }) {
+  const { isAuthenticated, loading, mustChangePassword } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-maroon-900 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/app/login" replace />;
+  }
+  
+  // Force password change if required
+  if (mustChangePassword) {
+    return <Navigate to="/app/cambiar-password" replace />;
+  }
+  
+  return children;
+}
+
+// Route for change password page - must be logged in but allows mustChangePassword
+function ChangePasswordRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
   
   if (loading) {
