@@ -340,12 +340,13 @@ export function AdminUsersPage() {
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              onClick={() => handleSendReset(selectedUser?.id)}
+              onClick={() => openResetConfirm(selectedUser)}
               disabled={actionLoading}
-              data-testid="send-reset-btn"
+              data-testid="reset-password-temp-btn"
+              className="text-amber-700 border-amber-300 hover:bg-amber-50"
             >
               <KeyRound className="w-4 h-4 mr-2" />
-              Enviar Reset Password
+              Restablecer contraseña (temporal 72h)
             </Button>
             {selectedUser?.status === 'PENDING' && (
               <Button
@@ -362,6 +363,124 @@ export function AdminUsersPage() {
                 Aprobar Usuario
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Confirmation Dialog */}
+      <Dialog open={showResetConfirm} onOpenChange={(open) => !open && setShowResetConfirm(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="w-5 h-5" />
+              Confirmar restablecimiento
+            </DialogTitle>
+            <DialogDescription>
+              Esta acción generará una contraseña temporal para el usuario.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-3">
+            <p className="text-stone-700">
+              ¿Estás seguro de que deseas restablecer la contraseña de <strong>{resetTargetUser?.full_name}</strong>?
+            </p>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <ul className="list-disc list-inside space-y-1">
+                <li>Se generará una contraseña temporal válida por 72 horas</li>
+                <li>El usuario deberá cambiarla en su próximo inicio de sesión</li>
+                <li>La contraseña solo se mostrará una vez</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResetConfirm(false)}
+              disabled={actionLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleResetPasswordTemp}
+              disabled={actionLoading}
+              className="bg-amber-600 hover:bg-amber-700"
+              data-testid="confirm-reset-btn"
+            >
+              {actionLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <KeyRound className="w-4 h-4 mr-2" />
+              )}
+              Confirmar restablecimiento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Temp Password Display Modal */}
+      <Dialog open={showTempPassword} onOpenChange={(open) => !open && closeTempPasswordModal()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle className="w-5 h-5" />
+              Contraseña temporal generada
+            </DialogTitle>
+          </DialogHeader>
+          
+          {tempPasswordData && (
+            <div className="py-4 space-y-4">
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700 mb-1">Usuario:</p>
+                <p className="font-medium text-green-900">{tempPasswordData.user_name}</p>
+                <p className="text-sm text-green-600">{tempPasswordData.user_email}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-stone-700">Contraseña temporal:</Label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 p-3 bg-stone-100 border border-stone-300 rounded-lg font-mono text-lg tracking-wider select-all">
+                    {tempPasswordData.temp_password}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyToClipboard}
+                    data-testid="copy-temp-password-btn"
+                    className={copied ? 'border-green-500 text-green-600' : ''}
+                  >
+                    {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                {copied && (
+                  <p className="text-sm text-green-600">¡Copiada al portapapeles!</p>
+                )}
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Importante:</p>
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      <li>Esta contraseña solo se muestra una vez</li>
+                      <li>Válida hasta: {new Date(tempPasswordData.expires_at).toLocaleString('es-ES')}</li>
+                      <li>El usuario deberá cambiarla al iniciar sesión</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              onClick={closeTempPasswordModal}
+              className="w-full"
+              data-testid="close-temp-password-modal-btn"
+            >
+              Entendido, cerrar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
