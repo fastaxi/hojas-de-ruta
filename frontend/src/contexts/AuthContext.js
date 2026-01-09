@@ -6,10 +6,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
-// Use relative URL in development (proxy handles it), full URL in production
-const API_URL = process.env.NODE_ENV === 'development' 
-  ? '/api' 
-  : `${process.env.REACT_APP_BACKEND_URL}/api`;
+// API URL - In production, frontend and backend share same origin
+// The httpOnly cookie works because SameSite=Lax allows same-site requests
+const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const AuthContext = createContext(null);
 
