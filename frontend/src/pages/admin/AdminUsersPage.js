@@ -24,6 +24,13 @@ export function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState('');
+  
+  // Password reset states
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetTargetUser, setResetTargetUser] = useState(null);
+  const [showTempPassword, setShowTempPassword] = useState(false);
+  const [tempPasswordData, setTempPasswordData] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
