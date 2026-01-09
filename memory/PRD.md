@@ -139,9 +139,28 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 - **MongoDB**: MONGO_URL en .env
 - **Email**: Deshabilitado (reset manual por admin)
 - **Seguridad producción**: ADMIN_USERNAME y ADMIN_PASSWORD_HASH en variables de entorno
+- **Token retención**: RETENTION_JOB_TOKEN en .env (para schedulers externos)
 
 ## Notas Técnicas Importantes
 1. **Autenticación con cookies**: El refresh token está en una cookie httpOnly. El frontend no lo almacena.
 2. **Email deshabilitado**: `/api/auth/forgot-password` y `/api/auth/reset-password` devuelven 410 Gone.
 3. **Pruebas locales**: La persistencia de sesión solo funciona correctamente usando la URL de preview, no localhost:3000.
 4. **Admin en producción**: Requiere `ADMIN_USERNAME` y `ADMIN_PASSWORD_HASH` en las variables de entorno.
+5. **Retención automatizada**: El endpoint `/api/internal/run-retention` requiere header `X-Job-Token` con el valor de `RETENTION_JOB_TOKEN`. Usar desde GitHub Actions o cron externo.
+
+## Cómo configurar Scheduler Externo (GitHub Actions)
+```yaml
+# .github/workflows/retention-job.yml
+name: Daily Retention Job
+on:
+  schedule:
+    - cron: '30 3 * * *'  # 03:30 UTC diario
+jobs:
+  run-retention:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute Retention
+        run: |
+          curl -X POST "${{ secrets.APP_URL }}/api/internal/run-retention" \
+            -H "X-Job-Token: ${{ secrets.RETENTION_JOB_TOKEN }}"
+```
