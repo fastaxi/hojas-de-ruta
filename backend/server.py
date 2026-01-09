@@ -230,7 +230,7 @@ async def register(data: UserCreate):
 async def login(data: LoginRequest):
     """
     Login user - returns access token in JSON, sets refresh token in httpOnly cookie.
-    Must be approved.
+    Must be approved. Handles temp password expiry and must_change_password flag.
     """
     user = await db.users.find_one({"email": data.email}, {"_id": 0})
     
@@ -243,6 +243,21 @@ async def login(data: LoginRequest):
             detail="Este usuario aun no ha sido verificado por el administrador."
         )
     
+    # Check if temp password has expired
+    must_change = user.get("must_change_password", False)
+    temp_expires = user.get("temp_password_expires_at")
+    
+    if must_change and temp_expires:
+        # temp_expires is stored as datetime in MongoDB
+        if isinstance(temp_expires, str):
+            temp_expires = datetime.fromisoformat(temp_expires.replace('Z', '+00:00'))
+        
+        if datetime.now(timezone.utc) > temp_expires:
+            raise HTTPException(
+                status_code=403,
+                detail="Contraseña temporal expirada. Contacte con la Federación."
+            )
+    
     # Get or initialize token_version
     token_version = user.get("token_version", 0)
     
@@ -254,11 +269,13 @@ async def login(data: LoginRequest):
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "must_change_password": must_change,
         "user": {
             "id": user["id"],
             "email": user["email"],
             "full_name": user["full_name"],
-            "status": user["status"]
+            "status": user["status"],
+            "must_change_password": must_change
         }
     })
     
@@ -269,7 +286,7 @@ async def login(data: LoginRequest):
         **cookie_settings
     )
     
-    logger.info(f"User logged in: {user['email']}")
+    logger.info(f"User logged in: {user['email']} (must_change_password: {must_change})")
     return response
 
 
