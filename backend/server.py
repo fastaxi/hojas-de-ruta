@@ -1192,8 +1192,8 @@ async def admin_run_retention(
     
     Use dry_run=true (default) to preview without changes.
     """
-    from retention_job import run_retention_job
-    
+    import time
+    start_time = time.time()
     now = datetime.now(timezone.utc)
     
     # Count before
@@ -1224,20 +1224,52 @@ async def admin_run_retention(
         result["message"] = f"DRY RUN: Se ocultarían {to_hide} hojas y se eliminarían {to_purge}"
     else:
         try:
-            await run_retention_job(dry_run=False)
+            hidden_count = 0
+            purged_count = 0
+            
+            # Execute HIDE
+            if to_hide > 0:
+                hide_result = await db.route_sheets.update_many(
+                    hide_query,
+                    {"$set": {"user_visible": False}}
+                )
+                hidden_count = hide_result.modified_count
+            
+            # Execute PURGE
+            if to_purge > 0:
+                purge_result = await db.route_sheets.delete_many(purge_query)
+                purged_count = purge_result.deleted_count
             
             # Count after
             total_after = await db.route_sheets.count_documents({})
             visible_after = await db.route_sheets.count_documents({"user_visible": True})
+            
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Log to retention_runs collection
+            run_log = {
+                "run_at": now,
+                "hidden_count": hidden_count,
+                "purged_count": purged_count,
+                "dry_run": False,
+                "trigger": "admin_manual",
+                "duration_ms": duration_ms,
+                "stats_before": {
+                    "total": total_before,
+                    "visible": visible_before
+                }
+            }
+            await db.retention_runs.insert_one(run_log)
             
             result["stats_after"] = {
                 "total": total_after,
                 "visible": visible_after,
                 "hidden": total_after - visible_after
             }
-            result["hidden"] = to_hide
-            result["purged"] = total_before - total_after
-            result["message"] = f"Ejecutado: {to_hide} hojas ocultas, {total_before - total_after} hojas eliminadas"
+            result["hidden"] = hidden_count
+            result["purged"] = purged_count
+            result["duration_ms"] = duration_ms
+            result["message"] = f"Ejecutado: {hidden_count} hojas ocultas, {purged_count} hojas eliminadas"
             
             logger.info(f"Retention job executed by admin: {result['message']}")
         except Exception as e:
