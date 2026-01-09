@@ -69,19 +69,50 @@ export function AdminUsersPage() {
     }
   };
 
-  const handleSendReset = async (userId) => {
+  // Open reset password confirmation dialog
+  const openResetConfirm = (user) => {
+    setResetTargetUser(user);
+    setShowResetConfirm(true);
+  };
+
+  // Execute the password reset
+  const handleResetPasswordTemp = async () => {
+    if (!resetTargetUser) return;
+    
     setActionLoading(true);
     try {
-      const result = await adminRequest('post', `/admin/users/${userId}/send-reset`);
-      setMessage(result.email_sent 
-        ? 'Email de recuperación enviado' 
-        : 'Error enviando email');
+      const result = await adminRequest('post', `/admin/users/${resetTargetUser.id}/reset-password-temp`);
+      setTempPasswordData(result);
+      setShowResetConfirm(false);
+      setShowTempPassword(true);
+      setSelectedUser(null);
     } catch (err) {
-      setMessage('Error al enviar email');
+      setMessage('Error al restablecer contraseña');
+      setShowResetConfirm(false);
     } finally {
       setActionLoading(false);
-      setTimeout(() => setMessage(''), 3000);
     }
+  };
+
+  // Copy temp password to clipboard
+  const copyToClipboard = async () => {
+    if (tempPasswordData?.temp_password) {
+      try {
+        await navigator.clipboard.writeText(tempPasswordData.temp_password);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+  };
+
+  // Close temp password modal
+  const closeTempPasswordModal = () => {
+    setShowTempPassword(false);
+    setTempPasswordData(null);
+    setResetTargetUser(null);
+    setCopied(false);
   };
 
   const formatDate = (dateStr) => {
