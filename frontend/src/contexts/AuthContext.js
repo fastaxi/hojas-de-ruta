@@ -182,21 +182,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Forgot password
-  const forgotPassword = async (email) => {
-    const response = await axios.post(`${API_URL}/auth/forgot-password`, { email });
-    return response.data;
-  };
-
-  // Reset password
-  const resetPassword = async (token, newPassword) => {
-    const response = await axios.post(`${API_URL}/auth/reset-password`, {
-      token,
-      new_password: newPassword
-    });
-    return response.data;
-  };
-
   // Update profile
   const updateProfile = async (data) => {
     const response = await axios.put(`${API_URL}/me`, data);
