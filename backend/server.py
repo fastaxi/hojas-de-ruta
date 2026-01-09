@@ -821,18 +821,83 @@ async def get_route_sheets_pdf_range(
 
 
 # ============== ADMIN ENDPOINTS ==============
+
+# Rate limiting for admin login (in-memory, simple implementation)
+# For production with multiple instances, use Redis
+from collections import defaultdict
+import time
+
+admin_login_attempts = defaultdict(list)  # IP -> list of timestamps
+ADMIN_LOGIN_MAX_ATTEMPTS = 5
+ADMIN_LOGIN_LOCKOUT_SECONDS = 300  # 5 minutes
+
+
+def check_admin_rate_limit(ip: str) -> bool:
+    """Check if IP is rate limited. Returns True if allowed, False if blocked."""
+    now = time.time()
+    # Clean old attempts
+    admin_login_attempts[ip] = [
+        t for t in admin_login_attempts[ip] 
+        if now - t < ADMIN_LOGIN_LOCKOUT_SECONDS
+    ]
+    return len(admin_login_attempts[ip]) < ADMIN_LOGIN_MAX_ATTEMPTS
+
+
+def record_admin_login_attempt(ip: str):
+    """Record a failed login attempt"""
+    admin_login_attempts[ip].append(time.time())
+
+
+def clear_admin_login_attempts(ip: str):
+    """Clear attempts after successful login"""
+    admin_login_attempts[ip] = []
+
+
 @admin_router.post("/login")
-async def admin_login(data: AdminLoginRequest):
-    """Admin login"""
-    admin_username = os.environ.get("ADMIN_USERNAME", "admin")
+async def admin_login(data: AdminLoginRequest, request: Request):
+    """
+    Admin login with rate limiting and fail-closed in production.
     
-    if data.username != admin_username:
+    Production requirements:
+    - ADMIN_USERNAME and ADMIN_PASSWORD_HASH must be set in environment
+    - Default credentials (admin/admin123) are NEVER accepted
+    
+    Rate limiting:
+    - 5 failed attempts per IP = 5 minute lockout
+    """
+    # Get client IP
+    client_ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    
+    # Check rate limit first
+    if not check_admin_rate_limit(client_ip):
+        logger.warning(f"Admin login rate limited: {client_ip}")
+        raise HTTPException(
+            status_code=429,
+            detail="Demasiados intentos. Espera 5 minutos."
+        )
+    
+    # Check if admin is configured (fail-closed in production)
+    if not is_admin_configured():
+        logger.error("Admin login attempted but admin not configured in production")
+        raise HTTPException(
+            status_code=503,
+            detail="Administrador no configurado. Contacte al administrador del sistema."
+        )
+    
+    # Verify credentials
+    if not verify_admin_password(data.username, data.password):
+        record_admin_login_attempt(client_ip)
+        remaining = ADMIN_LOGIN_MAX_ATTEMPTS - len(admin_login_attempts[client_ip])
+        logger.warning(f"Failed admin login attempt from {client_ip} ({remaining} attempts remaining)")
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     
-    if not verify_admin_password(data.password):
-        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-    
+    # Success - clear rate limit and create token
+    clear_admin_login_attempts(client_ip)
     token = create_admin_token()
+    logger.info(f"Admin login successful from {client_ip}")
     return {"access_token": token, "token_type": "bearer"}
 
 
