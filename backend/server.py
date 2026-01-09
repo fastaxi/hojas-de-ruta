@@ -984,7 +984,7 @@ async def admin_update_user(
 
 @admin_router.post("/users/{user_id}/approve")
 async def admin_approve_user(user_id: str, admin: dict = Depends(get_current_admin)):
-    """Approve user registration"""
+    """Approve user registration (no email notification)"""
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -996,18 +996,16 @@ async def admin_approve_user(user_id: str, admin: dict = Depends(get_current_adm
         {"id": user_id},
         {"$set": {
             "status": "APPROVED",
-            "updated_at": datetime.now(timezone.utc)  # datetime
+            "updated_at": datetime.now(timezone.utc)
         }}
     )
-    
-    # Send approval email
-    email_result = await send_approval_email(user["email"], user["full_name"])
     
     logger.info(f"User approved: {user['email']}")
     
     return {
         "message": "Usuario aprobado",
-        "email_sent": False  # Emails disabled
+        "user_email": user["email"],
+        "user_name": user["full_name"]
     }
 
 
