@@ -86,6 +86,10 @@ export function AdminConfigPage() {
     try {
       const result = await adminRequest('post', `/admin/run-retention?dry_run=${dryRun}`);
       setRetentionResult(result);
+      // Refresh last run after real execution
+      if (!dryRun) {
+        fetchLastRetentionRun();
+      }
     } catch (err) {
       setRetentionResult({
         error: true,
