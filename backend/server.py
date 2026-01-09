@@ -384,75 +384,27 @@ async def logout(
 
 
 @auth_router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest):
-    """Request password reset email"""
-    user = await db.users.find_one({"email": data.email}, {"_id": 0})
-    
-    # Always return success to prevent email enumeration
-    if not user:
-        return {"message": "Si el email existe, recibirás un enlace de recuperación"}
-    
-    # Generate reset token (plain for email, hash for storage)
-    token, token_hash = generate_reset_token()
-    now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(hours=1)
-    
-    reset_token = PasswordResetToken(
-        user_id=user["id"],
-        token_hash=token_hash,
-        expires_at=expires_at
+async def forgot_password():
+    """
+    Password recovery via email is DISABLED.
+    Users must contact the Federation (admin) for password reset.
+    """
+    raise HTTPException(
+        status_code=410,
+        detail="Recuperación por email no disponible. Contacte con la Federación."
     )
-    
-    # Keep expires_at as datetime for TTL index to work
-    token_dict = reset_token.model_dump()
-    # datetime fields stay as datetime (BSON Date)
-    
-    await db.password_reset_tokens.insert_one(token_dict)
-    
-    # Send email with plain token (user clicks link with token)
-    await send_password_reset_email(user["email"], user["full_name"], token)
-    
-    return {"message": "Si el email existe, recibirás un enlace de recuperación"}
 
 
 @auth_router.post("/reset-password")
-async def reset_password(data: ResetPasswordRequest):
-    """Reset password using token (one-time use, atomic validation)"""
-    token_hash = hash_reset_token(data.token)
-    now = datetime.now(timezone.utc)
-    
-    # ATOMIC: Find valid token AND mark as used in single operation
-    # Compare expires_at as datetime (BSON Date), not string
-    token_doc = await db.password_reset_tokens.find_one_and_update(
-        {
-            "token_hash": token_hash,
-            "used": False,
-            "expires_at": {"$gt": now}  # datetime comparison
-        },
-        {
-            "$set": {
-                "used": True,
-                "used_at": now  # datetime, not string
-            }
-        },
-        return_document=ReturnDocument.BEFORE
+async def reset_password():
+    """
+    Password reset via email token is DISABLED.
+    Users must contact the Federation (admin) for password reset.
+    """
+    raise HTTPException(
+        status_code=410,
+        detail="Recuperación por email no disponible. Contacte con la Federación."
     )
-    
-    if not token_doc:
-        raise HTTPException(status_code=400, detail="Token inválido o expirado")
-    
-    # Update password
-    new_hash = hash_password(data.new_password)
-    await db.users.update_one(
-        {"id": token_doc["user_id"]},
-        {"$set": {
-            "password_hash": new_hash,
-            "updated_at": now  # datetime
-        }}
-    )
-    
-    logger.info(f"Password reset for user {token_doc['user_id']}")
-    return {"message": "Contraseña actualizada correctamente"}
 
 
 # ============== USER ENDPOINTS ==============
