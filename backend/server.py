@@ -476,6 +476,48 @@ async def delete_driver(driver_id: str, user: dict = Depends(get_current_user)):
     return {"message": "Chofer eliminado"}
 
 
+@user_router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Change user password.
+    If must_change_password is true, this clears the flag.
+    """
+    # Verify current password
+    if not verify_password(data.current_password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Contraseña actual incorrecta")
+    
+    # Validate new password (min 8 chars, 1 uppercase, 1 number)
+    new_pass = data.new_password
+    if len(new_pass) < 8:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres")
+    if not any(c.isupper() for c in new_pass):
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos una mayúscula")
+    if not any(c.isdigit() for c in new_pass):
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos un número")
+    
+    # Update password and clear must_change_password flag
+    new_hash = hash_password(new_pass)
+    now = datetime.now(timezone.utc)
+    
+    await db.users.update_one(
+        {"id": user["id"]},
+        {
+            "$set": {
+                "password_hash": new_hash,
+                "must_change_password": False,
+                "temp_password_expires_at": None,
+                "updated_at": now
+            }
+        }
+    )
+    
+    logger.info(f"Password changed for user {user['id']}")
+    return {"message": "Contraseña actualizada correctamente"}
+
+
 # ============== ROUTE SHEETS ENDPOINTS ==============
 @sheets_router.post("", response_model=dict)
 async def create_route_sheet(
