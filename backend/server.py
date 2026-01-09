@@ -1096,6 +1096,77 @@ async def admin_reset_password_temp(
     }
 
 
+@admin_router.get("/audit/password-resets")
+async def admin_get_password_reset_audit(
+    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    limit: int = Query(default=20, le=100),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination (timestamp ISO)"),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Get password reset audit logs.
+    Returns list of reset events sorted by timestamp (newest first).
+    """
+    query = {"action": "RESET_PASSWORD_TEMP"}
+    
+    if user_id:
+        query["user_id"] = user_id
+    
+    if cursor:
+        try:
+            cursor_dt = datetime.fromisoformat(cursor.replace("Z", "+00:00"))
+            query["timestamp"] = {"$lt": cursor_dt}
+        except ValueError:
+            pass
+    
+    logs = await db.admin_audit_logs.find(
+        query,
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    # Convert datetime to ISO string
+    for log in logs:
+        if isinstance(log.get("timestamp"), datetime):
+            log["timestamp"] = log["timestamp"].isoformat()
+        if isinstance(log.get("expires_at"), datetime):
+            log["expires_at"] = log["expires_at"].isoformat()
+    
+    # Next cursor
+    next_cursor = None
+    if len(logs) == limit and logs:
+        next_cursor = logs[-1]["timestamp"]
+    
+    return {
+        "items": logs,
+        "next_cursor": next_cursor,
+        "count": len(logs)
+    }
+
+
+@admin_router.get("/users/{user_id}/audit/password-resets")
+async def admin_get_user_password_reset_audit(
+    user_id: str,
+    limit: int = Query(default=10, le=50),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Get password reset audit logs for a specific user.
+    """
+    logs = await db.admin_audit_logs.find(
+        {"action": "RESET_PASSWORD_TEMP", "user_id": user_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    # Convert datetime to ISO string
+    for log in logs:
+        if isinstance(log.get("timestamp"), datetime):
+            log["timestamp"] = log["timestamp"].isoformat()
+        if isinstance(log.get("expires_at"), datetime):
+            log["expires_at"] = log["expires_at"].isoformat()
+    
+    return logs
+
+
 @admin_router.get("/route-sheets", response_model=List[dict])
 async def admin_get_route_sheets(
     user_id: Optional[str] = None,
