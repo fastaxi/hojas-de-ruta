@@ -6,11 +6,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
-const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// Use relative URL in development (proxy handles it), full URL in production
+const API_URL = process.env.NODE_ENV === 'development' 
+  ? '/api' 
+  : `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const AuthContext = createContext(null);
 
-// Configure axios to send cookies
+// Configure axios to send cookies (required for httpOnly refresh token)
 axios.defaults.withCredentials = true;
 
 export function AuthProvider({ children }) {
