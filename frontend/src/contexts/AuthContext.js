@@ -205,11 +205,11 @@ export function AuthProvider({ children }) {
     user,
     loading,
     isAuthenticated: !!user && !!accessToken,
+    mustChangePassword: user?.must_change_password || false,
     login,
     register,
     logout: handleLogout,
-    forgotPassword,
-    resetPassword,
+    changePassword,
     updateProfile,
     refreshUser
   };
