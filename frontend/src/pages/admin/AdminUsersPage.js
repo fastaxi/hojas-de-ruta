@@ -113,6 +113,10 @@ export function AdminUsersPage() {
       setTempPasswordData(result);
       setShowResetConfirm(false);
       setShowTempPassword(true);
+      // Refresh history if same user is still selected
+      if (selectedUser?.id === resetTargetUser.id) {
+        fetchResetHistory(resetTargetUser.id);
+      }
       setSelectedUser(null);
     } catch (err) {
       setMessage('Error al restablecer contraseña');
