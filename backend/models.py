@@ -66,6 +66,9 @@ class User(UserBase):
     id: str = Field(default_factory=generate_id)
     password_hash: str
     status: Literal["PENDING", "APPROVED"] = "PENDING"
+    token_version: int = 0  # For session invalidation
+    must_change_password: bool = False  # Force password change on next login
+    temp_password_expires_at: Optional[datetime] = None  # Temp password expiry (72h)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -84,8 +87,15 @@ class UserPublic(BaseModel):
     vehicle_model: str
     vehicle_plate: str
     status: str
+    must_change_password: bool = False
     created_at: datetime
     updated_at: datetime
+
+
+# ============== PASSWORD CHANGE MODELS ==============
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 # ============== ROUTE SHEET MODELS ==============
