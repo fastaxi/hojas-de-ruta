@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Loader2, ArrowLeft, Info } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,8 +24,14 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/app/nueva-hoja');
+      const user = await login(email, password);
+      
+      // If user must change password, redirect to change password page
+      if (user.must_change_password) {
+        navigate('/app/cambiar-password');
+      } else {
+        navigate('/app/nueva-hoja');
+      }
     } catch (err) {
       const message = err.response?.data?.detail || 'Error al iniciar sesión';
       setError(message);
@@ -132,16 +138,16 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center space-y-3">
-              <Link 
-                to="/app/recuperar" 
-                className="text-sm text-maroon-900 hover:underline"
-                data-testid="forgot-password-link"
-              >
-                ¿Olvidaste tu contraseña?
-              </Link>
+            <div className="mt-6 space-y-4">
+              {/* Password recovery info - NO LINK */}
+              <div className="flex items-start gap-2 p-3 bg-stone-50 border border-stone-200 rounded-lg">
+                <Info className="w-4 h-4 text-stone-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-stone-600">
+                  Si olvidaste tu contraseña, contacta con la Federación para restablecerla.
+                </p>
+              </div>
               
-              <p className="text-sm text-stone-500">
+              <p className="text-sm text-stone-500 text-center">
                 ¿No tienes cuenta?{' '}
                 <Link 
                   to="/app/registro" 
