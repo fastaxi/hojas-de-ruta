@@ -136,22 +136,8 @@ export function HistoricoPage() {
   };
 
   const downloadRangePdf = async () => {
-    if (!fromDate || !toDate) {
-      toast({ title: 'Selecciona fechas de inicio y fin', variant: 'destructive' });
-      return;
-    }
-
-    if (fromDate > toDate) {
-      toast({ title: 'El rango no es válido: "Desde" no puede ser posterior a "Hasta"', variant: 'destructive' });
-      return;
-    }
-
-    const days = diffDaysInclusive(fromDate, toDate);
-    if (days > 31) {
-      toast({ title: 'El rango máximo para exportar es 31 días', variant: 'destructive' });
-      return;
-    }
-
+    if (!canExportRange) return;
+    
     setIsExportingRange(true);
     try {
       const urlReq = `${API_URL}/route-sheets/pdf/range?from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}`;
