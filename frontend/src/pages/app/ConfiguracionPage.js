@@ -545,7 +545,76 @@ export function ConfiguracionPage() {
               <CardTitle>Seguridad de la Cuenta</CardTitle>
               <CardDescription>Gestiona tu sesión y contraseña</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              {/* Change Password Form */}
+              <div className="p-4 bg-stone-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="w-5 h-5 text-stone-500" />
+                  <p className="font-medium text-stone-900">Cambiar Contraseña</p>
+                </div>
+                
+                {passwordError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {passwordError}
+                  </div>
+                )}
+                
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 text-sm">Contraseña Actual</Label>
+                    <Input
+                      type="password"
+                      value={passwordForm.current_password}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, current_password: e.target.value }))}
+                      placeholder="••••••••"
+                      className="h-11"
+                      data-testid="current-password"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 text-sm">Nueva Contraseña</Label>
+                    <Input
+                      type="password"
+                      value={passwordForm.new_password}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, new_password: e.target.value }))}
+                      placeholder="Mín. 8 caracteres, 1 mayúscula, 1 número"
+                      className="h-11"
+                      data-testid="new-password"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 text-sm">Confirmar Nueva Contraseña</Label>
+                    <Input
+                      type="password"
+                      value={passwordForm.confirm_password}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm_password: e.target.value }))}
+                      placeholder="Repite la nueva contraseña"
+                      className="h-11"
+                      data-testid="confirm-password"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={changingPassword}
+                    className="w-full bg-maroon-900 hover:bg-maroon-800 h-11"
+                    data-testid="change-password-submit"
+                  >
+                    {changingPassword ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Cambiando...
+                      </>
+                    ) : (
+                      'Cambiar Contraseña'
+                    )}
+                  </Button>
+                  <p className="text-xs text-stone-500 text-center">
+                    Al cambiar tu contraseña, se cerrará tu sesión por seguridad.
+                  </p>
+                </form>
+              </div>
+
+              {/* Logout */}
               <div className="flex items-center justify-between p-4 bg-stone-50 rounded-lg">
                 <div>
                   <p className="font-medium text-stone-900">Cerrar Sesión</p>
@@ -559,22 +628,6 @@ export function ConfiguracionPage() {
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Cerrar Sesión
-                </Button>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-stone-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-stone-900">Cambiar Contraseña</p>
-                  <p className="text-sm text-stone-500">Usa la opción de recuperar contraseña</p>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    logout();
-                    navigate('/app/forgot-password');
-                  }}
-                  data-testid="change-password-btn"
-                >
-                  Cambiar
                 </Button>
               </div>
             </CardContent>
