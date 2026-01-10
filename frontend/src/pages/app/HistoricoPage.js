@@ -263,6 +263,19 @@ export function HistoricoPage() {
               </div>
             </div>
 
+            {/* Range helper messages */}
+            {rangeReady && rangeInvalid && (
+              <p className="text-xs text-red-600">
+                El rango no es válido: "Desde" no puede ser posterior a "Hasta".
+              </p>
+            )}
+
+            {rangeReady && !rangeInvalid && rangeTooLarge && (
+              <p className="text-xs text-red-600">
+                El rango máximo para exportar es 31 días. Acota el rango.
+              </p>
+            )}
+
             {/* Toggle and export */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -273,28 +286,26 @@ export function HistoricoPage() {
                 />
                 <Label className="text-sm text-stone-600">Mostrar anuladas</Label>
               </div>
-              
-              {fromDate && toDate && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-stone-400 hidden sm:inline">Sin anuladas</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={downloadRangePdf}
-                    disabled={isExportingRange}
-                    className="text-maroon-900 border-maroon-900"
-                    data-testid="export-range-btn"
-                  >
-                    {isExportingRange ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4 mr-1" />
-                    )}
-                    {isExportingRange ? 'Generando...' : 'Exportar rango'}
-                  </Button>
-                </div>
-              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadRangePdf}
+                disabled={!canExportRange}
+                className="text-maroon-900 border-maroon-900 disabled:opacity-50"
+                data-testid="export-range-btn"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                {isExportingRange ? 'Generando...' : 'Exportar rango'}
+              </Button>
             </div>
+
+            {/* Nota de coherencia con backend */}
+            {rangeReady && (
+              <p className="text-[11px] text-stone-500">
+                Nota: el PDF por rango no incluye hojas anuladas.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
