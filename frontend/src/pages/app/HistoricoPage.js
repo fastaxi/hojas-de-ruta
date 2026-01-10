@@ -10,12 +10,38 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Switch } from '../../components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
+import { toast } from '../../hooks/use-toast';
 import { 
   FileText, Download, Ban, Search, Filter, Loader2, 
   Calendar, ChevronRight, AlertTriangle, X
 } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// ============== PDF DOWNLOAD HELPERS ==============
+const isIOS = () => {
+  const ua = window.navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+};
+
+const diffDaysInclusive = (from, to) => {
+  const f = new Date(`${from}T00:00:00`);
+  const t = new Date(`${to}T00:00:00`);
+  const ms = t.getTime() - f.getTime();
+  return Math.floor(ms / (1000 * 60 * 60 * 24)) + 1;
+};
+
+const extractBlobErrorMessage = async (blob) => {
+  try {
+    const text = await blob.text();
+    const maybeJson = JSON.parse(text);
+    if (maybeJson?.detail) return String(maybeJson.detail);
+    if (maybeJson?.message) return String(maybeJson.message);
+    return text?.slice(0, 200) || null;
+  } catch {
+    return null;
+  }
+};
 
 export function HistoricoPage() {
   const [sheets, setSheets] = useState([]);
@@ -24,6 +50,7 @@ export function HistoricoPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isExportingRange, setIsExportingRange] = useState(false);
   
   // Annul dialog
   const [annulDialog, setAnnulDialog] = useState({ open: false, sheet: null });
