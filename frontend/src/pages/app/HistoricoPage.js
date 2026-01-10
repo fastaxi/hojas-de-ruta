@@ -106,40 +106,100 @@ export function HistoricoPage() {
         responseType: 'blob'
       });
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `hoja_ruta_${sheetNumber.replace('/', '_')}.pdf`);
+      
+      if (isIOS()) {
+        link.target = '_blank';
+        link.rel = 'noopener';
+      } else {
+        link.setAttribute('download', `hoja_ruta_${sheetNumber.replace('/', '_')}.pdf`);
+      }
+      
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1500);
     } catch (err) {
       console.error('Error downloading PDF:', err);
+      toast({ title: 'Error al descargar el PDF', variant: 'destructive' });
     }
   };
 
   const downloadRangePdf = async () => {
     if (!fromDate || !toDate) {
-      alert('Selecciona fechas de inicio y fin');
+      toast({ title: 'Selecciona fechas de inicio y fin', variant: 'destructive' });
       return;
     }
-    
+
+    if (fromDate > toDate) {
+      toast({ title: 'El rango no es válido: "Desde" no puede ser posterior a "Hasta"', variant: 'destructive' });
+      return;
+    }
+
+    const days = diffDaysInclusive(fromDate, toDate);
+    if (days > 31) {
+      toast({ title: 'El rango máximo para exportar es 31 días', variant: 'destructive' });
+      return;
+    }
+
+    setIsExportingRange(true);
     try {
-      const response = await axios.get(
-        `${API_URL}/route-sheets/pdf/range?from_date=${fromDate}&to_date=${toDate}`,
-        { responseType: 'blob' }
-      );
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const urlReq = `${API_URL}/route-sheets/pdf/range?from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}`;
+      const response = await axios.get(urlReq, { responseType: 'blob' });
+
+      // Check if backend returned JSON error instead of PDF
+      const contentType = response.headers?.['content-type'] || '';
+      if (contentType.includes('application/json')) {
+        const msg = await extractBlobErrorMessage(response.data);
+        toast({ title: msg || 'No se pudo generar el PDF', variant: 'destructive' });
+        return;
+      }
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `hojas_ruta_${fromDate}_a_${toDate}.pdf`);
+
+      if (isIOS()) {
+        link.target = '_blank';
+        link.rel = 'noopener';
+      } else {
+        link.setAttribute('download', `hojas_ruta_${fromDate}_a_${toDate}.pdf`);
+      }
+
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1500);
+      
+      toast({ title: 'PDF descargado correctamente' });
     } catch (err) {
       console.error('Error downloading range PDF:', err);
-      alert('No hay hojas en el rango seleccionado');
+
+      const status = err?.response?.status;
+
+      if (status === 404 || status === 204) {
+        toast({ title: 'No hay hojas en el rango seleccionado', variant: 'destructive' });
+        return;
+      }
+
+      if (status === 400) {
+        const blob = err?.response?.data;
+        if (blob instanceof Blob) {
+          const msg = await extractBlobErrorMessage(blob);
+          toast({ title: msg || 'Solicitud inválida. Revisa el rango de fechas.', variant: 'destructive' });
+        } else {
+          toast({ title: 'Solicitud inválida. Revisa el rango de fechas.', variant: 'destructive' });
+        }
+        return;
+      }
+
+      toast({ title: 'Error al descargar el PDF. Reinténtalo.', variant: 'destructive' });
+    } finally {
+      setIsExportingRange(false);
     }
   };
 
