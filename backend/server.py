@@ -487,11 +487,13 @@ async def delete_driver(driver_id: str, user: dict = Depends(get_current_user)):
 @user_router.post("/change-password")
 async def change_password(
     data: ChangePasswordRequest,
+    response: JSONResponse,
     user: dict = Depends(get_current_user)
 ):
     """
     Change user password.
     If must_change_password is true, this clears the flag.
+    SECURITY: Invalidates all sessions by incrementing token_version and clearing refresh cookie.
     """
     # Verify current password
     if not verify_password(data.current_password, user["password_hash"]):
@@ -506,7 +508,7 @@ async def change_password(
     if not any(c.isdigit() for c in new_pass):
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos un número")
     
-    # Update password and clear must_change_password flag
+    # Update password, clear flags, and INCREMENT token_version to invalidate all sessions
     new_hash = hash_password(new_pass)
     now = datetime.now(timezone.utc)
     
@@ -518,12 +520,30 @@ async def change_password(
                 "must_change_password": False,
                 "temp_password_expires_at": None,
                 "updated_at": now
-            }
+            },
+            "$inc": {"token_version": 1}  # Invalidate ALL refresh tokens
         }
     )
     
-    logger.info(f"Password changed for user {user['id']}")
-    return {"message": "Contraseña actualizada correctamente"}
+    logger.info(f"Password changed for user {user['id']} - all sessions invalidated")
+    
+    # Build response with cookie clearing
+    result = JSONResponse(content={
+        "message": "Contraseña actualizada. Vuelve a iniciar sesión.",
+        "session_invalidated": True
+    })
+    
+    # Clear refresh token cookie
+    cookie_settings = get_cookie_settings()
+    result.delete_cookie(
+        key=cookie_settings["key"],
+        path=cookie_settings["path"],
+        httponly=cookie_settings["httponly"],
+        secure=cookie_settings["secure"],
+        samesite=cookie_settings["samesite"]
+    )
+    
+    return result
 
 
 # ============== ROUTE SHEETS ENDPOINTS ==============
