@@ -462,13 +462,20 @@ async def create_driver(data: DriverCreate, user: dict = Depends(get_current_use
 @user_router.put("/drivers/{driver_id}", response_model=dict)
 async def update_driver(
     driver_id: str,
-    data: DriverCreate,
+    data: DriverUpdate,
     user: dict = Depends(get_current_user)
 ):
-    """Update a driver"""
+    """Update a driver - only provided fields are updated"""
+    # Build update dict with only provided fields
+    update_fields = {}
+    if data.full_name is not None:
+        update_fields["full_name"] = data.full_name
+    if data.dni is not None:
+        update_fields["dni"] = data.dni
+    
     result = await db.drivers.update_one(
         {"id": driver_id, "user_id": user["id"]},
-        {"$set": {"full_name": data.full_name, "dni": data.dni}}
+        {"$set": update_fields}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Chofer no encontrado")
