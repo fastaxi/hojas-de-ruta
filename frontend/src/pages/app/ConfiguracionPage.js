@@ -55,6 +55,15 @@ export function ConfiguracionPage() {
   // Confirm dialogs
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
+  
+  // Password change form
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   // Note: axios already has auth headers configured via AuthContext
 
