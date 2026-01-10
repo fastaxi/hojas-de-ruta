@@ -282,16 +282,24 @@ export function HistoricoPage() {
               </div>
               
               {fromDate && toDate && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={downloadRangePdf}
-                  className="text-maroon-900 border-maroon-900"
-                  data-testid="export-range-btn"
-                >
-                  <Download className="w-4 h-4 mr-1" />
-                  Exportar rango
-                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-stone-400 hidden sm:inline">Sin anuladas</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadRangePdf}
+                    disabled={isExportingRange}
+                    className="text-maroon-900 border-maroon-900"
+                    data-testid="export-range-btn"
+                  >
+                    {isExportingRange ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-1" />
+                    )}
+                    {isExportingRange ? 'Generando...' : 'Exportar rango'}
+                  </Button>
+                </div>
               )}
             </div>
           </div>
