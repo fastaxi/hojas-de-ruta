@@ -21,7 +21,7 @@ import io
 # Local imports
 from models import (
     User, UserCreate, UserUpdate, UserPublic,
-    Driver, DriverCreate,
+    Driver, DriverCreate, DriverUpdate,
     RouteSheet, RouteSheetCreate, RouteSheetAnnul,
     AppConfig, AppConfigUpdate,
     LoginRequest, TokenResponse, RefreshRequest,
