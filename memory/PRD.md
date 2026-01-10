@@ -119,13 +119,13 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 19. ✅ **Retención automatizada**: Endpoint interno con token técnico, lock de concurrencia, logging con stats_after
 20. ✅ **Auditoría de resets**: Logs con admin, user, timestamp, IP. UI en modal de usuario. NUNCA se guarda contraseña.
 21. ✅ **Cambio contraseña usuario**: Tab Seguridad en /app/configuracion. Invalida sesión (token_version++) y limpia cookie.
+22. ✅ **Hardening Pydantic**: extra="forbid", normalización strings (strip, empty→None, uppercase dni/plate), DriverUpdate nuevo
 
 ## Backlog P0 (Próximos pasos)
 1. ⬜ Logo FAST real en assets
 
 ## Backlog P1
-1. ⬜ Validadores Pydantic más estrictos (strip, empty->None, extra="forbid")
-2. ⬜ Exportar PDF por rango de fechas (endpoint existe, falta UI completa)
+1. ⬜ Exportar PDF por rango de fechas (endpoint existe, falta UI completa)
 
 ## Backlog P2
 1. ⬜ Convertir a React Native (Expo)
