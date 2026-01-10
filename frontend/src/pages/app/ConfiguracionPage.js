@@ -218,6 +218,68 @@ export function ConfiguracionPage() {
     navigate('/app/login');
   };
 
+  // ============== CHANGE PASSWORD ==============
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    
+    // Validations
+    if (!passwordForm.current_password) {
+      setPasswordError('Introduce tu contraseña actual');
+      return;
+    }
+    if (!passwordForm.new_password) {
+      setPasswordError('Introduce la nueva contraseña');
+      return;
+    }
+    if (passwordForm.new_password.length < 8) {
+      setPasswordError('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    if (!/[A-Z]/.test(passwordForm.new_password)) {
+      setPasswordError('La contraseña debe tener al menos una mayúscula');
+      return;
+    }
+    if (!/[0-9]/.test(passwordForm.new_password)) {
+      setPasswordError('La contraseña debe tener al menos un número');
+      return;
+    }
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordError('Las contraseñas no coinciden');
+      return;
+    }
+    
+    setChangingPassword(true);
+    try {
+      await axios.post(`${API_URL}/me/change-password`, {
+        current_password: passwordForm.current_password,
+        new_password: passwordForm.new_password
+      });
+      
+      // Clear form
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+      
+      // Show success message and redirect to login
+      showSuccess('Contraseña actualizada. Serás redirigido al login...');
+      
+      // Wait and redirect
+      setTimeout(async () => {
+        await logout();
+        navigate('/app/login', { state: { message: 'Sesión cerrada por seguridad tras cambiar la contraseña' } });
+      }, 2000);
+      
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      if (err.response?.status === 401) {
+        setPasswordError('Contraseña actual incorrecta');
+      } else {
+        setPasswordError(detail || 'Error al cambiar la contraseña');
+      }
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
