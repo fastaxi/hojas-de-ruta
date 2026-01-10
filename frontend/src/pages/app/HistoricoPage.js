@@ -60,6 +60,13 @@ export function HistoricoPage() {
   // Detail dialog
   const [detailDialog, setDetailDialog] = useState({ open: false, sheet: null });
 
+  // Range validation
+  const rangeReady = Boolean(fromDate && toDate);
+  const rangeInvalid = rangeReady && fromDate > toDate;
+  const rangeDays = rangeReady && !rangeInvalid ? diffDaysInclusive(fromDate, toDate) : null;
+  const rangeTooLarge = rangeDays != null && rangeDays > 31;
+  const canExportRange = rangeReady && !rangeInvalid && !rangeTooLarge && !isExportingRange;
+
   const fetchSheets = useCallback(async () => {
     setLoading(true);
     try {
