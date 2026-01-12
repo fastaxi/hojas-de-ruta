@@ -25,6 +25,41 @@ def get_logo_path():
     return None
 
 
+def get_logo_image(max_width_mm=35, max_height_mm=25):
+    """
+    Get logo Image maintaining aspect ratio.
+    Returns None if logo not found.
+    """
+    logo_path = get_logo_path()
+    if not logo_path:
+        return None
+    
+    try:
+        from PIL import Image as PILImage
+        
+        # Get original dimensions
+        with PILImage.open(logo_path) as img:
+            orig_width, orig_height = img.size
+        
+        # Calculate aspect ratio
+        aspect = orig_width / orig_height
+        
+        # Calculate dimensions maintaining aspect ratio
+        # Try fitting to max width first
+        width = max_width_mm * mm
+        height = width / aspect
+        
+        # If height exceeds max, fit to height instead
+        if height > max_height_mm * mm:
+            height = max_height_mm * mm
+            width = height * aspect
+        
+        return Image(logo_path, width=width, height=height)
+    except Exception as e:
+        print(f"Error loading logo: {e}")
+        return None
+
+
 class AnnulledWatermark(canvas.Canvas):
     """Canvas that adds ANULADA watermark for annulled sheets"""
     
