@@ -206,3 +206,37 @@ def get_cookie_settings() -> dict:
         "samesite": COOKIE_SAMESITE,
         "max_age": COOKIE_MAX_AGE
     }
+
+
+# ============== MOBILE AUTH HELPERS ==============
+
+MOBILE_REFRESH_TOKEN_EXPIRE_DAYS = 30  # Longer for mobile convenience
+
+
+def create_mobile_refresh_token(user_id: str, token_version: int = 0) -> Tuple[str, str]:
+    """
+    Create JWT refresh token for mobile with unique JTI.
+    Returns: (token_string, jti)
+    """
+    jti = secrets.token_hex(16)
+    expire = datetime.now(timezone.utc) + timedelta(days=MOBILE_REFRESH_TOKEN_EXPIRE_DAYS)
+    payload = {
+        "sub": user_id,
+        "type": "mobile_refresh",
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "jti": jti,
+        "v": token_version
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return token, jti
+
+
+def hash_token(token: str) -> str:
+    """Hash a token for secure storage (SHA-256)"""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def get_mobile_refresh_expiry() -> datetime:
+    """Get expiry datetime for mobile refresh token"""
+    return datetime.now(timezone.utc) + timedelta(days=MOBILE_REFRESH_TOKEN_EXPIRE_DAYS)
