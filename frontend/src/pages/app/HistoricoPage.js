@@ -13,7 +13,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { toast } from '../../hooks/use-toast';
 import { 
   FileText, Download, Ban, Search, Filter, Loader2, 
-  Calendar, ChevronRight, AlertTriangle, X
+  Calendar, ChevronRight, AlertTriangle, X, Share2
 } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
