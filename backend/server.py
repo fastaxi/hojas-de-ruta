@@ -542,6 +542,228 @@ async def reset_password():
     )
 
 
+# ============== MOBILE AUTH ENDPOINTS ==============
+# These endpoints return refresh tokens in JSON (no cookies) for React Native/Expo apps.
+# Refresh tokens are stored in DB with hash for secure rotation and revocation.
+
+# Rate limiting for mobile login (in-memory)
+from collections import defaultdict
+import time as time_module
+
+mobile_login_attempts = defaultdict(list)
+MOBILE_LOGIN_MAX_ATTEMPTS = 10
+MOBILE_LOGIN_WINDOW_SECONDS = 600  # 10 minutes
+
+
+def check_mobile_login_rate_limit(key: str) -> bool:
+    """Check if login attempt is allowed (10 attempts per 10 min)"""
+    now = time_module.time()
+    mobile_login_attempts[key] = [
+        t for t in mobile_login_attempts[key] 
+        if now - t < MOBILE_LOGIN_WINDOW_SECONDS
+    ]
+    return len(mobile_login_attempts[key]) < MOBILE_LOGIN_MAX_ATTEMPTS
+
+
+def record_mobile_login_attempt(key: str):
+    mobile_login_attempts[key].append(time_module.time())
+
+
+@mobile_auth_router.post("/login")
+async def mobile_login(data: LoginRequest, request: Request):
+    """
+    Mobile login - returns access_token AND refresh_token in JSON (no cookies).
+    Refresh token is stored in DB with hash for secure rotation.
+    """
+    # Rate limiting by IP + email
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = f"{client_ip}:{data.email}"
+    
+    if not check_mobile_login_rate_limit(rate_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Demasiados intentos. Espera unos minutos."
+        )
+    
+    user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    
+    if not user or not verify_password(data.password, user["password_hash"]):
+        record_mobile_login_attempt(rate_key)
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    
+    if user["status"] != "APPROVED":
+        raise HTTPException(
+            status_code=403,
+            detail="Este usuario aun no ha sido verificado por el administrador."
+        )
+    
+    # Check temp password expiry
+    must_change = user.get("must_change_password", False)
+    temp_expires = user.get("temp_password_expires_at")
+    
+    if must_change and temp_expires:
+        if isinstance(temp_expires, datetime):
+            if temp_expires.tzinfo is None:
+                temp_expires = temp_expires.replace(tzinfo=timezone.utc)
+        elif isinstance(temp_expires, str):
+            temp_expires = datetime.fromisoformat(temp_expires.replace('Z', '+00:00'))
+        
+        if datetime.now(timezone.utc) > temp_expires:
+            raise HTTPException(
+                status_code=403,
+                detail="Contraseña temporal expirada. Contacte con la Federación."
+            )
+    
+    token_version = user.get("token_version", 0)
+    
+    # Create tokens
+    access_token = create_access_token(user["id"], user["email"])
+    refresh_token, jti = create_mobile_refresh_token(user["id"], token_version)
+    
+    # Store refresh token hash in DB (never store token in clear)
+    await db.mobile_refresh_tokens.insert_one({
+        "jti": jti,
+        "user_id": user["id"],
+        "token_hash": hash_token(refresh_token),
+        "token_version": token_version,
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": get_mobile_refresh_expiry(),
+        "revoked": False,
+        "replaced_by_jti": None
+    })
+    
+    logger.info(f"Mobile login: {user['email']} (jti: {jti[:8]}...)")
+    
+    # Return tokens in JSON (NO cookie)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "refresh_expires_in": MOBILE_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        "must_change_password": must_change,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "status": user["status"],
+            "must_change_password": must_change
+        }
+    }
+
+
+class MobileRefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@mobile_auth_router.post("/refresh")
+async def mobile_refresh(data: MobileRefreshRequest):
+    """
+    Mobile refresh - rotates refresh token (one-time use).
+    Returns new access_token and new refresh_token.
+    Old refresh token is invalidated after use.
+    """
+    # Decode token
+    payload = decode_token(data.refresh_token)
+    
+    if not payload or payload.get("type") != "mobile_refresh":
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+    jti = payload.get("jti")
+    user_id = payload.get("sub")
+    token_version_in_token = payload.get("v", 0)
+    
+    if not jti or not user_id:
+        raise HTTPException(status_code=401, detail="Token malformado")
+    
+    # Find token in DB by hash (atomic operation)
+    token_hash = hash_token(data.refresh_token)
+    token_doc = await db.mobile_refresh_tokens.find_one_and_update(
+        {
+            "token_hash": token_hash,
+            "revoked": False,
+            "replaced_by_jti": None  # Not already rotated
+        },
+        {"$set": {"revoked": True}},  # Mark as used atomically
+        return_document=ReturnDocument.BEFORE
+    )
+    
+    if not token_doc:
+        # Token already used, revoked, or doesn't exist
+        logger.warning(f"Mobile refresh attempted with invalid/used token (jti: {jti[:8] if jti else 'N/A'})")
+        raise HTTPException(status_code=401, detail="Token inválido, expirado o ya utilizado")
+    
+    # Verify user exists and is approved
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuario no encontrado")
+    
+    if user["status"] != "APPROVED":
+        raise HTTPException(status_code=403, detail="Usuario no verificado")
+    
+    # Check token_version for global revocation (password change, etc.)
+    current_version = user.get("token_version", 0)
+    if token_version_in_token < current_version:
+        logger.warning(f"Mobile refresh with outdated token_version for user {user_id}")
+        raise HTTPException(status_code=401, detail="Sesión revocada. Por favor, inicia sesión de nuevo.")
+    
+    # Create new tokens
+    new_access_token = create_access_token(user["id"], user["email"])
+    new_refresh_token, new_jti = create_mobile_refresh_token(user["id"], current_version)
+    
+    # Store new refresh token
+    await db.mobile_refresh_tokens.insert_one({
+        "jti": new_jti,
+        "user_id": user["id"],
+        "token_hash": hash_token(new_refresh_token),
+        "token_version": current_version,
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": get_mobile_refresh_expiry(),
+        "revoked": False,
+        "replaced_by_jti": None
+    })
+    
+    # Update old token with replacement reference
+    await db.mobile_refresh_tokens.update_one(
+        {"jti": jti},
+        {"$set": {"replaced_by_jti": new_jti}}
+    )
+    
+    logger.info(f"Mobile refresh rotated: {jti[:8]}... -> {new_jti[:8]}...")
+    
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "refresh_expires_in": MOBILE_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    }
+
+
+class MobileLogoutRequest(BaseModel):
+    refresh_token: str
+
+
+@mobile_auth_router.post("/logout")
+async def mobile_logout(data: MobileLogoutRequest):
+    """
+    Mobile logout - revokes the specific refresh token.
+    Client should also delete the token from SecureStore.
+    """
+    payload = decode_token(data.refresh_token)
+    
+    if payload and payload.get("type") == "mobile_refresh":
+        token_hash = hash_token(data.refresh_token)
+        result = await db.mobile_refresh_tokens.update_one(
+            {"token_hash": token_hash},
+            {"$set": {"revoked": True}}
+        )
+        if result.modified_count > 0:
+            logger.info(f"Mobile logout: token revoked (jti: {payload.get('jti', 'N/A')[:8]}...)")
+    
+    return {"message": "Sesión cerrada correctamente"}
+
+
 # ============== USER ENDPOINTS ==============
 @user_router.get("", response_model=UserPublic)
 async def get_me(user: dict = Depends(get_current_user)):
