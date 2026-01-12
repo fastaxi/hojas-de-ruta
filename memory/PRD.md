@@ -125,9 +125,10 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 25. ✅ **pdf_config_version**: Invalida cache cuando cambian header_* o legend_text. Afecta ACTIVE y ANNULLED.
 26. ✅ **Exportar PDF rango mejorado**: Validaciones frontend (31 días máx, from<to), iOS/Safari compatible, limpieza objectURL.
 27. ✅ **Branding oficial FAST**: Logo en PDFs (individual y rango), iconos PWA (192x192, 512x512), favicon, apple-touch-icon, manifest.json.
+28. ✅ **Compartir PDF**: Web Share API con fallback a descarga. Botones en modal detalle y fila histórico. Manejo de AbortError, rate limit 429, iOS.
 
 ## Backlog P1 (Próximos pasos)
-1. ⬜ UX - Botón "Exportar PDF" en modal de detalle de hoja de ruta
+1. ⬜ Dashboard de estadísticas en panel admin
 
 ## Backlog P2
 1. ⬜ Convertir a React Native (Expo)
