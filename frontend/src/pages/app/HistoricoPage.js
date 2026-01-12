@@ -29,14 +29,17 @@ const isIOS = () => {
  * - Replaces non-alphanumeric chars (except - and _) with _
  * - Collapses multiple underscores
  * - Trims underscores from start/end
+ * - Returns 'unknown' if empty after sanitization
+ * - Limits to 60 chars max
  */
 const toSafeFilenamePart = (input) => {
   const str = String(input || '').trim();
   if (!str) return 'unknown';
-  return str
+  const out = str
     .replace(/[^\w-]+/g, '_')  // non-alphanumeric (except _ and -) -> _
     .replace(/_+/g, '_')        // collapse multiple _
     .replace(/^_+|_+$/g, '');   // trim _ at start/end
+  return (out || 'unknown').slice(0, 60);
 };
 
 const diffDaysInclusive = (from, to) => {
