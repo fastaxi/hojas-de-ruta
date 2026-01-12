@@ -164,16 +164,13 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
     
     # ============== HEADER ==============
     # Logo + Title side by side
-    logo_path = get_logo_path()
+    logo = get_logo_image(max_width_mm=35, max_height_mm=25)
     
     header_left = []
-    if logo_path:
-        try:
-            logo = Image(logo_path, width=35*mm, height=14*mm)
-            header_left.append(logo)
-        except:
-            header_left.append(Paragraph('<font color="#701111" size="24"><b>FAST</b></font>', styles['Normal']))
+    if logo:
+        header_left.append(logo)
     else:
+        # Fallback to text
         header_left.append(Paragraph('<font color="#701111" size="24"><b>FAST</b></font>', styles['Normal']))
     
     # Sheet number
