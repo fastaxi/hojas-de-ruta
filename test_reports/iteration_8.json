@@ -1,0 +1,42 @@
+{
+  "summary": "Completed comprehensive testing of PDF caching for ANNULLED sheets feature. All 8 pytest tests passed (100%). Verified: ACTIVE cache HIT/MISS, ANNULLED cache HIT/MISS, annul only invalidates ACTIVE cache, ANNULLED PDF contains watermark, pdf_config_version invalidates both ACTIVE and ANNULLED caches, unique cache key (sheet_id, config_version, status).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/test_pdf_annulled_cache.py",
+    "/app/test_reports/pytest/pdf_annulled_cache_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/tests/test_pdf_annulled_cache.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)"
+  },
+  "test_credentials": {
+    "admin_username": "admin",
+    "admin_password": "admin123"
+  },
+  "seed_data_creation": "Multiple test users and route sheets created during testing for cache verification",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "PDF caching for ANNULLED sheets fully tested. Cache key is now (sheet_id, config_version, status). Same sheet can have 2 independent cache entries - one for ACTIVE and one for ANNULLED. Annulling a sheet only invalidates ACTIVE cache. pdf_config_version changes invalidate both ACTIVE and ANNULLED caches. ANNULLED PDFs contain '*** HOJA ANULADA ***' header and 'MOTIVO DE ANULACIÓN' section with the annul reason.",
+  "features_tested": {
+    "active_pdf_cache_miss_then_hit": "PASS - First ACTIVE PDF request X-Cache: MISS, second X-Cache: HIT",
+    "annul_invalidates_active_cache_only": "PASS - Annulling sheet invalidates ACTIVE cache, first ANNULLED request is MISS",
+    "annulled_pdf_cache_miss_then_hit": "PASS - First ANNULLED PDF request X-Cache: MISS, second X-Cache: HIT",
+    "annulled_pdf_contains_watermark": "PASS - ANNULLED PDF contains 'HOJA ANULADA' header, 'MOTIVO DE ANULACIÓN' section, and annul reason",
+    "config_version_invalidates_active_cache": "PASS - Changing pdf_config_version makes next ACTIVE PDF request MISS",
+    "config_version_invalidates_annulled_cache": "PASS - Changing pdf_config_version makes next ANNULLED PDF request MISS",
+    "same_sheet_dual_cache_entries": "PASS - Same sheet_id can have independent ACTIVE and ANNULLED cache entries",
+    "cache_index_uniqueness": "PASS - Index pdf_cache is unique on (sheet_id, config_version, status)"
+  }
+}
