@@ -199,6 +199,102 @@ export function HistoricoPage() {
     }
   };
 
+  // ============== SHARE PDF FUNCTIONALITY ==============
+  
+  /**
+   * Download PDF as fallback when Web Share API is not available
+   */
+  const downloadPdfFallback = (blob, sheetNumber) => {
+    const safeNum = sheetNumber.replace('/', '_');
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    if (isIOS()) {
+      link.target = '_blank';
+      link.rel = 'noopener';
+    } else {
+      link.setAttribute('download', `hoja_ruta_${safeNum}.pdf`);
+    }
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => window.URL.revokeObjectURL(url), 1500);
+    
+    toast({ title: 'PDF descargado. Puedes compartirlo desde WhatsApp/Email.' });
+  };
+
+  /**
+   * Share PDF using Web Share API with fallback to download
+   */
+  const sharePdf = async (sheetId, sheetNumber) => {
+    if (preparingPdfId) return; // Prevent double-clicks
+    
+    setPreparingPdfId(sheetId);
+    
+    try {
+      // Fetch PDF as blob
+      const response = await axios.get(`${API_URL}/route-sheets/${sheetId}/pdf`, {
+        responseType: 'blob'
+      });
+      
+      // Check for JSON error response
+      const contentType = response.headers?.['content-type'] || '';
+      if (contentType.includes('application/json')) {
+        const msg = await extractBlobErrorMessage(response.data);
+        toast({ title: msg || 'No se pudo obtener el PDF', variant: 'destructive' });
+        return;
+      }
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const safeNum = sheetNumber.replace('/', '_');
+      const file = new File([blob], `hoja_ruta_${safeNum}.pdf`, { type: 'application/pdf' });
+      
+      // Check if Web Share API with files is supported
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Hoja de ruta ${sheetNumber}`,
+            text: `Hoja de ruta ${sheetNumber}`
+          });
+          // Share successful - no toast needed
+        } catch (shareError) {
+          // User cancelled share - AbortError is normal, don't show error
+          if (shareError.name === 'AbortError') {
+            // Silent - user cancelled
+            return;
+          }
+          // Other share error - fallback to download
+          console.warn('Share failed, falling back to download:', shareError);
+          downloadPdfFallback(blob, sheetNumber);
+        }
+      } else {
+        // Web Share API not supported - fallback to download
+        downloadPdfFallback(blob, sheetNumber);
+      }
+    } catch (err) {
+      console.error('Error preparing PDF for share:', err);
+      
+      const status = err?.response?.status;
+      
+      if (status === 404 || status === 204) {
+        toast({ title: 'No hay PDF disponible para esta hoja', variant: 'destructive' });
+        return;
+      }
+      
+      if (status === 429) {
+        toast({ title: 'Demasiadas descargas. Inténtalo más tarde.', variant: 'destructive' });
+        return;
+      }
+      
+      toast({ title: 'Error al preparar el PDF', variant: 'destructive' });
+    } finally {
+      setPreparingPdfId(null);
+    }
+  };
+
   const filteredSheets = sheets.filter(sheet => {
     if (!searchTerm) return true;
     return sheet.sheet_number.includes(searchTerm) || 
