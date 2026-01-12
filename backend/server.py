@@ -117,7 +117,10 @@ async def startup_db():
     
     # PDF cache TTL index (30 days expiry)
     await db.pdf_cache.create_index("expires_at", expireAfterSeconds=0)
-    await db.pdf_cache.create_index([("sheet_id", 1), ("config_version", 1)], unique=True)
+    await db.pdf_cache.create_index(
+        [("sheet_id", 1), ("config_version", 1), ("status", 1)], 
+        unique=True
+    )
     
     logger.info("Database indexes created")
 
