@@ -401,23 +401,36 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
         is_annulled = sheet.get('status') == 'ANNULLED'
         sheet_number = f"{sheet['seq_number']:03d}/{sheet['year']}"
         
-        # Header
+        # Header with logo on left, title on right (same as single PDF)
         logo = get_logo_image(max_width_mm=30, max_height_mm=20)
-        if logo:
-            all_elements.append(logo)
-        else:
-            all_elements.append(Paragraph('<font color="#701111" size="24"><b>FAST</b></font>', styles['Normal']))
         
-        all_elements.append(Paragraph(config.get('header_title', 'HOJA DE RUTA'), title_style))
-        all_elements.append(Paragraph(config.get('header_line1', ''), subtitle_style))
-        all_elements.append(Paragraph(config.get('header_line2', ''), subtitle_style))
+        header_left = []
+        if logo:
+            header_left.append(logo)
+        else:
+            header_left.append(Paragraph('<font color="#701111" size="24"><b>FAST</b></font>', styles['Normal']))
+        
+        header_right = []
+        header_right.append(Paragraph(config.get('header_title', 'HOJA DE RUTA'), title_style))
+        header_right.append(Paragraph(config.get('header_line1', ''), subtitle_style))
+        header_right.append(Paragraph(config.get('header_line2', ''), subtitle_style))
         
         if is_annulled:
-            all_elements.append(Spacer(1, 2*mm))
+            header_right.append(Spacer(1, 2*mm))
             annul_p = ParagraphStyle('Annul', fontSize=12, fontName='Helvetica-Bold',
                                       textColor=colors.HexColor('#DC2626'), alignment=TA_CENTER)
-            all_elements.append(Paragraph('*** HOJA ANULADA ***', annul_p))
+            header_right.append(Paragraph('*** HOJA ANULADA ***', annul_p))
         
+        header_table = Table([
+            [header_left, header_right]
+        ], colWidths=[40*mm, 130*mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ]))
+        all_elements.append(header_table)
+        all_elements.append(Spacer(1, 2*mm))
         all_elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#701111')))
         all_elements.append(Paragraph(f"Nº de Hoja: <b>{sheet_number}</b>", sheet_number_style))
         all_elements.append(Spacer(1, 3*mm))
