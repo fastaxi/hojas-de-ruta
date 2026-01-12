@@ -283,33 +283,25 @@ class TestAnnulledPdfWatermark:
         # PDF should be valid (starts with %PDF)
         assert pdf_content[:4] == b'%PDF', "Response is not a valid PDF"
         
-        # PDF text may be encoded in various ways. Check for common patterns:
-        # - "ANULADA" in raw bytes
-        # - "HOJA ANULADA" in raw bytes  
-        # - The annul reason text
-        pdf_bytes_str = pdf_content.decode('latin-1', errors='ignore')
+        # Extract text from PDF using PyPDF2
+        pdf_reader = PdfReader(io.BytesIO(pdf_content))
+        extracted_text = ""
+        for page in pdf_reader.pages:
+            extracted_text += page.extract_text() or ""
         
-        # Check for any of these markers that indicate annulled status
-        has_anulada_marker = (
-            'ANULADA' in pdf_bytes_str or 
-            'anulada' in pdf_bytes_str.lower() or
-            'ANULACI' in pdf_bytes_str or  # ANULACIÓN
-            'Testing watermark' in pdf_bytes_str  # The annul reason we provided
-        )
+        # Check for ANULADA markers in extracted text
+        has_hoja_anulada = 'HOJA ANULADA' in extracted_text
+        has_motivo = 'MOTIVO' in extracted_text
+        has_annul_reason = 'Testing watermark' in extracted_text
         
-        # Also verify the PDF is larger than a minimal PDF (has content)
-        assert len(pdf_content) > 1000, f"PDF seems too small: {len(pdf_content)} bytes"
+        assert has_hoja_anulada, "ANNULLED PDF should contain 'HOJA ANULADA' header"
+        assert has_motivo, "ANNULLED PDF should contain 'MOTIVO DE ANULACIÓN' section"
+        assert has_annul_reason, "ANNULLED PDF should contain the annul reason"
         
-        # The annul reason should be in the PDF
-        has_annul_reason = 'Testing watermark' in pdf_bytes_str or 'watermark' in pdf_bytes_str.lower()
-        
-        # At minimum, the PDF should contain the annul reason
-        assert has_annul_reason or has_anulada_marker, \
-            "ANNULLED PDF should contain annul reason or ANULADA marker"
-        
-        print(f"✓ ANNULLED PDF contains annul information")
+        print(f"✓ ANNULLED PDF contains watermark/ANULADA mark")
         print(f"  PDF size: {len(pdf_content)} bytes")
-        print(f"  Has ANULADA marker: {has_anulada_marker}")
+        print(f"  Has 'HOJA ANULADA': {has_hoja_anulada}")
+        print(f"  Has 'MOTIVO': {has_motivo}")
         print(f"  Has annul reason: {has_annul_reason}")
 
 
