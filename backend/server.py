@@ -978,10 +978,14 @@ async def get_route_sheets_pdf_range(
 ):
     """
     Generate PDF for multiple route sheets in date range.
+    - Rate limited: 10 requests per 10 minutes per user
     - Filters by pickup_datetime (Europe/Madrid to UTC)
     - Always user_visible=true
     - Never includes annulled sheets
     """
+    # Check rate limit
+    await check_pdf_rate_limit(user["id"], "pdf_range")
+    
     # Convert dates to UTC range
     from_start, _ = date_to_utc_range(from_date)
     _, to_end = date_to_utc_range(to_date)
@@ -1015,13 +1019,21 @@ async def get_route_sheets_pdf_range(
     # Generate multi-page PDF
     from pdf_generator import generate_multi_sheet_pdf
     pdf_buffer = generate_multi_sheet_pdf(sheets, user_data, config, drivers_map)
+    pdf_bytes = pdf_buffer.getvalue()
+    
+    # Record request for rate limiting
+    await record_pdf_request(user["id"], "pdf_range")
     
     filename = f"hojas_ruta_{from_date}_a_{to_date}.pdf"
     
-    return StreamingResponse(
-        pdf_buffer,
+    return Response(
+        content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{filename}\"",
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff"
+        }
     )
 
 
