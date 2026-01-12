@@ -141,6 +141,97 @@ def date_to_utc_range(d: date) -> tuple[datetime, datetime]:
     return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
 
+# ============== PDF RATE LIMITING ==============
+PDF_RATE_LIMITS = {
+    "pdf_individual": {"max_requests": 30, "window_minutes": 10},
+    "pdf_range": {"max_requests": 10, "window_minutes": 10}
+}
+
+
+async def check_pdf_rate_limit(user_id: str, action: str) -> bool:
+    """
+    Check if user is within rate limit for PDF action.
+    Returns True if allowed, raises HTTPException if blocked.
+    Uses DB collection with TTL for distributed rate limiting.
+    """
+    limits = PDF_RATE_LIMITS.get(action)
+    if not limits:
+        return True
+    
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(minutes=limits["window_minutes"])
+    
+    # Count requests in window
+    count = await db.rate_limits.count_documents({
+        "user_id": user_id,
+        "action": action,
+        "created_at": {"$gte": window_start}
+    })
+    
+    if count >= limits["max_requests"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Límite de {limits['max_requests']} solicitudes de PDF por {limits['window_minutes']} minutos excedido. Intenta más tarde."
+        )
+    
+    return True
+
+
+async def record_pdf_request(user_id: str, action: str):
+    """Record a PDF request for rate limiting"""
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=PDF_RATE_LIMITS[action]["window_minutes"])
+    
+    await db.rate_limits.insert_one({
+        "user_id": user_id,
+        "action": action,
+        "created_at": now,
+        "expires_at": expires_at
+    })
+
+
+# ============== PDF CACHING ==============
+PDF_CACHE_DAYS = 30
+
+
+async def get_cached_pdf(sheet_id: str, config_version: int) -> Optional[bytes]:
+    """Get cached PDF if exists and config version matches"""
+    cache = await db.pdf_cache.find_one({
+        "sheet_id": sheet_id,
+        "config_version": config_version
+    })
+    
+    if cache and cache.get("pdf_bytes"):
+        return cache["pdf_bytes"]
+    return None
+
+
+async def cache_pdf(sheet_id: str, config_version: int, sheet_status: str, pdf_bytes: bytes):
+    """Cache PDF bytes with TTL"""
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=PDF_CACHE_DAYS)
+    
+    await db.pdf_cache.update_one(
+        {"sheet_id": sheet_id, "config_version": config_version},
+        {
+            "$set": {
+                "sheet_id": sheet_id,
+                "config_version": config_version,
+                "status": sheet_status,
+                "pdf_bytes": pdf_bytes,
+                "created_at": now,
+                "expires_at": expires_at
+            }
+        },
+        upsert=True
+    )
+
+
+async def invalidate_pdf_cache(sheet_id: str):
+    """Invalidate cache for a specific sheet (e.g., when annulled)"""
+    await db.pdf_cache.delete_many({"sheet_id": sheet_id})
+
+
 # ============== DEPENDENCIES ==============
 async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     """Validate access token and return user"""
