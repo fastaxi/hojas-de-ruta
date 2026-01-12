@@ -468,9 +468,25 @@ export function HistoricoPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => sharePdf(sheet.id, sheet.sheet_number)}
+                          disabled={preparingPdfId === sheet.id}
+                          className="text-stone-500 hover:text-maroon-900"
+                          data-testid={`share-${sheet.id}`}
+                          title="Compartir PDF"
+                        >
+                          {preparingPdfId === sheet.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Share2 className="w-5 h-5" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => downloadPdf(sheet.id, sheet.sheet_number)}
                           className="text-stone-500 hover:text-maroon-900"
                           data-testid={`download-${sheet.id}`}
+                          title="Descargar PDF"
                         >
                           <Download className="w-5 h-5" />
                         </Button>
@@ -480,6 +496,7 @@ export function HistoricoPage() {
                           onClick={() => setAnnulDialog({ open: true, sheet })}
                           className="text-stone-500 hover:text-red-600"
                           data-testid={`annul-${sheet.id}`}
+                          title="Anular hoja"
                         >
                           <Ban className="w-5 h-5" />
                         </Button>
