@@ -1,8 +1,8 @@
 # RutasFast - PRD (Product Requirements Document)
 
 ## Estado Actual
-**Fecha última actualización**: 2026-01-09
-**Fase**: MVP Completo con Sistema de Autenticación Seguro
+**Fecha última actualización**: 2026-01-12
+**Fase**: MVP Completo con Branding Oficial FAST
 
 ## Descripción del Proyecto
 App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, conservar histórico, exportar a PDF y compartir por email. Incluye panel web de administración para validar usuarios.
@@ -124,9 +124,10 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 24. ✅ **PDF Caching**: Colección pdf_cache (30 días TTL). Headers X-Cache HIT/MISS. **ACTIVE y ANNULLED** cacheados independientemente.
 25. ✅ **pdf_config_version**: Invalida cache cuando cambian header_* o legend_text. Afecta ACTIVE y ANNULLED.
 26. ✅ **Exportar PDF rango mejorado**: Validaciones frontend (31 días máx, from<to), iOS/Safari compatible, limpieza objectURL.
+27. ✅ **Branding oficial FAST**: Logo en PDFs (individual y rango), iconos PWA (192x192, 512x512), favicon, apple-touch-icon, manifest.json.
 
-## Backlog P0 (Próximos pasos)
-1. ⬜ Logo FAST real en assets
+## Backlog P1 (Próximos pasos)
+1. ⬜ UX - Botón "Exportar PDF" en modal de detalle de hoja de ruta
 
 ## Backlog P2
 1. ⬜ Convertir a React Native (Expo)
