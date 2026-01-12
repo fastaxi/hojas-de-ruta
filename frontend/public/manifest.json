@@ -1,0 +1,29 @@
+{
+  "short_name": "RutasFast",
+  "name": "RutasFast - Hojas de Ruta",
+  "description": "Aplicación para gestión de hojas de ruta de taxi en Asturias",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/app/login",
+  "display": "standalone",
+  "theme_color": "#7f1d1d",
+  "background_color": "#fafaf9"
+}
