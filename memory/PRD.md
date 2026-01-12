@@ -120,12 +120,13 @@ App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, con
 20. ✅ **Auditoría de resets**: Logs con admin, user, timestamp, IP. UI en modal de usuario. NUNCA se guarda contraseña.
 21. ✅ **Cambio contraseña usuario**: Tab Seguridad en /app/configuracion. Invalida sesión (token_version++) y limpia cookie.
 22. ✅ **Hardening Pydantic**: extra="forbid", normalización strings (strip, empty→None, uppercase dni/plate), DriverUpdate nuevo
+23. ✅ **PDF Rate Limiting**: 30/10min individual, 10/10min rango. Colección rate_limits con TTL.
+24. ✅ **PDF Caching**: Colección pdf_cache (30 días TTL). Headers X-Cache HIT/MISS. Solo hojas ACTIVE.
+25. ✅ **pdf_config_version**: Invalida cache cuando cambian header_* o legend_text.
+26. ✅ **Exportar PDF rango mejorado**: Validaciones frontend (31 días máx, from<to), iOS/Safari compatible, limpieza objectURL.
 
 ## Backlog P0 (Próximos pasos)
 1. ⬜ Logo FAST real en assets
-
-## Backlog P1
-1. ⬜ Exportar PDF por rango de fechas (endpoint existe, falta UI completa)
 
 ## Backlog P2
 1. ⬜ Convertir a React Native (Expo)
