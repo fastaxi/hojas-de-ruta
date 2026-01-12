@@ -82,7 +82,7 @@ export function AdminSheetsPage() {
 
   const downloadPdf = async (sheetId, sheetNumber) => {
     try {
-      const response = await axios.get(`${API_URL}/route-sheets/${sheetId}/pdf`, {
+      const response = await axios.get(`${API_URL}/admin/route-sheets/${sheetId}/pdf`, {
         headers: { Authorization: `Bearer ${adminToken}` },
         responseType: 'blob'
       });
@@ -90,10 +90,12 @@ export function AdminSheetsPage() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `hoja_ruta_${sheetNumber.replace('/', '_')}.pdf`);
+      const safeNum = sheetNumber.replace(/[^\w-]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'unknown';
+      link.setAttribute('download', `hoja_ruta_${safeNum}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1500);
     } catch (err) {
       console.error('Error downloading PDF:', err);
     }
