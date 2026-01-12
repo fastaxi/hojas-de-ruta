@@ -1602,6 +1602,83 @@ async def admin_get_user_password_reset_audit(
     return logs
 
 
+@admin_router.get("/route-sheets/{sheet_id}/pdf")
+async def admin_get_route_sheet_pdf(
+    sheet_id: str,
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Generate PDF for a route sheet (admin access).
+    - No user_visible filter (admin sees all)
+    - Reuses PDF cache
+    """
+    sheet = await db.route_sheets.find_one({"id": sheet_id}, {"_id": 0})
+    if not sheet:
+        raise HTTPException(status_code=404, detail="Hoja no encontrada")
+    
+    # Get config for PDF headers and version
+    config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
+    if not config:
+        config = AppConfig().model_dump()
+    
+    config_version = config.get("pdf_config_version", 1)
+    sheet_status = sheet["status"]
+    
+    # Check cache
+    cached_pdf = await get_cached_pdf(sheet_id, config_version, sheet_status)
+    if cached_pdf:
+        sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
+        filename = f"hoja_ruta_{sheet_number}.pdf"
+        
+        return Response(
+            content=cached_pdf,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=\"{filename}\"",
+                "Cache-Control": "private, max-age=86400",
+                "X-Content-Type-Options": "nosniff",
+                "X-Cache": "HIT"
+            }
+        )
+    
+    # Get user data (owner of the sheet)
+    user_data = await db.users.find_one({"id": sheet["user_id"]}, {"_id": 0})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Usuario propietario no encontrado")
+    
+    # Get driver name if not titular
+    driver_name = "Titular"
+    if sheet.get("conductor_driver_id"):
+        driver = await db.drivers.find_one(
+            {"id": sheet["conductor_driver_id"]},
+            {"_id": 0}
+        )
+        if driver:
+            driver_name = driver["full_name"]
+    
+    # Generate PDF
+    from pdf_generator import generate_route_sheet_pdf
+    pdf_buffer = generate_route_sheet_pdf(sheet, user_data, config, driver_name)
+    pdf_bytes = pdf_buffer.getvalue()
+    
+    # Cache the PDF
+    await cache_pdf(sheet_id, config_version, sheet_status, pdf_bytes)
+    
+    sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
+    filename = f"hoja_ruta_{sheet_number}.pdf"
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{filename}\"",
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "X-Cache": "MISS"
+        }
+    )
+
+
 @admin_router.get("/route-sheets", response_model=List[dict])
 async def admin_get_route_sheets(
     user_id: Optional[str] = None,
