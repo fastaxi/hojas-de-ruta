@@ -358,6 +358,7 @@ class AppConfig(BaseModel):
     legend_text: str = "Es obligatorio conservar los registros durante 12 meses desde la fecha de recogida del servicio."
     hide_after_months: int = 14
     purge_after_months: int = 24
+    pdf_config_version: int = 1
     updated_at: datetime = Field(default_factory=utc_now)
 
 
