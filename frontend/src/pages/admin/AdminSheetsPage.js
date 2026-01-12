@@ -128,7 +128,33 @@ export function AdminSheetsPage() {
       {/* Filters */}
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-4 pb-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            {/* User filter with search */}
+            <div className="space-y-1 md:col-span-2">
+              <Label className="text-xs text-stone-500">Taxista</Label>
+              <Select value={filters.user_id} onValueChange={(v) => updateFilter('user_id', v)}>
+                <SelectTrigger data-testid="filter-user">
+                  <SelectValue placeholder="Todos los taxistas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1.5 sticky top-0 bg-white border-b">
+                    <Input
+                      placeholder="Buscar taxista..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="h-8"
+                      data-testid="user-search"
+                    />
+                  </div>
+                  <SelectItem value="all">Todos los taxistas</SelectItem>
+                  {filteredUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs text-stone-500">Estado</Label>
               <Select value={filters.status} onValueChange={(v) => updateFilter('status', v)}>
@@ -175,15 +201,17 @@ export function AdminSheetsPage() {
                 data-testid="filter-to"
               />
             </div>
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={() => setFilters({ status: 'all', user_visible: 'all', from_date: '', to_date: '' })}
-                className="w-full"
-              >
-                Limpiar filtros
-              </Button>
-            </div>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFilters({ status: 'all', user_visible: 'all', user_id: 'all', from_date: '', to_date: '' });
+                setUserSearch('');
+              }}
+            >
+              Limpiar filtros
+            </Button>
           </div>
         </CardContent>
       </Card>
