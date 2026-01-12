@@ -21,14 +21,38 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export function AdminSheetsPage() {
   const { adminRequest, adminToken } = useAdminAuth();
   const [sheets, setSheets] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     status: 'all',
     user_visible: 'all',
+    user_id: 'all',
     from_date: '',
     to_date: ''
   });
   const [selectedSheet, setSelectedSheet] = useState(null);
+  const [userSearch, setUserSearch] = useState('');
+
+  // Fetch users for filter dropdown
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const data = await adminRequest('get', '/admin/users');
+        // Only approved users
+        setUsers(data.filter(u => u.status === 'APPROVED'));
+      } catch (err) {
+        console.error('Error fetching users:', err);
+      }
+    };
+    fetchUsers();
+  }, [adminRequest]);
+
+  // Filter users based on search
+  const filteredUsers = users.filter(u => 
+    userSearch === '' || 
+    u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.email?.toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   const fetchSheets = useCallback(async () => {
     setLoading(true);
