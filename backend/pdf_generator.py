@@ -402,13 +402,9 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
         sheet_number = f"{sheet['seq_number']:03d}/{sheet['year']}"
         
         # Header
-        logo_path = get_logo_path()
-        if logo_path:
-            try:
-                logo = Image(logo_path, width=35*mm, height=14*mm)
-                all_elements.append(logo)
-            except:
-                all_elements.append(Paragraph('<font color="#701111" size="24"><b>FAST</b></font>', styles['Normal']))
+        logo = get_logo_image(max_width_mm=30, max_height_mm=20)
+        if logo:
+            all_elements.append(logo)
         else:
             all_elements.append(Paragraph('<font color="#701111" size="24"><b>FAST</b></font>', styles['Normal']))
         
