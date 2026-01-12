@@ -900,7 +900,7 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
     """
     Generate PDF for a single route sheet.
     - Rate limited: 30 requests per 10 minutes per user
-    - Cached: PDF cached for 30 days, invalidated on config change
+    - Cached: PDF cached for 30 days (both ACTIVE and ANNULLED), invalidated on config change
     - Only returns user_visible=true sheets
     """
     # Check rate limit
@@ -919,27 +919,27 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
         config = AppConfig().model_dump()
     
     config_version = config.get("pdf_config_version", 1)
+    sheet_status = sheet["status"]
     
-    # Check cache (only for ACTIVE sheets, ANNULLED always regenerate for watermark consistency)
-    if sheet["status"] == "ACTIVE":
-        cached_pdf = await get_cached_pdf(sheet_id, config_version)
-        if cached_pdf:
-            # Record request for rate limiting
-            await record_pdf_request(user["id"], "pdf_individual")
-            
-            sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
-            filename = f"hoja_ruta_{sheet_number}.pdf"
-            
-            return Response(
-                content=cached_pdf,
-                media_type="application/pdf",
-                headers={
-                    "Content-Disposition": f"attachment; filename=\"{filename}\"",
-                    "Cache-Control": "private, max-age=86400",
-                    "X-Content-Type-Options": "nosniff",
-                    "X-Cache": "HIT"
-                }
-            )
+    # Check cache (both ACTIVE and ANNULLED are cached)
+    cached_pdf = await get_cached_pdf(sheet_id, config_version, sheet_status)
+    if cached_pdf:
+        # Record request for rate limiting
+        await record_pdf_request(user["id"], "pdf_individual")
+        
+        sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
+        filename = f"hoja_ruta_{sheet_number}.pdf"
+        
+        return Response(
+            content=cached_pdf,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=\"{filename}\"",
+                "Cache-Control": "private, max-age=86400",
+                "X-Content-Type-Options": "nosniff",
+                "X-Cache": "HIT"
+            }
+        )
     
     # Get user full data
     user_data = await db.users.find_one({"id": user["id"]}, {"_id": 0})
@@ -954,14 +954,13 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
         if driver:
             driver_name = driver["full_name"]
     
-    # Generate PDF
+    # Generate PDF (includes watermark for ANNULLED)
     from pdf_generator import generate_route_sheet_pdf
     pdf_buffer = generate_route_sheet_pdf(sheet, user_data, config, driver_name)
     pdf_bytes = pdf_buffer.getvalue()
     
-    # Cache the PDF (only ACTIVE sheets)
-    if sheet["status"] == "ACTIVE":
-        await cache_pdf(sheet_id, config_version, sheet["status"], pdf_bytes)
+    # Cache the PDF (both ACTIVE and ANNULLED)
+    await cache_pdf(sheet_id, config_version, sheet_status, pdf_bytes)
     
     # Record request for rate limiting
     await record_pdf_request(user["id"], "pdf_individual")
