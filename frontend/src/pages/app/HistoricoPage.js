@@ -24,6 +24,21 @@ const isIOS = () => {
   return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
 };
 
+/**
+ * Sanitize string for safe filename (cross-platform: iOS/Android/Windows)
+ * - Replaces non-alphanumeric chars (except - and _) with _
+ * - Collapses multiple underscores
+ * - Trims underscores from start/end
+ */
+const toSafeFilenamePart = (input) => {
+  const str = String(input || '').trim();
+  if (!str) return 'unknown';
+  return str
+    .replace(/[^\w-]+/g, '_')  // non-alphanumeric (except _ and -) -> _
+    .replace(/_+/g, '_')        // collapse multiple _
+    .replace(/^_+|_+$/g, '');   // trim _ at start/end
+};
+
 const diffDaysInclusive = (from, to) => {
   const f = new Date(`${from}T00:00:00`);
   const t = new Date(`${to}T00:00:00`);
