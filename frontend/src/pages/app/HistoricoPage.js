@@ -365,7 +365,7 @@ export function HistoricoPage() {
             {/* Range helper messages */}
             {rangeReady && rangeInvalid && (
               <p className="text-xs text-red-600">
-                El rango no es válido: "Desde" no puede ser posterior a "Hasta".
+                El rango no es válido: &quot;Desde&quot; no puede ser posterior a &quot;Hasta&quot;.
               </p>
             )}
 
