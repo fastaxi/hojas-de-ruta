@@ -15,7 +15,9 @@ import pytest
 import requests
 import os
 import time
+import io
 from datetime import datetime, date
+from PyPDF2 import PdfReader
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://driver-routes-5.preview.emergentagent.com').rstrip('/')
 
