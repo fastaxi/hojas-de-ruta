@@ -175,11 +175,13 @@ export function HistoricoPage() {
       const link = document.createElement('a');
       link.href = url;
 
+      const safeFrom = toSafeFilenamePart(fromDate);
+      const safeTo = toSafeFilenamePart(toDate);
       if (isIOS()) {
         link.target = '_blank';
         link.rel = 'noopener';
       } else {
-        link.setAttribute('download', `hojas_ruta_${fromDate}_a_${toDate}.pdf`);
+        link.setAttribute('download', `hojas_ruta_${safeFrom}_a_${safeTo}.pdf`);
       }
 
       document.body.appendChild(link);
