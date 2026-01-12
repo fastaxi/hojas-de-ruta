@@ -102,6 +102,22 @@ async def startup_db():
         config = AppConfig()
         await db.app_config.insert_one(config.model_dump())
         logger.info("Initialized default app_config")
+    else:
+        # Ensure pdf_config_version exists (migration)
+        if "pdf_config_version" not in existing_config:
+            await db.app_config.update_one(
+                {"id": "global"},
+                {"$set": {"pdf_config_version": 1}}
+            )
+            logger.info("Added pdf_config_version to app_config")
+    
+    # Rate limits TTL index (10 min expiry)
+    await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
+    await db.rate_limits.create_index([("user_id", 1), ("action", 1)])
+    
+    # PDF cache TTL index (30 days expiry)
+    await db.pdf_cache.create_index("expires_at", expireAfterSeconds=0)
+    await db.pdf_cache.create_index([("sheet_id", 1), ("config_version", 1)], unique=True)
     
     logger.info("Database indexes created")
 
