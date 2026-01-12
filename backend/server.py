@@ -1699,22 +1699,38 @@ async def admin_get_route_sheets(
         query["status"] = status
     if user_visible is not None:
         query["user_visible"] = user_visible
-    if from_date:
-        query["created_at"] = {"$gte": from_date}
-    if to_date:
-        if "created_at" in query:
-            query["created_at"]["$lte"] = to_date
-        else:
-            query["created_at"] = {"$lte": to_date}
     
-    # Cursor-based pagination
-    if cursor:
-        if "created_at" in query:
-            query["created_at"]["$lt"] = cursor
-        else:
-            query["created_at"] = {"$lt": cursor}
+    # Date filtering using pickup_datetime (same as user endpoints)
+    # Convert Europe/Madrid local dates to UTC datetime
+    madrid_tz = pytz.timezone("Europe/Madrid")
     
-    sheets = await db.route_sheets.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    if from_date or to_date:
+        date_query = {}
+        
+        if from_date:
+            try:
+                from_dt_local = madrid_tz.localize(
+                    datetime.strptime(from_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0)
+                )
+                from_dt_utc = from_dt_local.astimezone(pytz.UTC)
+                date_query["$gte"] = from_dt_utc
+            except ValueError:
+                pass
+        
+        if to_date:
+            try:
+                to_dt_local = madrid_tz.localize(
+                    datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
+                )
+                to_dt_utc = to_dt_local.astimezone(pytz.UTC)
+                date_query["$lte"] = to_dt_utc
+            except ValueError:
+                pass
+        
+        if date_query:
+            query["pickup_datetime"] = date_query
+    
+    sheets = await db.route_sheets.find(query, {"_id": 0}).sort("pickup_datetime", -1).limit(limit).to_list(limit)
     
     # Add formatted sheet number and user info
     for sheet in sheets:
