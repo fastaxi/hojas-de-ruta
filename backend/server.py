@@ -889,8 +889,8 @@ async def annul_route_sheet(
         }}
     )
     
-    # Invalidate PDF cache when annulled
-    await invalidate_pdf_cache(sheet_id)
+    # Invalidate only ACTIVE cache - ANNULLED will be cached separately
+    await invalidate_pdf_cache(sheet_id, status="ACTIVE")
     
     return {"message": "Hoja anulada correctamente"}
 
