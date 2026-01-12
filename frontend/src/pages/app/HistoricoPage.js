@@ -136,11 +136,12 @@ export function HistoricoPage() {
       const link = document.createElement('a');
       link.href = url;
       
+      const safeNum = toSafeFilenamePart(sheetNumber);
       if (isIOS()) {
         link.target = '_blank';
         link.rel = 'noopener';
       } else {
-        link.setAttribute('download', `hoja_ruta_${sheetNumber.replace('/', '_')}.pdf`);
+        link.setAttribute('download', `hoja_ruta_${safeNum}.pdf`);
       }
       
       document.body.appendChild(link);
