@@ -1445,12 +1445,27 @@ async def admin_update_config(
             )
     
     if update_data:
-        update_data["updated_at"] = datetime.now(timezone.utc)  # datetime
-        await db.app_config.update_one(
-            {"id": "global"},
-            {"$set": update_data},
-            upsert=True
-        )
+        update_data["updated_at"] = datetime.now(timezone.utc)
+        
+        # Check if PDF-affecting fields changed -> increment pdf_config_version
+        pdf_fields = {"header_title", "header_line1", "header_line2", "legend_text"}
+        if any(field in update_data for field in pdf_fields):
+            # Increment pdf_config_version atomically
+            await db.app_config.update_one(
+                {"id": "global"},
+                {
+                    "$set": update_data,
+                    "$inc": {"pdf_config_version": 1}
+                },
+                upsert=True
+            )
+            logger.info("PDF config changed - incremented pdf_config_version")
+        else:
+            await db.app_config.update_one(
+                {"id": "global"},
+                {"$set": update_data},
+                upsert=True
+            )
     
     return {"message": "Configuración actualizada"}
 
