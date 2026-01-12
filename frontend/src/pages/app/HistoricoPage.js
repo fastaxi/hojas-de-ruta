@@ -613,15 +613,37 @@ export function HistoricoPage() {
               </div>
             </div>
           )}
-          <DialogFooter>
-            {detailDialog.sheet?.status === 'ACTIVE' && (
-              <Button
-                onClick={() => downloadPdf(detailDialog.sheet.id, detailDialog.sheet.sheet_number)}
-                className="bg-maroon-900 hover:bg-maroon-800"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Descargar PDF
-              </Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {detailDialog.sheet && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => sharePdf(detailDialog.sheet.id, detailDialog.sheet.sheet_number)}
+                  disabled={preparingPdfId === detailDialog.sheet.id}
+                  className="border-maroon-900 text-maroon-900 hover:bg-maroon-50"
+                  data-testid="detail-share-pdf"
+                >
+                  {preparingPdfId === detailDialog.sheet.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Preparando...
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Compartir PDF
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => downloadPdf(detailDialog.sheet.id, detailDialog.sheet.sheet_number)}
+                  className="bg-maroon-900 hover:bg-maroon-800"
+                  data-testid="detail-download-pdf"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar PDF
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
