@@ -125,6 +125,12 @@ async def startup_db():
         unique=True
     )
     
+    # Mobile refresh tokens collection indexes
+    await db.mobile_refresh_tokens.create_index("token_hash", unique=True)
+    await db.mobile_refresh_tokens.create_index("jti", unique=True)
+    await db.mobile_refresh_tokens.create_index("user_id")
+    await db.mobile_refresh_tokens.create_index("expires_at", expireAfterSeconds=0)  # TTL
+    
     logger.info("Database indexes created")
 
 
