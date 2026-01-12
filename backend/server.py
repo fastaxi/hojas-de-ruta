@@ -2002,6 +2002,7 @@ async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin))
 
 # Include routers
 api_router.include_router(auth_router)
+api_router.include_router(mobile_auth_router)
 api_router.include_router(user_router)
 api_router.include_router(sheets_router)
 api_router.include_router(admin_router)
