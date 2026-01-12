@@ -3,7 +3,7 @@ RutasFast - Main FastAPI Server
 Backend for taxi route sheet management app
 """
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Cookie, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
