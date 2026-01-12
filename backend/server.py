@@ -197,11 +197,12 @@ async def record_pdf_request(user_id: str, action: str):
 PDF_CACHE_DAYS = 30
 
 
-async def get_cached_pdf(sheet_id: str, config_version: int) -> Optional[bytes]:
-    """Get cached PDF if exists and config version matches"""
+async def get_cached_pdf(sheet_id: str, config_version: int, status: str) -> Optional[bytes]:
+    """Get cached PDF if exists, config version and status match"""
     cache = await db.pdf_cache.find_one({
         "sheet_id": sheet_id,
-        "config_version": config_version
+        "config_version": config_version,
+        "status": status
     })
     
     if cache and cache.get("pdf_bytes"):
@@ -210,12 +211,12 @@ async def get_cached_pdf(sheet_id: str, config_version: int) -> Optional[bytes]:
 
 
 async def cache_pdf(sheet_id: str, config_version: int, sheet_status: str, pdf_bytes: bytes):
-    """Cache PDF bytes with TTL"""
+    """Cache PDF bytes with TTL. Key is (sheet_id, config_version, status)"""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=PDF_CACHE_DAYS)
     
     await db.pdf_cache.update_one(
-        {"sheet_id": sheet_id, "config_version": config_version},
+        {"sheet_id": sheet_id, "config_version": config_version, "status": sheet_status},
         {
             "$set": {
                 "sheet_id": sheet_id,
@@ -230,9 +231,16 @@ async def cache_pdf(sheet_id: str, config_version: int, sheet_status: str, pdf_b
     )
 
 
-async def invalidate_pdf_cache(sheet_id: str):
-    """Invalidate cache for a specific sheet (e.g., when annulled)"""
-    await db.pdf_cache.delete_many({"sheet_id": sheet_id})
+async def invalidate_pdf_cache(sheet_id: str, status: str = None):
+    """
+    Invalidate cache for a specific sheet.
+    If status is provided, only invalidate that status.
+    Used when sheet is annulled to invalidate ACTIVE cache only.
+    """
+    query = {"sheet_id": sheet_id}
+    if status:
+        query["status"] = status
+    await db.pdf_cache.delete_many(query)
 
 
 # ============== DEPENDENCIES ==============
