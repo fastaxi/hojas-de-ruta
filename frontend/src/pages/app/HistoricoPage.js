@@ -59,6 +59,9 @@ export function HistoricoPage() {
 
   // Detail dialog
   const [detailDialog, setDetailDialog] = useState({ open: false, sheet: null });
+  
+  // PDF sharing/downloading state
+  const [preparingPdfId, setPreparingPdfId] = useState(null);
 
   // Range validation
   const rangeReady = Boolean(fromDate && toDate);
