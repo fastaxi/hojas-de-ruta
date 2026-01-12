@@ -223,7 +223,7 @@ export function HistoricoPage() {
    * Download PDF as fallback when Web Share API is not available
    */
   const downloadPdfFallback = (blob, sheetNumber) => {
-    const safeNum = sheetNumber.replace('/', '_');
+    const safeNum = toSafeFilenamePart(sheetNumber);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -266,7 +266,7 @@ export function HistoricoPage() {
       }
       
       const blob = new Blob([response.data], { type: 'application/pdf' });
-      const safeNum = sheetNumber.replace('/', '_');
+      const safeNum = toSafeFilenamePart(sheetNumber);
       const file = new File([blob], `hoja_ruta_${safeNum}.pdf`, { type: 'application/pdf' });
       
       // Check if Web Share API with files is supported
