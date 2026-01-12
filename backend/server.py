@@ -55,6 +55,7 @@ app = FastAPI(title="RutasFast API", version="1.0.0")
 # Create routers
 api_router = APIRouter(prefix="/api")
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
+mobile_auth_router = APIRouter(prefix="/auth/mobile", tags=["auth-mobile"])
 user_router = APIRouter(prefix="/me", tags=["user"])
 sheets_router = APIRouter(prefix="/route-sheets", tags=["route-sheets"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
