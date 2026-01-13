@@ -458,26 +458,39 @@ async def root():
 
 @api_router.get("/health")
 async def health_check():
-    """Health check with service status"""
+    """Health check with service status (for /api/health)"""
     return {
-        "status": "healthy",
+        "status": "healthy" if (DB_CONNECTED and INDEXES_OK) else "degraded",
         "environment": "production" if IS_PRODUCTION else "development",
         "admin_configured": is_admin_configured(),
         "admin_env_configured": is_admin_env_configured(),
-        "email_enabled": False  # Emails disabled - manual password reset via admin
+        "email_enabled": False,
+        "db_connected": DB_CONNECTED,
+        "indexes_ok": INDEXES_OK
     }
 
 
-# Root-level health check for Kubernetes probes (without /api prefix)
+# ============== K8S PROBES (root level, no /api prefix) ==============
+@app.get("/live")
+async def liveness():
+    """Liveness probe - always returns 200 if process is alive"""
+    return {"status": "alive"}
+
+
 @app.get("/health")
-async def k8s_health_check():
-    """Health check endpoint for Kubernetes liveness/readiness probes"""
-    try:
-        # Quick DB ping to verify connection
-        await client.admin.command('ping')
-        return {"status": "healthy", "db": "connected"}
-    except Exception:
-        return {"status": "healthy", "db": "disconnected"}
+async def readiness():
+    """Readiness probe - returns 503 if critical indexes missing"""
+    status = "healthy" if (DB_CONNECTED and INDEXES_OK) else "degraded"
+    payload = {
+        "status": status,
+        "db_connected": DB_CONNECTED,
+        "indexes_ok": INDEXES_OK,
+        "missing_critical_indexes": MISSING_CRITICAL_INDEXES,
+        "last_index_error": LAST_INDEX_ERROR,
+    }
+    if DB_CONNECTED and INDEXES_OK:
+        return payload
+    return JSONResponse(status_code=503, content=payload)
 
 
 # ============== AUTH ENDPOINTS ==============
