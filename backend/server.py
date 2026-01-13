@@ -322,6 +322,18 @@ async def health_check():
     }
 
 
+# Root-level health check for Kubernetes probes (without /api prefix)
+@app.get("/health")
+async def k8s_health_check():
+    """Health check endpoint for Kubernetes liveness/readiness probes"""
+    try:
+        # Quick DB ping to verify connection
+        await client.admin.command('ping')
+        return {"status": "healthy", "db": "connected"}
+    except Exception:
+        return {"status": "healthy", "db": "disconnected"}
+
+
 # ============== AUTH ENDPOINTS ==============
 @auth_router.post("/register", response_model=dict)
 async def register(data: UserCreate):
