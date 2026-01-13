@@ -76,63 +76,74 @@ RETENTION_JOB_TOKEN = os.environ.get("RETENTION_JOB_TOKEN")
 # ============== STARTUP / SHUTDOWN ==============
 @app.on_event("startup")
 async def startup_db():
-    """Initialize database indexes and default config"""
-    # Create indexes
-    await db.users.create_index("email", unique=True)
-    await db.users.create_index("id", unique=True)
-    await db.drivers.create_index("user_id")
-    await db.drivers.create_index("id", unique=True)
-    await db.route_sheets.create_index([("user_id", 1), ("created_at", -1)])
-    await db.route_sheets.create_index([("user_id", 1), ("pickup_datetime", -1)])
-    # CRITICAL: Unique index for atomic numbering
-    await db.route_sheets.create_index(
-        [("user_id", 1), ("year", 1), ("seq_number", 1)], 
-        unique=True
-    )
-    await db.route_sheets.create_index("status")
-    await db.route_sheets.create_index("user_visible")
-    await db.route_sheets.create_index("id", unique=True)
-    # Index for purge TTL (requires BSON Date, not string)
-    await db.route_sheets.create_index("purge_at", expireAfterSeconds=0)
-    # Token hash unique + TTL on expires_at
-    await db.password_reset_tokens.create_index("token_hash", unique=True)
-    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
-    # Counters collection for atomic seq_number
-    await db.counters.create_index([("user_id", 1), ("year", 1)], unique=True)
+    """Initialize database indexes and default config - with retry for Atlas connection"""
+    max_retries = 5
+    retry_delay = 3
     
-    # Initialize app_config if not exists
-    existing_config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
-    if not existing_config:
-        config = AppConfig()
-        await db.app_config.insert_one(config.model_dump())
-        logger.info("Initialized default app_config")
-    else:
-        # Ensure pdf_config_version exists (migration)
-        if "pdf_config_version" not in existing_config:
-            await db.app_config.update_one(
-                {"id": "global"},
-                {"$set": {"pdf_config_version": 1}}
-            )
-            logger.info("Added pdf_config_version to app_config")
+    for attempt in range(max_retries):
+        try:
+            # Test connection first
+            await client.admin.command('ping')
+            logger.info(f"MongoDB connection successful (attempt {attempt + 1})")
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"MongoDB connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                logger.error(f"Failed to connect to MongoDB after {max_retries} attempts")
+                raise
     
-    # Rate limits TTL index (10 min expiry)
-    await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
-    await db.rate_limits.create_index([("user_id", 1), ("action", 1)])
-    
-    # PDF cache TTL index (30 days expiry)
-    await db.pdf_cache.create_index("expires_at", expireAfterSeconds=0)
-    await db.pdf_cache.create_index(
-        [("sheet_id", 1), ("config_version", 1), ("status", 1)], 
-        unique=True
-    )
-    
-    # Mobile refresh tokens collection indexes
-    await db.mobile_refresh_tokens.create_index("token_hash", unique=True)
-    await db.mobile_refresh_tokens.create_index("jti", unique=True)
-    await db.mobile_refresh_tokens.create_index("user_id")
-    await db.mobile_refresh_tokens.create_index("expires_at", expireAfterSeconds=0)  # TTL
-    
-    logger.info("Database indexes created")
+    # Create indexes (with error handling for each)
+    try:
+        await db.users.create_index("email", unique=True)
+        await db.users.create_index("id", unique=True)
+        await db.drivers.create_index("user_id")
+        await db.drivers.create_index("id", unique=True)
+        await db.route_sheets.create_index([("user_id", 1), ("created_at", -1)])
+        await db.route_sheets.create_index([("user_id", 1), ("pickup_datetime", -1)])
+        await db.route_sheets.create_index(
+            [("user_id", 1), ("year", 1), ("seq_number", 1)], 
+            unique=True
+        )
+        await db.route_sheets.create_index("status")
+        await db.route_sheets.create_index("user_visible")
+        await db.route_sheets.create_index("id", unique=True)
+        await db.route_sheets.create_index("purge_at", expireAfterSeconds=0)
+        await db.password_reset_tokens.create_index("token_hash", unique=True)
+        await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+        await db.counters.create_index([("user_id", 1), ("year", 1)], unique=True)
+        
+        existing_config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
+        if not existing_config:
+            config = AppConfig()
+            await db.app_config.insert_one(config.model_dump())
+            logger.info("Initialized default app_config")
+        else:
+            if "pdf_config_version" not in existing_config:
+                await db.app_config.update_one(
+                    {"id": "global"},
+                    {"$set": {"pdf_config_version": 1}}
+                )
+                logger.info("Added pdf_config_version to app_config")
+        
+        await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
+        await db.rate_limits.create_index([("user_id", 1), ("action", 1)])
+        await db.pdf_cache.create_index("expires_at", expireAfterSeconds=0)
+        await db.pdf_cache.create_index(
+            [("sheet_id", 1), ("config_version", 1), ("status", 1)], 
+            unique=True
+        )
+        await db.mobile_refresh_tokens.create_index("token_hash", unique=True)
+        await db.mobile_refresh_tokens.create_index("jti", unique=True)
+        await db.mobile_refresh_tokens.create_index("user_id")
+        await db.mobile_refresh_tokens.create_index("expires_at", expireAfterSeconds=0)
+        
+        logger.info("Database indexes created")
+    except Exception as e:
+        logger.error(f"Error creating indexes: {e}")
+        pass
 
 
 @app.on_event("shutdown")
