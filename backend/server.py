@@ -73,6 +73,30 @@ logger = logging.getLogger(__name__)
 # Retention job token (for automated schedulers)
 RETENTION_JOB_TOKEN = os.environ.get("RETENTION_JOB_TOKEN")
 
+# ============== STARTUP STATE (for readiness) ==============
+DB_CONNECTED = False
+INDEXES_OK = False
+MISSING_CRITICAL_INDEXES = []
+LAST_INDEX_ERROR = None
+
+
+# ============== INDEX CREATION HELPER ==============
+async def _create_index(name: str, coro, critical: bool, failures_critical: list, failures_noncritical: list):
+    """Create an index and track success/failure"""
+    global LAST_INDEX_ERROR
+    try:
+        await coro
+        logger.info(f"Index OK: {name}")
+    except Exception as e:
+        LAST_INDEX_ERROR = f"{name}: {str(e)}"
+        msg = f"Index FAILED: {name} (critical={critical}) err={e}"
+        if critical:
+            logger.error(msg)
+            failures_critical.append(name)
+        else:
+            logger.warning(msg)
+            failures_noncritical.append(name)
+
 
 # ============== STARTUP / SHUTDOWN ==============
 @app.on_event("startup")
