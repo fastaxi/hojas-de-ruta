@@ -101,74 +101,196 @@ async def _create_index(name: str, coro, critical: bool, failures_critical: list
 # ============== STARTUP / SHUTDOWN ==============
 @app.on_event("startup")
 async def startup_db():
-    """Initialize database indexes and default config - with retry for Atlas connection"""
+    """Initialize database connection and indexes with proper error handling"""
+    global DB_CONNECTED, INDEXES_OK, MISSING_CRITICAL_INDEXES, LAST_INDEX_ERROR
+
+    # Reset state
+    DB_CONNECTED = False
+    INDEXES_OK = False
+    MISSING_CRITICAL_INDEXES = []
+    LAST_INDEX_ERROR = None
+
+    # ============== MONGODB RETRY ==============
     max_retries = 5
     retry_delay = 3
-    
+
     for attempt in range(max_retries):
         try:
-            # Test connection first
-            await client.admin.command('ping')
+            await client.admin.command("ping")
+            DB_CONNECTED = True
             logger.info(f"MongoDB connection successful (attempt {attempt + 1})")
             break
         except Exception as e:
             if attempt < max_retries - 1:
                 logger.warning(f"MongoDB connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
                 await asyncio.sleep(retry_delay)
-                retry_delay *= 2  # Exponential backoff
+                retry_delay *= 2
             else:
-                logger.error(f"Failed to connect to MongoDB after {max_retries} attempts")
+                logger.error(f"Failed to connect to MongoDB after {max_retries} attempts: {e}")
                 raise
-    
-    # Create indexes (with error handling for each)
+
+    # ============== INDEX CREATION (NO SILENT PASS) ==============
+    failures_critical = []
+    failures_noncritical = []
+
+    # USERS (non-critical - app works but slower queries)
+    await _create_index("users_unique_email", 
+        db.users.create_index("email", unique=True), 
+        False, failures_critical, failures_noncritical)
+    await _create_index("users_unique_id", 
+        db.users.create_index("id", unique=True), 
+        False, failures_critical, failures_noncritical)
+
+    # DRIVERS (non-critical)
+    await _create_index("drivers_user_id", 
+        db.drivers.create_index("user_id"), 
+        False, failures_critical, failures_noncritical)
+    await _create_index("drivers_unique_id", 
+        db.drivers.create_index("id", unique=True), 
+        False, failures_critical, failures_noncritical)
+
+    # ROUTE SHEETS - query indexes (non-critical)
+    await _create_index("route_sheets_user_created_at", 
+        db.route_sheets.create_index([("user_id", 1), ("created_at", -1)]), 
+        False, failures_critical, failures_noncritical)
+    await _create_index("route_sheets_user_pickup_datetime", 
+        db.route_sheets.create_index([("user_id", 1), ("pickup_datetime", -1)]), 
+        False, failures_critical, failures_noncritical)
+    await _create_index("route_sheets_status", 
+        db.route_sheets.create_index("status"), 
+        False, failures_critical, failures_noncritical)
+    await _create_index("route_sheets_user_visible", 
+        db.route_sheets.create_index("user_visible"), 
+        False, failures_critical, failures_noncritical)
+    await _create_index("route_sheets_unique_id", 
+        db.route_sheets.create_index("id", unique=True), 
+        False, failures_critical, failures_noncritical)
+
+    # ROUTE SHEETS - CRITICAL: unique numbering + TTL purge
+    await _create_index("route_sheets_unique_user_year_seq",
+        db.route_sheets.create_index([("user_id", 1), ("year", 1), ("seq_number", 1)], unique=True),
+        True, failures_critical, failures_noncritical)
+    await _create_index("route_sheets_ttl_purge_at",
+        db.route_sheets.create_index("purge_at", expireAfterSeconds=0),
+        True, failures_critical, failures_noncritical)
+
+    # PASSWORD RESET TOKENS - CRITICAL TTL
+    await _create_index("password_reset_tokens_unique_token_hash",
+        db.password_reset_tokens.create_index("token_hash", unique=True),
+        False, failures_critical, failures_noncritical)
+    await _create_index("password_reset_tokens_ttl_expires_at",
+        db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0),
+        True, failures_critical, failures_noncritical)
+
+    # COUNTERS - CRITICAL for atomic numbering
+    await _create_index("counters_unique_user_year",
+        db.counters.create_index([("user_id", 1), ("year", 1)], unique=True),
+        True, failures_critical, failures_noncritical)
+
+    # APP CONFIG INIT (not an index, but must run)
     try:
-        await db.users.create_index("email", unique=True)
-        await db.users.create_index("id", unique=True)
-        await db.drivers.create_index("user_id")
-        await db.drivers.create_index("id", unique=True)
-        await db.route_sheets.create_index([("user_id", 1), ("created_at", -1)])
-        await db.route_sheets.create_index([("user_id", 1), ("pickup_datetime", -1)])
-        await db.route_sheets.create_index(
-            [("user_id", 1), ("year", 1), ("seq_number", 1)], 
-            unique=True
-        )
-        await db.route_sheets.create_index("status")
-        await db.route_sheets.create_index("user_visible")
-        await db.route_sheets.create_index("id", unique=True)
-        await db.route_sheets.create_index("purge_at", expireAfterSeconds=0)
-        await db.password_reset_tokens.create_index("token_hash", unique=True)
-        await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
-        await db.counters.create_index([("user_id", 1), ("year", 1)], unique=True)
-        
         existing_config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
         if not existing_config:
             config = AppConfig()
             await db.app_config.insert_one(config.model_dump())
             logger.info("Initialized default app_config")
-        else:
-            if "pdf_config_version" not in existing_config:
-                await db.app_config.update_one(
-                    {"id": "global"},
-                    {"$set": {"pdf_config_version": 1}}
-                )
-                logger.info("Added pdf_config_version to app_config")
-        
-        await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
-        await db.rate_limits.create_index([("user_id", 1), ("action", 1)])
-        await db.pdf_cache.create_index("expires_at", expireAfterSeconds=0)
-        await db.pdf_cache.create_index(
-            [("sheet_id", 1), ("config_version", 1), ("status", 1)], 
-            unique=True
-        )
-        await db.mobile_refresh_tokens.create_index("token_hash", unique=True)
-        await db.mobile_refresh_tokens.create_index("jti", unique=True)
-        await db.mobile_refresh_tokens.create_index("user_id")
-        await db.mobile_refresh_tokens.create_index("expires_at", expireAfterSeconds=0)
-        
-        logger.info("Database indexes created")
+        elif "pdf_config_version" not in existing_config:
+            await db.app_config.update_one({"id": "global"}, {"$set": {"pdf_config_version": 1}})
+            logger.info("Added pdf_config_version to app_config")
     except Exception as e:
-        logger.error(f"Error creating indexes: {e}")
-        pass
+        LAST_INDEX_ERROR = f"app_config_init: {str(e)}"
+        logger.error(f"Error initializing app_config: {e}")
+
+    # RATE LIMITS - CRITICAL TTL
+    await _create_index("rate_limits_ttl_expires_at",
+        db.rate_limits.create_index("expires_at", expireAfterSeconds=0),
+        True, failures_critical, failures_noncritical)
+    await _create_index("rate_limits_user_action",
+        db.rate_limits.create_index([("user_id", 1), ("action", 1)]),
+        False, failures_critical, failures_noncritical)
+
+    # PDF CACHE - CRITICAL TTL + unique
+    await _create_index("pdf_cache_ttl_expires_at",
+        db.pdf_cache.create_index("expires_at", expireAfterSeconds=0),
+        True, failures_critical, failures_noncritical)
+    await _create_index("pdf_cache_unique_sheet_config_status",
+        db.pdf_cache.create_index([("sheet_id", 1), ("config_version", 1), ("status", 1)], unique=True),
+        True, failures_critical, failures_noncritical)
+
+    # MOBILE REFRESH TOKENS - CRITICAL TTL + unique
+    await _create_index("mobile_refresh_tokens_unique_token_hash",
+        db.mobile_refresh_tokens.create_index("token_hash", unique=True),
+        True, failures_critical, failures_noncritical)
+    await _create_index("mobile_refresh_tokens_unique_jti",
+        db.mobile_refresh_tokens.create_index("jti", unique=True),
+        False, failures_critical, failures_noncritical)
+    await _create_index("mobile_refresh_tokens_user_id",
+        db.mobile_refresh_tokens.create_index("user_id"),
+        False, failures_critical, failures_noncritical)
+    await _create_index("mobile_refresh_tokens_ttl_expires_at",
+        db.mobile_refresh_tokens.create_index("expires_at", expireAfterSeconds=0),
+        True, failures_critical, failures_noncritical)
+
+    # Final readiness decision
+    MISSING_CRITICAL_INDEXES = failures_critical
+    INDEXES_OK = (len(failures_critical) == 0)
+
+    if INDEXES_OK:
+        logger.info("Startup OK: DB_CONNECTED=true, INDEXES_OK=true")
+    else:
+        logger.error(f"Startup DEGRADED: DB_CONNECTED={DB_CONNECTED}, INDEXES_OK=false, missing={MISSING_CRITICAL_INDEXES}")
+        # Launch background retry task
+        asyncio.create_task(retry_critical_indexes_forever())
+
+
+async def retry_critical_indexes_forever():
+    """Background task to retry creating critical indexes every 60s"""
+    global INDEXES_OK, MISSING_CRITICAL_INDEXES, LAST_INDEX_ERROR
+    
+    while not INDEXES_OK:
+        logger.warning("Retrying critical indexes in 60s...")
+        await asyncio.sleep(60)
+        
+        try:
+            failures_critical = []
+            failures_noncritical = []
+            
+            # Retry only critical indexes
+            await _create_index("route_sheets_unique_user_year_seq",
+                db.route_sheets.create_index([("user_id", 1), ("year", 1), ("seq_number", 1)], unique=True),
+                True, failures_critical, failures_noncritical)
+            await _create_index("route_sheets_ttl_purge_at",
+                db.route_sheets.create_index("purge_at", expireAfterSeconds=0),
+                True, failures_critical, failures_noncritical)
+            await _create_index("password_reset_tokens_ttl_expires_at",
+                db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0),
+                True, failures_critical, failures_noncritical)
+            await _create_index("counters_unique_user_year",
+                db.counters.create_index([("user_id", 1), ("year", 1)], unique=True),
+                True, failures_critical, failures_noncritical)
+            await _create_index("rate_limits_ttl_expires_at",
+                db.rate_limits.create_index("expires_at", expireAfterSeconds=0),
+                True, failures_critical, failures_noncritical)
+            await _create_index("pdf_cache_ttl_expires_at",
+                db.pdf_cache.create_index("expires_at", expireAfterSeconds=0),
+                True, failures_critical, failures_noncritical)
+            await _create_index("pdf_cache_unique_sheet_config_status",
+                db.pdf_cache.create_index([("sheet_id", 1), ("config_version", 1), ("status", 1)], unique=True),
+                True, failures_critical, failures_noncritical)
+            await _create_index("mobile_refresh_tokens_unique_token_hash",
+                db.mobile_refresh_tokens.create_index("token_hash", unique=True),
+                True, failures_critical, failures_noncritical)
+            await _create_index("mobile_refresh_tokens_ttl_expires_at",
+                db.mobile_refresh_tokens.create_index("expires_at", expireAfterSeconds=0),
+                True, failures_critical, failures_noncritical)
+            
+            MISSING_CRITICAL_INDEXES = failures_critical
+            INDEXES_OK = (len(failures_critical) == 0)
+            
+            if INDEXES_OK:
+                logger.info("Critical indexes recovered; readiness is now healthy")
+        except Exception as e:
+            logger.error(f"Critical index retry failed: {e}")
 
 
 @app.on_event("shutdown")
