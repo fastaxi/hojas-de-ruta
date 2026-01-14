@@ -2,10 +2,16 @@
 RutasFast - Main FastAPI Server
 Backend for taxi route sheet management app
 """
+from pathlib import Path
+from dotenv import load_dotenv
+
+# CRITICAL: Load .env BEFORE any local imports that read env vars
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env', override=True)
+
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Cookie, Request
 from fastapi.responses import StreamingResponse, JSONResponse, Response
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
@@ -15,12 +21,11 @@ import logging
 import re
 import pytz
 import asyncio
-from pathlib import Path
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta, date
 import io
 
-# Local imports
+# Local imports (AFTER load_dotenv)
 from models import (
     User, UserCreate, UserUpdate, UserPublic,
     Driver, DriverCreate, DriverUpdate,
@@ -42,9 +47,6 @@ from auth import (
 from dateutil.relativedelta import relativedelta
 import secrets
 import string
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
