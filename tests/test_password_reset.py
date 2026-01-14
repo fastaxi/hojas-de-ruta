@@ -12,7 +12,7 @@ import os
 import time
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rutasfast-1.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://asturia-taxi.preview.emergentagent.com').rstrip('/')
 
 # Test user data - unique per test run
 TEST_USER_EMAIL = f"test_reset_{uuid.uuid4().hex[:8]}@test.com"

@@ -7,7 +7,7 @@ import json
 
 def test_admin_functionality():
     """Test admin endpoints with provided credentials"""
-    base_url = "https://rutasfast-1.preview.emergentagent.com"
+    base_url = "https://asturia-taxi.preview.emergentagent.com"
     
     # Admin credentials from review request
     admin_data = {
