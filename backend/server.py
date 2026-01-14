@@ -459,12 +459,15 @@ async def root():
 @api_router.get("/health")
 async def health_check():
     """Health check with service status (for /api/health)"""
+    import os
+    admin_hash = os.environ.get("ADMIN_PASSWORD_HASH", "NOT_SET")
     return {
         "status": "healthy" if (DB_CONNECTED and INDEXES_OK) else "degraded",
         "environment": "production" if IS_PRODUCTION else "development",
         "admin_configured": is_admin_configured(),
         "admin_env_configured": is_admin_env_configured(),
-        "admin_username": get_admin_username(),  # DEBUG: remove after fix
+        "admin_username": get_admin_username(),
+        "admin_hash_preview": admin_hash[:20] + "..." if admin_hash and len(admin_hash) > 20 else admin_hash,
         "email_enabled": False,
         "db_connected": DB_CONNECTED,
         "indexes_ok": INDEXES_OK
