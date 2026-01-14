@@ -108,7 +108,37 @@ def verify_reset_token_hash(token: str, stored_hash: str) -> bool:
 
 # Admin authentication
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
-ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
+
+# Handle ADMIN_PASSWORD_HASH - support both plain and Base64 encoded
+_raw_admin_hash = os.environ.get("ADMIN_PASSWORD_HASH", "")
+
+def _decode_admin_hash(raw_value: str) -> str:
+    """
+    Decode admin password hash from env.
+    Supports:
+    - Plain bcrypt hash (starts with $2b$, $2a$, or $2y$)
+    - Base64 encoded hash (for deployment environments that strip $ chars)
+    """
+    if not raw_value:
+        return ""
+    
+    # Check if it looks like a valid bcrypt hash already
+    if raw_value.startswith(("$2b$", "$2a$", "$2y$")):
+        return raw_value
+    
+    # Try Base64 decode
+    try:
+        import base64
+        decoded = base64.b64decode(raw_value).decode('utf-8')
+        if decoded.startswith(("$2b$", "$2a$", "$2y$")):
+            return decoded
+    except Exception:
+        pass
+    
+    # Return as-is (might be corrupted, will fail verification)
+    return raw_value
+
+ADMIN_PASSWORD_HASH = _decode_admin_hash(_raw_admin_hash)
 
 # Default dev credentials (only used in non-production when env vars not set)
 DEFAULT_DEV_USERNAME = "admin"
