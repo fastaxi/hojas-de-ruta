@@ -464,6 +464,7 @@ async def health_check():
         "environment": "production" if IS_PRODUCTION else "development",
         "admin_configured": is_admin_configured(),
         "admin_env_configured": is_admin_env_configured(),
+        "admin_username": get_admin_username(),  # DEBUG: remove after fix
         "email_enabled": False,
         "db_connected": DB_CONNECTED,
         "indexes_ok": INDEXES_OK
