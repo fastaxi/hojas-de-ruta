@@ -50,7 +50,9 @@ import secrets
 import string
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+# In production, MONGO_URL comes from Kubernetes secrets (Atlas MongoDB)
+# In development sandbox, use localhost fallback
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
