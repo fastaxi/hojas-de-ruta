@@ -6,8 +6,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # CRITICAL: Load .env BEFORE any local imports that read env vars
+# NOTE: override=False ensures Kubernetes environment variables are NOT overwritten
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env', override=True)
+load_dotenv(ROOT_DIR / '.env', override=False)
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Cookie, Request
 from fastapi.responses import StreamingResponse, JSONResponse, Response
