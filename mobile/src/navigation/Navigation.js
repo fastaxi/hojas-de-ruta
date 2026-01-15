@@ -82,21 +82,16 @@ function MainTabs() {
   );
 }
 
-// Simple Tab Icon component
+// Simple Tab Icon component (using Text as placeholder)
+import { Text, View } from 'react-native';
+
 function TabIcon({ name, color, size }) {
   return (
-    <React.Fragment>
-      {/* Using text as placeholder - replace with proper icons */}
-      <android.widget.TextView
-        style={{
-          fontSize: size,
-          color: color,
-          fontWeight: 'bold',
-        }}
-      >
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ fontSize: size - 4, color: color, fontWeight: 'bold' }}>
         {name}
-      </android.widget.TextView>
-    </React.Fragment>
+      </Text>
+    </View>
   );
 }
 
