@@ -187,15 +187,16 @@ class UserUpdate(BaseModel):
     vehicle_brand: Optional[str] = None
     vehicle_model: Optional[str] = None
     vehicle_plate: Optional[str] = None
+    vehicle_license_number: Optional[str] = None  # Nº licencia/permiso del vehículo
     
-    @field_validator('full_name', 'license_number', 'license_council', 'phone', 'vehicle_brand', 'vehicle_model')
+    @field_validator('full_name', 'license_number', 'license_council', 'phone', 'vehicle_brand', 'vehicle_model', 'vehicle_license_number')
     @classmethod
     def validate_optional_strings(cls, v, info):
         if v is None:
             return None
         v = v.strip()
         if not v:
-            raise ValueError(f'{info.field_name} no puede estar vacío si se proporciona')
+            return None  # Permitir string vacío como None
         return v
     
     @field_validator('dni_cif')
