@@ -1,8 +1,11 @@
 # RutasFast - PRD (Product Requirements Document)
 
 ## Estado Actual
-**Fecha última actualización**: 2026-01-14
-**Fase**: MVP Completo - Listo para Despliegue
+**Fecha última actualización**: 2026-01-30
+**Fase**: MVP Web Completo + App Móvil Expo en desarrollo
+
+## Changelog Reciente
+- **2026-01-30**: Fix crítico - Añadido `vehicle_license_number` al modelo `UserPublic` para que se devuelva correctamente en las respuestas de `/api/me`. Verificado en PUT, GET y PDF.
 
 ## Descripción del Proyecto
 App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, conservar histórico, exportar a PDF y compartir por email. Incluye panel web de administración para validar usuarios.
