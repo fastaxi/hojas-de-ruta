@@ -80,7 +80,8 @@ export function ConfiguracionPage() {
       setVehicleData({
         vehicle_brand: user.vehicle_brand || '',
         vehicle_model: user.vehicle_model || '',
-        vehicle_plate: user.vehicle_plate || ''
+        vehicle_plate: user.vehicle_plate || '',
+        vehicle_license_number: user.vehicle_license_number || ''
       });
     }
     fetchDrivers();
