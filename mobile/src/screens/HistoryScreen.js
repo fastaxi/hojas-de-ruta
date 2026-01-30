@@ -1,6 +1,13 @@
 /**
  * RutasFast Mobile - History Screen
  * Route sheets list with PDF download and sharing
+ * 
+ * Features:
+ * - Filter by status (all/active/annulled)
+ * - Share individual PDF
+ * - Share PDF by date range
+ * - Double-click prevention
+ * - Comprehensive error handling
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -12,7 +19,6 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -20,21 +26,21 @@ import { es } from 'date-fns/locale';
 import api from '../services/api';
 import { ENDPOINTS } from '../services/config';
 import { usePdfShare } from '../hooks/usePdfShare';
+import DateRangeModal from '../components/DateRangeModal';
 
 export default function HistoryScreen() {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, active, annulled
-  const [selectedSheet, setSelectedSheet] = useState(null);
   const [showRangeModal, setShowRangeModal] = useState(false);
 
   const { 
-    loading: pdfLoading, 
-    loadingSheetId, 
+    preparingPdfId,
+    preparingRange,
+    isPreparingSheet,
     shareSheetPdf,
-    downloadSheetPdf,
-    shareRangePdf 
+    shareRangePdf,
   } = usePdfShare();
 
   const loadSheets = useCallback(async () => {
@@ -46,7 +52,7 @@ export default function HistoryScreen() {
       const response = await api.get(ENDPOINTS.ROUTE_SHEETS, { params });
       setSheets(response.data);
     } catch (error) {
-      console.error('Error loading sheets:', error);
+      // 401 handled by interceptor, only show other errors
       if (error.response?.status !== 401) {
         Alert.alert('Error', 'No se pudieron cargar las hojas de ruta');
       }
@@ -65,14 +71,29 @@ export default function HistoryScreen() {
     loadSheets();
   };
 
+  /**
+   * Handle share PDF for a single sheet
+   * Prevents double-click and shows loading state
+   */
   const handleSharePdf = async (sheet) => {
+    // Prevent if already preparing this sheet
+    if (isPreparingSheet(sheet.id)) return;
     await shareSheetPdf(sheet);
   };
 
-  const handleDownloadPdf = async (sheet) => {
-    await downloadSheetPdf(sheet);
+  /**
+   * Handle share PDF by date range
+   */
+  const handleShareRange = async (fromDate, toDate) => {
+    const result = await shareRangePdf(fromDate, toDate);
+    if (result.success) {
+      setShowRangeModal(false);
+    }
   };
 
+  /**
+   * Handle annul sheet
+   */
   const handleAnnul = async (sheet) => {
     Alert.alert(
       'Anular Hoja',
@@ -99,16 +120,17 @@ export default function HistoryScreen() {
     );
   };
 
+  /**
+   * Show options menu for a sheet
+   */
   const showSheetOptions = (sheet) => {
+    const isPreparing = isPreparingSheet(sheet.id);
+    
     const options = [
       { text: 'Cancelar', style: 'cancel' },
       { 
-        text: 'Compartir PDF', 
-        onPress: () => handleSharePdf(sheet) 
-      },
-      { 
-        text: 'Descargar PDF', 
-        onPress: () => handleDownloadPdf(sheet) 
+        text: isPreparing ? 'Preparando...' : 'Compartir PDF', 
+        onPress: isPreparing ? undefined : () => handleSharePdf(sheet),
       },
     ];
 
@@ -127,8 +149,11 @@ export default function HistoryScreen() {
     );
   };
 
+  /**
+   * Render individual sheet card
+   */
   const renderSheet = ({ item }) => {
-    const isLoadingThis = loadingSheetId === item.id;
+    const isPreparing = isPreparingSheet(item.id);
     
     return (
       <TouchableOpacity 
@@ -187,14 +212,22 @@ export default function HistoryScreen() {
 
         <View style={styles.sheetActions}>
           <TouchableOpacity
-            style={[styles.actionButton, isLoadingThis && styles.actionButtonDisabled]}
+            style={[
+              styles.actionButton,
+              isPreparing && styles.actionButtonDisabled,
+            ]}
             onPress={() => handleSharePdf(item)}
-            disabled={pdfLoading}
+            disabled={isPreparing}
           >
-            {isLoadingThis ? (
-              <ActivityIndicator size="small" color="#fff" />
+            {isPreparing ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={[styles.actionButtonText, styles.buttonTextWithIcon]}>
+                  Preparando...
+                </Text>
+              </View>
             ) : (
-              <Text style={styles.actionButtonText}>Compartir</Text>
+              <Text style={styles.actionButtonText}>Compartir PDF</Text>
             )}
           </TouchableOpacity>
           
@@ -202,7 +235,6 @@ export default function HistoryScreen() {
             <TouchableOpacity
               style={[styles.actionButton, styles.actionButtonSecondary]}
               onPress={() => handleAnnul(item)}
-              disabled={pdfLoading}
             >
               <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
                 Anular
@@ -214,6 +246,7 @@ export default function HistoryScreen() {
     );
   };
 
+  // Loading state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -226,10 +259,30 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Histórico</Text>
-        <Text style={styles.subtitle}>
-          {sheets.length} {sheets.length === 1 ? 'hoja' : 'hojas'} de ruta
-        </Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.title}>Histórico</Text>
+            <Text style={styles.subtitle}>
+              {sheets.length} {sheets.length === 1 ? 'hoja' : 'hojas'} de ruta
+            </Text>
+          </View>
+          
+          {/* Export Range Button */}
+          <TouchableOpacity
+            style={[
+              styles.exportButton,
+              preparingRange && styles.exportButtonDisabled,
+            ]}
+            onPress={() => setShowRangeModal(true)}
+            disabled={preparingRange}
+          >
+            {preparingRange ? (
+              <ActivityIndicator size="small" color="#7A1F1F" />
+            ) : (
+              <Text style={styles.exportButtonText}>Exportar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filters */}
@@ -280,6 +333,14 @@ export default function HistoryScreen() {
           </View>
         }
       />
+
+      {/* Date Range Modal */}
+      <DateRangeModal
+        visible={showRangeModal}
+        onClose={() => setShowRangeModal(false)}
+        onConfirm={handleShareRange}
+        loading={preparingRange}
+      />
     </SafeAreaView>
   );
 }
@@ -304,6 +365,11 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 16,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -313,6 +379,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#57534E',
     marginTop: 4,
+  },
+  exportButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#7A1F1F',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  exportButtonDisabled: {
+    opacity: 0.7,
+  },
+  exportButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#7A1F1F',
   },
   filters: {
     flexDirection: 'row',
@@ -430,7 +514,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
   },
   actionButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.8,
   },
   actionButtonText: {
     fontSize: 14,
@@ -439,6 +523,14 @@ const styles = StyleSheet.create({
   },
   actionButtonTextSecondary: {
     color: '#991B1B',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonTextWithIcon: {
+    marginLeft: 8,
   },
   emptyContainer: {
     padding: 60,
