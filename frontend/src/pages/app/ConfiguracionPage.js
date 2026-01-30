@@ -424,7 +424,7 @@ export function ConfiguracionPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleVehicleUpdate} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                       Marca
@@ -456,6 +456,18 @@ export function ConfiguracionPage() {
                       onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_plate: e.target.value.toUpperCase() }))}
                       className="h-12"
                       data-testid="config-vehicle-plate"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                      Nº Licencia Vehículo
+                    </Label>
+                    <Input
+                      value={vehicleData.vehicle_license_number}
+                      onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_license_number: e.target.value.toUpperCase() }))}
+                      className="h-12"
+                      placeholder="Ej: VTC-12345"
+                      data-testid="config-vehicle-license-number"
                     />
                   </div>
                 </div>
