@@ -133,6 +133,7 @@ class UserCreate(BaseModel):
     vehicle_brand: str
     vehicle_model: str
     vehicle_plate: str
+    vehicle_license_number: Optional[str] = None  # Nº licencia/permiso del vehículo
     drivers: Optional[List[DriverCreate]] = []
     
     @field_validator('full_name', 'license_number', 'license_council', 'phone', 'vehicle_brand', 'vehicle_model')
@@ -155,6 +156,14 @@ class UserCreate(BaseModel):
         if not v or not v.strip():
             raise ValueError('vehicle_plate no puede estar vacío')
         return v.strip().upper()
+    
+    @field_validator('vehicle_license_number')
+    @classmethod
+    def validate_vehicle_license_number(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        return v if v else None
     
     @field_validator('password')
     @classmethod
