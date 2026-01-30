@@ -1,6 +1,6 @@
 /**
  * RutasFast Mobile - API Service
- * Handles all HTTP requests to the backend
+ * Handles all HTTP requests to the backend with auth token management
  */
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
@@ -10,6 +10,73 @@ import { API_BASE_URL, REQUEST_TIMEOUT } from './config';
 const ACCESS_TOKEN_KEY = 'rutasfast_access_token';
 const REFRESH_TOKEN_KEY = 'rutasfast_refresh_token';
 
+// In-memory token cache for faster access
+let cachedAccessToken = null;
+let cachedRefreshToken = null;
+
+// Logout callback (set by AuthContext)
+let onLogoutCallback = null;
+
+/**
+ * Token management service
+ */
+export const tokenService = {
+  async getAccessToken() {
+    if (cachedAccessToken) return cachedAccessToken;
+    cachedAccessToken = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+    return cachedAccessToken;
+  },
+  
+  async getRefreshToken() {
+    if (cachedRefreshToken) return cachedRefreshToken;
+    cachedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    return cachedRefreshToken;
+  },
+  
+  async setTokens(accessToken, refreshToken) {
+    cachedAccessToken = accessToken;
+    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
+    if (refreshToken) {
+      cachedRefreshToken = refreshToken;
+      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+    }
+  },
+  
+  async clearTokens() {
+    cachedAccessToken = null;
+    cachedRefreshToken = null;
+    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  },
+
+  // Initialize tokens on app start
+  async initializeFromStorage() {
+    cachedAccessToken = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+    cachedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    return { 
+      hasAccessToken: !!cachedAccessToken,
+      hasRefreshToken: !!cachedRefreshToken 
+    };
+  },
+};
+
+/**
+ * Set logout callback (called from AuthContext)
+ */
+export const setLogoutCallback = (callback) => {
+  onLogoutCallback = callback;
+};
+
+/**
+ * Force logout - clears tokens and calls logout callback
+ */
+const forceLogout = async () => {
+  await tokenService.clearTokens();
+  if (onLogoutCallback) {
+    onLogoutCallback();
+  }
+};
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -18,29 +85,6 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
-// Token management
-export const tokenService = {
-  async getAccessToken() {
-    return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-  },
-  
-  async getRefreshToken() {
-    return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-  },
-  
-  async setTokens(accessToken, refreshToken) {
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
-    if (refreshToken) {
-      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
-    }
-  },
-  
-  async clearTokens() {
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-  },
-};
 
 // Request interceptor - add auth token
 api.interceptors.request.use(
@@ -76,6 +120,13 @@ api.interceptors.response.use(
     
     // If 401 and not already retrying
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // If this is already a refresh request, don't retry
+      if (originalRequest.url?.includes('/auth/mobile/refresh')) {
+        console.log('[API] Refresh token failed, forcing logout');
+        await forceLogout();
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Queue this request while refreshing
         return new Promise((resolve, reject) => {
@@ -94,15 +145,23 @@ api.interceptors.response.use(
       try {
         const refreshToken = await tokenService.getRefreshToken();
         if (!refreshToken) {
+          console.log('[API] No refresh token available, forcing logout');
+          await forceLogout();
           throw new Error('No refresh token');
         }
         
+        console.log('[API] Attempting token refresh...');
+        
+        // Use raw axios to avoid interceptors
         const response = await axios.post(
           `${API_BASE_URL}/auth/mobile/refresh`,
-          { refresh_token: refreshToken }
+          { refresh_token: refreshToken },
+          { timeout: REQUEST_TIMEOUT }
         );
         
         const { access_token, refresh_token: newRefreshToken } = response.data;
+        
+        console.log('[API] Token refresh successful');
         await tokenService.setTokens(access_token, newRefreshToken);
         
         processQueue(null, access_token);
@@ -110,8 +169,9 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return api(originalRequest);
       } catch (refreshError) {
+        console.error('[API] Token refresh failed:', refreshError.message);
         processQueue(refreshError, null);
-        await tokenService.clearTokens();
+        await forceLogout();
         throw refreshError;
       } finally {
         isRefreshing = false;
