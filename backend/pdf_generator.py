@@ -445,10 +445,14 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
         
         # Compact data for multi-sheet
         all_elements.append(Paragraph('TITULAR Y VEHÍCULO', section_header))
+        vehicle_desc_compact = f"{user.get('vehicle_brand', '')} {user.get('vehicle_model', '')}".strip() or '-'
         data1 = [
             ['Titular:', user.get('full_name', '-'), 'Licencia:', user.get('license_number', '-')],
-            ['Vehículo:', f"{user.get('vehicle_brand', '')} {user.get('vehicle_model', '')}", 'Matrícula:', user.get('vehicle_plate', '-')],
+            ['Vehículo:', vehicle_desc_compact, 'Matrícula:', user.get('vehicle_plate', '-')],
         ]
+        # Add vehicle license if present
+        if user.get('vehicle_license_number'):
+            data1.append(['Lic. Vehículo:', user.get('vehicle_license_number'), '', ''])
         if driver_name != "Titular":
             data1.append(['Conductor:', driver_name, '', ''])
         
