@@ -39,7 +39,8 @@ export function ConfiguracionPage() {
   const [vehicleData, setVehicleData] = useState({
     vehicle_brand: '',
     vehicle_model: '',
-    vehicle_plate: ''
+    vehicle_plate: '',
+    vehicle_license_number: ''
   });
 
   // Drivers
