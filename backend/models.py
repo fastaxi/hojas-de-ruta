@@ -255,6 +255,7 @@ class UserPublic(BaseModel):
     vehicle_brand: str
     vehicle_model: str
     vehicle_plate: str
+    vehicle_license_number: Optional[str] = None
     status: str
     must_change_password: bool = False
     created_at: datetime
