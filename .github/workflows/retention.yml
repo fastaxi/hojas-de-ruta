@@ -1,0 +1,24 @@
+name: Retention Job (RutasFast)
+
+on:
+  schedule:
+    - cron: "0 2 * * *"  # 02:00 UTC diario (≈ 03:00 España invierno / 04:00 verano)
+  workflow_dispatch: {}
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Run retention job
+        env:
+          BASE_URL: ${{ secrets.RUTASFAST_URL }}
+          TOKEN: ${{ secrets.RETENTION_JOB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Running retention job..."
+          curl -sS -X POST "${BASE_URL}/api/internal/run-retention" \
+            -H "X-Job-Token: ${TOKEN}" \
+            -H "Content-Length: 0" \
+            --fail
+          echo "Retention job OK"
