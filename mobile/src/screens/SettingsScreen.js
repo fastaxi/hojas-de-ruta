@@ -1,7 +1,8 @@
 /**
  * RutasFast Mobile - Settings Screen
+ * Main settings menu with navigation to sub-screens
  */
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -12,9 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
+import { useDrivers } from '../contexts/DriversContext';
 
 export default function SettingsScreen({ navigation }) {
   const { user, logout } = useAuth();
+  const { drivers } = useDrivers();
 
   const handleLogout = () => {
     Alert.alert(
@@ -34,17 +37,21 @@ export default function SettingsScreen({ navigation }) {
   const menuItems = [
     {
       title: 'Mi Perfil',
-      subtitle: 'Datos personales y contacto',
+      subtitle: user?.full_name || 'Configurar perfil',
       onPress: () => navigation.navigate('Profile'),
     },
     {
       title: 'Vehículo',
-      subtitle: `${user?.vehicle_brand || ''} ${user?.vehicle_model || ''} - ${user?.vehicle_plate || ''}`,
+      subtitle: user?.vehicle_plate 
+        ? `${user.vehicle_brand || ''} ${user.vehicle_model || ''} - ${user.vehicle_plate}`.trim()
+        : 'Configurar vehículo',
       onPress: () => navigation.navigate('Vehicle'),
     },
     {
-      title: 'Choferes',
-      subtitle: 'Gestiona tus conductores adicionales',
+      title: 'Conductores',
+      subtitle: drivers.length > 0 
+        ? `${drivers.length} conductor${drivers.length > 1 ? 'es' : ''} adicional${drivers.length > 1 ? 'es' : ''}`
+        : 'Gestionar conductores',
       onPress: () => navigation.navigate('Drivers'),
     },
     {
@@ -69,11 +76,14 @@ export default function SettingsScreen({ navigation }) {
             </Text>
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user?.full_name}</Text>
+            <Text style={styles.userName}>{user?.full_name || 'Usuario'}</Text>
             <Text style={styles.userEmail}>{user?.email}</Text>
-            <Text style={styles.userLicense}>
-              Licencia: {user?.license_number} - {user?.license_council}
-            </Text>
+            {user?.license_number && (
+              <Text style={styles.userLicense}>
+                Licencia: {user.license_number}
+                {user.license_council ? ` - ${user.license_council}` : ''}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -82,12 +92,17 @@ export default function SettingsScreen({ navigation }) {
           {menuItems.map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.menuItem}
+              style={[
+                styles.menuItem,
+                index === menuItems.length - 1 && styles.menuItemLast,
+              ]}
               onPress={item.onPress}
             >
               <View style={styles.menuItemContent}>
                 <Text style={styles.menuItemTitle}>{item.title}</Text>
-                <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
+                <Text style={styles.menuItemSubtitle} numberOfLines={1}>
+                  {item.subtitle}
+                </Text>
               </View>
               <Text style={styles.menuItemArrow}>›</Text>
             </TouchableOpacity>
@@ -183,6 +198,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F4',
   },
+  menuItemLast: {
+    borderBottomWidth: 0,
+  },
   menuItemContent: {
     flex: 1,
   },
@@ -199,6 +217,7 @@ const styles = StyleSheet.create({
   menuItemArrow: {
     fontSize: 24,
     color: '#A8A29E',
+    marginLeft: 8,
   },
   logoutButton: {
     margin: 16,
