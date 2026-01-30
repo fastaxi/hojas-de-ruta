@@ -324,7 +324,7 @@ export function AdminConfigPage() {
                 </div>
               ) : (
                 <p className="text-sm text-stone-500 italic">No hay ejecuciones registradas</p>
-              )}}
+              )}
             </div>
             
             {/* Retention Job Button */}
