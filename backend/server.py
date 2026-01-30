@@ -2269,20 +2269,67 @@ async def admin_get_retention_runs(
 
 @admin_router.get("/retention-runs/last")
 async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin)):
-    """Get the most recent retention job execution"""
+    """
+    Get the most recent retention job execution with status indicator.
+    
+    Status:
+    - OK: last run < 36 hours ago
+    - WARN: last run 36-72 hours ago
+    - CRIT: last run > 72 hours ago OR never executed
+    """
     run = await db.retention_runs.find_one(
         {},
         {"_id": 0},
         sort=[("run_at", -1)]
     )
     
+    now = datetime.now(timezone.utc)
+    
     if not run:
-        return None
+        return {
+            "last_run_at": None,
+            "hours_since_last_run": None,
+            "status": "CRIT",
+            "status_message": "Nunca se ha ejecutado",
+            "trigger": None,
+            "hidden_count": None,
+            "purged_count": None,
+            "duration_ms": None
+        }
     
-    if isinstance(run.get("run_at"), datetime):
-        run["run_at"] = run["run_at"].isoformat()
+    # Calculate hours since last run
+    run_at = run.get("run_at")
+    if isinstance(run_at, datetime):
+        if run_at.tzinfo is None:
+            run_at = run_at.replace(tzinfo=timezone.utc)
+        hours_since = (now - run_at).total_seconds() / 3600
+    else:
+        hours_since = None
     
-    return run
+    # Determine status
+    if hours_since is None:
+        status = "CRIT"
+        status_message = "Fecha de ejecución inválida"
+    elif hours_since > 72:
+        status = "CRIT"
+        status_message = f"Última ejecución hace {int(hours_since)} horas (>72h)"
+    elif hours_since > 36:
+        status = "WARN"
+        status_message = f"Última ejecución hace {int(hours_since)} horas (>36h)"
+    else:
+        status = "OK"
+        status_message = f"Última ejecución hace {int(hours_since)} horas"
+    
+    return {
+        "last_run_at": run_at.isoformat() if isinstance(run_at, datetime) else run_at,
+        "hours_since_last_run": round(hours_since, 1) if hours_since else None,
+        "status": status,
+        "status_message": status_message,
+        "trigger": run.get("trigger"),
+        "hidden_count": run.get("hidden_count"),
+        "purged_count": run.get("purged_count"),
+        "duration_ms": run.get("duration_ms")
+    }
 
 
 # Include routers
