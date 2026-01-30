@@ -4,5 +4,9 @@
 export { 
   toSafeFilenamePart, 
   generateSheetPdfFilename, 
-  generateRangePdfFilename 
+  generateRangePdfFilename,
+  validateDateRange,
+  formatDateToISO,
+  parseISODate,
+  MAX_RANGE_DAYS,
 } from './filename';
