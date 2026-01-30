@@ -211,12 +211,20 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
     # ============== DATOS DEL TITULAR ==============
     elements.append(Paragraph('DATOS DEL TITULAR Y VEHÍCULO', section_header))
     
+    # Build vehicle description
+    vehicle_desc = f"{user.get('vehicle_brand', '')} {user.get('vehicle_model', '')}".strip() or '-'
+    vehicle_license = user.get('vehicle_license_number', '')
+    
     titular_data = [
         ['Titular:', user.get('full_name', '-'), 'DNI/CIF:', user.get('dni_cif', '-')],
         ['Nº Licencia:', user.get('license_number', '-'), 'Concejo:', user.get('license_council', '-')],
         ['Teléfono:', user.get('phone', '-'), '', ''],
-        ['Vehículo:', f"{user.get('vehicle_brand', '')} {user.get('vehicle_model', '')}", 'Matrícula:', user.get('vehicle_plate', '-')],
+        ['Vehículo:', vehicle_desc, 'Matrícula:', user.get('vehicle_plate', '-')],
     ]
+    
+    # Add vehicle license number if present (useful for inspections)
+    if vehicle_license:
+        titular_data.append(['Lic. Vehículo:', vehicle_license, '', ''])
     
     if driver_name != "Titular":
         titular_data.append(['Conductor:', driver_name, '', ''])
