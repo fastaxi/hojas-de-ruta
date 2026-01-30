@@ -1,5 +1,6 @@
 /**
  * RutasFast Mobile - History Screen
+ * Route sheets list with PDF download and sharing
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -11,21 +12,30 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import api from '../services/api';
-import { ENDPOINTS, API_BASE_URL } from '../services/config';
-import { tokenService } from '../services/api';
+import { ENDPOINTS } from '../services/config';
+import { usePdfShare } from '../hooks/usePdfShare';
 
 export default function HistoryScreen() {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, active, annulled
+  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [showRangeModal, setShowRangeModal] = useState(false);
+
+  const { 
+    loading: pdfLoading, 
+    loadingSheetId, 
+    shareSheetPdf,
+    downloadSheetPdf,
+    shareRangePdf 
+  } = usePdfShare();
 
   const loadSheets = useCallback(async () => {
     try {
@@ -37,7 +47,9 @@ export default function HistoryScreen() {
       setSheets(response.data);
     } catch (error) {
       console.error('Error loading sheets:', error);
-      Alert.alert('Error', 'No se pudieron cargar las hojas de ruta');
+      if (error.response?.status !== 401) {
+        Alert.alert('Error', 'No se pudieron cargar las hojas de ruta');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -53,38 +65,18 @@ export default function HistoryScreen() {
     loadSheets();
   };
 
+  const handleSharePdf = async (sheet) => {
+    await shareSheetPdf(sheet);
+  };
+
   const handleDownloadPdf = async (sheet) => {
-    try {
-      const token = await tokenService.getAccessToken();
-      const pdfUrl = `${API_BASE_URL}${ENDPOINTS.ROUTE_SHEETS}/${sheet.id}/pdf`;
-      
-      // For now, open in browser or share
-      Alert.alert(
-        'Descargar PDF',
-        `Hoja #${sheet.seq_number}/${sheet.year}`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { 
-            text: 'Compartir', 
-            onPress: async () => {
-              // Use expo-sharing
-              if (await Sharing.isAvailableAsync()) {
-                // Would need to download file first
-                Alert.alert('Info', 'Funcionalidad de compartir en desarrollo');
-              }
-            }
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo descargar el PDF');
-    }
+    await downloadSheetPdf(sheet);
   };
 
   const handleAnnul = async (sheet) => {
     Alert.alert(
       'Anular Hoja',
-      `¿Estás seguro de anular la hoja #${sheet.seq_number}/${sheet.year}?`,
+      `¿Estás seguro de anular la hoja #${sheet.seq_number}/${sheet.year}?\n\nEsta acción no se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -93,12 +85,13 @@ export default function HistoryScreen() {
           onPress: async () => {
             try {
               await api.post(`${ENDPOINTS.ROUTE_SHEETS}/${sheet.id}/annul`, {
-                reason: 'Anulada por el usuario',
+                reason: 'Anulada por el usuario desde la app móvil',
               });
               loadSheets();
               Alert.alert('Éxito', 'Hoja anulada correctamente');
             } catch (error) {
-              Alert.alert('Error', 'No se pudo anular la hoja');
+              const message = error.response?.data?.detail || 'No se pudo anular la hoja';
+              Alert.alert('Error', message);
             }
           },
         },
@@ -106,64 +99,126 @@ export default function HistoryScreen() {
     );
   };
 
-  const renderSheet = ({ item }) => (
-    <View style={styles.sheetCard}>
-      <View style={styles.sheetHeader}>
-        <View>
-          <Text style={styles.sheetNumber}>
-            #{item.seq_number}/{item.year}
-          </Text>
-          <Text style={styles.sheetDate}>
-            {format(new Date(item.created_at), "d MMM yyyy, HH:mm", { locale: es })}
-          </Text>
-        </View>
-        <View style={[
-          styles.statusBadge,
-          item.status === 'ANNULLED' && styles.statusBadgeAnnulled,
-        ]}>
-          <Text style={[
-            styles.statusText,
-            item.status === 'ANNULLED' && styles.statusTextAnnulled,
-          ]}>
-            {item.status === 'ACTIVE' ? 'Activa' : 'Anulada'}
-          </Text>
-        </View>
-      </View>
+  const showSheetOptions = (sheet) => {
+    const options = [
+      { text: 'Cancelar', style: 'cancel' },
+      { 
+        text: 'Compartir PDF', 
+        onPress: () => handleSharePdf(sheet) 
+      },
+      { 
+        text: 'Descargar PDF', 
+        onPress: () => handleDownloadPdf(sheet) 
+      },
+    ];
 
-      <View style={styles.sheetBody}>
-        <Text style={styles.sheetLabel}>Origen</Text>
-        <Text style={styles.sheetValue}>{item.pickup_address}</Text>
-        
-        <Text style={styles.sheetLabel}>Destino</Text>
-        <Text style={styles.sheetValue}>{item.destination}</Text>
-      </View>
+    if (sheet.status === 'ACTIVE') {
+      options.push({
+        text: 'Anular Hoja',
+        style: 'destructive',
+        onPress: () => handleAnnul(sheet),
+      });
+    }
 
-      <View style={styles.sheetActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleDownloadPdf(item)}
-        >
-          <Text style={styles.actionButtonText}>PDF</Text>
-        </TouchableOpacity>
-        
-        {item.status === 'ACTIVE' && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonDanger]}
-            onPress={() => handleAnnul(item)}
-          >
-            <Text style={[styles.actionButtonText, styles.actionButtonTextDanger]}>
-              Anular
+    Alert.alert(
+      `Hoja #${sheet.seq_number}/${sheet.year}`,
+      sheet.status === 'ANNULLED' ? '(Anulada)' : '',
+      options
+    );
+  };
+
+  const renderSheet = ({ item }) => {
+    const isLoadingThis = loadingSheetId === item.id;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.sheetCard}
+        onPress={() => showSheetOptions(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.sheetHeader}>
+          <View>
+            <Text style={styles.sheetNumber}>
+              #{item.seq_number}/{item.year}
             </Text>
+            <Text style={styles.sheetDate}>
+              {format(new Date(item.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+            </Text>
+          </View>
+          <View style={styles.sheetHeaderRight}>
+            <View style={[
+              styles.statusBadge,
+              item.status === 'ANNULLED' && styles.statusBadgeAnnulled,
+            ]}>
+              <Text style={[
+                styles.statusText,
+                item.status === 'ANNULLED' && styles.statusTextAnnulled,
+              ]}>
+                {item.status === 'ACTIVE' ? 'Activa' : 'Anulada'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sheetBody}>
+          <View style={styles.sheetRow}>
+            <Text style={styles.sheetLabel}>Origen</Text>
+            <Text style={styles.sheetValue} numberOfLines={1}>
+              {item.pickup_address}
+            </Text>
+          </View>
+          
+          <View style={styles.sheetRow}>
+            <Text style={styles.sheetLabel}>Destino</Text>
+            <Text style={styles.sheetValue} numberOfLines={1}>
+              {item.destination}
+            </Text>
+          </View>
+
+          {item.contractor_name && (
+            <View style={styles.sheetRow}>
+              <Text style={styles.sheetLabel}>Contratante</Text>
+              <Text style={styles.sheetValue} numberOfLines={1}>
+                {item.contractor_name}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.sheetActions}>
+          <TouchableOpacity
+            style={[styles.actionButton, isLoadingThis && styles.actionButtonDisabled]}
+            onPress={() => handleSharePdf(item)}
+            disabled={pdfLoading}
+          >
+            {isLoadingThis ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.actionButtonText}>Compartir</Text>
+            )}
           </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+          
+          {item.status === 'ACTIVE' && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.actionButtonSecondary]}
+              onPress={() => handleAnnul(item)}
+              disabled={pdfLoading}
+            >
+              <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
+                Anular
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#7A1F1F" />
+        <Text style={styles.loadingText}>Cargando hojas...</Text>
       </View>
     );
   }
@@ -172,22 +227,28 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Histórico</Text>
-        <Text style={styles.subtitle}>{sheets.length} hojas de ruta</Text>
+        <Text style={styles.subtitle}>
+          {sheets.length} {sheets.length === 1 ? 'hoja' : 'hojas'} de ruta
+        </Text>
       </View>
 
       {/* Filters */}
       <View style={styles.filters}>
-        {['all', 'active', 'annulled'].map((f) => (
+        {[
+          { key: 'all', label: 'Todas' },
+          { key: 'active', label: 'Activas' },
+          { key: 'annulled', label: 'Anuladas' },
+        ].map((f) => (
           <TouchableOpacity
-            key={f}
-            style={[styles.filterButton, filter === f && styles.filterButtonActive]}
-            onPress={() => setFilter(f)}
+            key={f.key}
+            style={[styles.filterButton, filter === f.key && styles.filterButtonActive]}
+            onPress={() => setFilter(f.key)}
           >
             <Text style={[
               styles.filterButtonText,
-              filter === f && styles.filterButtonTextActive,
+              filter === f.key && styles.filterButtonTextActive,
             ]}>
-              {f === 'all' ? 'Todas' : f === 'active' ? 'Activas' : 'Anuladas'}
+              {f.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -199,11 +260,23 @@ export default function HistoryScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#7A1F1F']}
+            tintColor="#7A1F1F"
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyText}>No hay hojas de ruta</Text>
+            <Text style={styles.emptySubtext}>
+              {filter !== 'all' 
+                ? 'Prueba cambiando el filtro'
+                : 'Crea tu primera hoja desde la pestaña "Nueva"'
+              }
+            </Text>
           </View>
         }
       />
@@ -220,6 +293,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F5F5F4',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#57534E',
   },
   header: {
     padding: 24,
@@ -233,6 +312,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#57534E',
+    marginTop: 4,
   },
   filters: {
     flexDirection: 'row',
@@ -255,6 +335,7 @@ const styles = StyleSheet.create({
   filterButtonText: {
     fontSize: 14,
     color: '#57534E',
+    fontWeight: '500',
   },
   filterButtonTextActive: {
     color: '#fff',
@@ -272,7 +353,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 1,
+    elevation: 2,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -280,14 +361,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
+  sheetHeaderRight: {
+    alignItems: 'flex-end',
+  },
   sheetNumber: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1C1917',
   },
   sheetDate: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#57534E',
+    marginTop: 2,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -308,16 +393,21 @@ const styles = StyleSheet.create({
   },
   sheetBody: {
     marginBottom: 12,
+    gap: 8,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sheetLabel: {
     fontSize: 12,
     color: '#57534E',
-    marginBottom: 2,
+    width: 80,
   },
   sheetValue: {
-    fontSize: 15,
+    flex: 1,
+    fontSize: 14,
     color: '#1C1917',
-    marginBottom: 8,
   },
   sheetActions: {
     flexDirection: 'row',
@@ -327,28 +417,46 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   actionButton: {
+    flex: 1,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 8,
     backgroundColor: '#7A1F1F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
   },
-  actionButtonDanger: {
+  actionButtonSecondary: {
     backgroundColor: '#FEE2E2',
+  },
+  actionButtonDisabled: {
+    opacity: 0.7,
   },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#fff',
   },
-  actionButtonTextDanger: {
+  actionButtonTextSecondary: {
     color: '#991B1B',
   },
   emptyContainer: {
-    padding: 40,
+    padding: 60,
     alignItems: 'center',
   },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1917',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: '#57534E',
+    textAlign: 'center',
   },
 });
