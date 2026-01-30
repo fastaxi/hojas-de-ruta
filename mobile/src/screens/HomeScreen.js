@@ -1,5 +1,6 @@
 /**
  * RutasFast Mobile - Home Screen (Nueva Hoja de Ruta)
+ * Syncs with drivers from context
  */
 import React, { useState, useEffect } from 'react';
 import {
@@ -18,12 +19,14 @@ import { es } from 'date-fns/locale';
 import api from '../services/api';
 import { ENDPOINTS } from '../services/config';
 import { useAuth } from '../contexts/AuthContext';
+import { useDrivers } from '../contexts/DriversContext';
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
+  const { drivers, ensureLoaded, loading: driversLoading } = useDrivers();
+  
   const [loading, setLoading] = useState(false);
-  const [drivers, setDrivers] = useState([]);
-  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [selectedDriver, setSelectedDriver] = useState(null); // null = titular
   
   const [formData, setFormData] = useState({
     contractor_name: '',
@@ -36,18 +39,18 @@ export default function HomeScreen({ navigation }) {
     destination: '',
   });
 
+  // Ensure drivers are loaded when screen mounts or focuses
   useEffect(() => {
-    loadDrivers();
+    ensureLoaded().catch(() => {});
   }, []);
 
-  const loadDrivers = async () => {
-    try {
-      const response = await api.get(ENDPOINTS.DRIVERS);
-      setDrivers(response.data);
-    } catch (error) {
-      console.error('Error loading drivers:', error);
-    }
-  };
+  // Also refresh when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      ensureLoaded().catch(() => {});
+    });
+    return unsubscribe;
+  }, [navigation, ensureLoaded]);
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -70,7 +73,7 @@ export default function HomeScreen({ navigation }) {
       
       Alert.alert(
         'Hoja Creada',
-        `Hoja de ruta #${response.data.seq_number} creada correctamente`,
+        `Hoja de ruta #${response.data.seq_number}/${response.data.year} creada correctamente`,
         [{ 
           text: 'Ver Histórico', 
           onPress: () => navigation.navigate('History') 
@@ -97,11 +100,18 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  // Get driver display name
+  const getDriverLabel = (driver) => {
+    return `${driver.full_name} (${driver.dni})`;
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hola, {user?.full_name?.split(' ')[0]}</Text>
+          <Text style={styles.greeting}>
+            Hola, {user?.full_name?.split(' ')[0] || 'Usuario'}
+          </Text>
           <Text style={styles.date}>
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
           </Text>
@@ -110,41 +120,58 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Nueva Hoja de Ruta</Text>
 
-          {/* Conductor */}
+          {/* Conductor Selection */}
           <Text style={styles.sectionTitle}>Conductor</Text>
-          <View style={styles.driverButtons}>
-            <TouchableOpacity
-              style={[
-                styles.driverButton,
-                !selectedDriver && styles.driverButtonActive,
-              ]}
-              onPress={() => setSelectedDriver(null)}
-            >
-              <Text style={[
-                styles.driverButtonText,
-                !selectedDriver && styles.driverButtonTextActive,
-              ]}>
-                Yo ({user?.full_name?.split(' ')[0]})
-              </Text>
-            </TouchableOpacity>
-            {drivers.map((driver) => (
+          {driversLoading ? (
+            <ActivityIndicator size="small" color="#7A1F1F" style={styles.loadingSmall} />
+          ) : (
+            <View style={styles.driverButtons}>
+              {/* Titular option */}
               <TouchableOpacity
-                key={driver.id}
                 style={[
                   styles.driverButton,
-                  selectedDriver === driver.id && styles.driverButtonActive,
+                  selectedDriver === null && styles.driverButtonActive,
                 ]}
-                onPress={() => setSelectedDriver(driver.id)}
+                onPress={() => setSelectedDriver(null)}
               >
                 <Text style={[
                   styles.driverButtonText,
-                  selectedDriver === driver.id && styles.driverButtonTextActive,
+                  selectedDriver === null && styles.driverButtonTextActive,
                 ]}>
-                  {driver.full_name.split(' ')[0]}
+                  Titular ({user?.full_name?.split(' ')[0] || 'Yo'})
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
+              
+              {/* Additional drivers */}
+              {drivers.map((driver) => (
+                <TouchableOpacity
+                  key={driver.id}
+                  style={[
+                    styles.driverButton,
+                    selectedDriver === driver.id && styles.driverButtonActive,
+                  ]}
+                  onPress={() => setSelectedDriver(driver.id)}
+                >
+                  <Text style={[
+                    styles.driverButtonText,
+                    selectedDriver === driver.id && styles.driverButtonTextActive,
+                  ]} numberOfLines={1}>
+                    {driver.full_name.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              
+              {/* Add driver button if none */}
+              {drivers.length === 0 && (
+                <TouchableOpacity
+                  style={styles.addDriverButton}
+                  onPress={() => navigation.navigate('Settings', { screen: 'Drivers' })}
+                >
+                  <Text style={styles.addDriverButtonText}>+ Añadir</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {/* Contratante */}
           <Text style={styles.sectionTitle}>Contratante (opcional)</Text>
@@ -220,6 +247,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#57534E',
     textTransform: 'capitalize',
+    marginTop: 4,
   },
   card: {
     backgroundColor: '#fff',
@@ -246,6 +274,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
   },
+  loadingSmall: {
+    marginVertical: 10,
+  },
   driverButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -259,6 +290,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F4',
     borderWidth: 1,
     borderColor: '#E7E5E4',
+    maxWidth: '48%',
   },
   driverButtonActive: {
     backgroundColor: '#7A1F1F',
@@ -270,6 +302,19 @@ const styles = StyleSheet.create({
   },
   driverButtonTextActive: {
     color: '#fff',
+  },
+  addDriverButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#7A1F1F',
+    borderStyle: 'dashed',
+  },
+  addDriverButtonText: {
+    fontSize: 14,
+    color: '#7A1F1F',
   },
   input: {
     height: 50,
