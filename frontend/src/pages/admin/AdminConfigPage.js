@@ -250,25 +250,53 @@ export function AdminConfigPage() {
               </div>
             </div>
             
-            {/* Last Retention Run Info */}
+            {/* Last Retention Run Info with Status Badge */}
             <div className="pt-4 border-t border-stone-200">
-              <div className="flex items-center gap-2 mb-3">
-                <History className="w-4 h-4 text-stone-500" />
-                <span className="font-medium text-stone-700 text-sm">Última Ejecución</span>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-stone-500" />
+                  <span className="font-medium text-stone-700 text-sm">Última Ejecución</span>
+                </div>
+                {lastRetentionRun && lastRetentionRun.status && (
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    lastRetentionRun.status === 'OK' 
+                      ? 'bg-green-100 text-green-800' 
+                      : lastRetentionRun.status === 'WARN'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {lastRetentionRun.status === 'OK' ? '✓ OK' : 
+                     lastRetentionRun.status === 'WARN' ? '⚠ Revisar' : '✕ Crítico'}
+                  </span>
+                )}
               </div>
-              {lastRetentionRun ? (
+              {lastRetentionRun && lastRetentionRun.last_run_at ? (
                 <div className="p-3 bg-stone-50 rounded-lg">
+                  {/* Status message */}
+                  {lastRetentionRun.status !== 'OK' && (
+                    <div className={`mb-3 p-2 rounded text-sm ${
+                      lastRetentionRun.status === 'WARN' 
+                        ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                        : 'bg-red-50 text-red-800 border border-red-200'
+                    }`}>
+                      <AlertCircle className="w-4 h-4 inline mr-1" />
+                      {lastRetentionRun.status_message}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-stone-500 text-xs">Fecha</p>
                       <p className="font-medium text-stone-900">
-                        {new Date(lastRetentionRun.run_at).toLocaleString('es-ES', {
+                        {new Date(lastRetentionRun.last_run_at).toLocaleString('es-ES', {
                           day: '2-digit',
                           month: '2-digit',
                           year: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit'
                         })}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        Hace {lastRetentionRun.hours_since_last_run}h
                       </p>
                     </div>
                     <div>
@@ -287,9 +315,16 @@ export function AdminConfigPage() {
                     </div>
                   </div>
                 </div>
+              ) : lastRetentionRun && lastRetentionRun.status === 'CRIT' ? (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">
+                    <AlertCircle className="w-4 h-4 inline mr-1" />
+                    {lastRetentionRun.status_message || 'Nunca se ha ejecutado el job de retención'}
+                  </p>
+                </div>
               ) : (
                 <p className="text-sm text-stone-500 italic">No hay ejecuciones registradas</p>
-              )}
+              )}}
             </div>
             
             {/* Retention Job Button */}
