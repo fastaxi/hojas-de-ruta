@@ -21,13 +21,17 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#7A1F1F"
       },
-      "package": "com.rutasfast.app"
+      "package": "com.rutasfast.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "API_BASE_URL": "https://asturia-taxi.emergent.host"
+    }
   }
 }
