@@ -1,9 +1,11 @@
 /**
  * RutasFast Mobile - API Configuration
  */
+import Constants from 'expo-constants';
 
-// Production API URL
-export const API_BASE_URL = 'https://asturia-taxi.emergent.host/api';
+// Production API URL (from app.json extra or fallback)
+const BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || 'https://asturia-taxi.emergent.host';
+export const API_BASE_URL = `${BASE_URL}/api`;
 
 // API Endpoints
 export const ENDPOINTS = {
