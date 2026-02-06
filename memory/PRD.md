@@ -1,11 +1,33 @@
 # RutasFast - PRD (Product Requirements Document)
 
 ## Estado Actual
-**Fecha última actualización**: 2026-01-30
-**Fase**: MVP Web Completo + App Móvil Expo en desarrollo
+**Fecha última actualización**: 2026-02-06
+**Fase**: MVP Web Completo + App Móvil Android en Producción
 
 ## Changelog Reciente
-- **2026-01-30**: Fix crítico - Añadido `vehicle_license_number` al modelo `UserPublic` para que se devuelva correctamente en las respuestas de `/api/me`. Verificado en PUT, GET y PDF.
+- **2026-02-06**: APK Android compilado y funcionando. Smoke tests producción OK.
+- **2026-01-30**: Fix crítico - Añadido `vehicle_license_number` al modelo `UserPublic`.
+
+## Rutina de Release APK (Android)
+
+```bash
+cd ~/hojas-de-ruta/mobile
+
+# 1. En app.json, incrementar AMBOS:
+#    "version": "1.0.1"  (para soporte/usuario)
+#    "versionCode": 2    (obligatorio para Android)
+
+# 2. Build
+eas build -p android --profile preview
+
+# 3. Probar 5 min en 1 Android
+
+# 4. Enviar enlace EAS a taxistas
+```
+
+### ⚠️ Importante
+- **NO cambiar credenciales Android en EAS** - Si se pierde el keystore, los usuarios deben desinstalar para actualizar.
+- **Siempre subir versionCode** - Android no instala si es igual o menor.
 
 ## Descripción del Proyecto
 App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, conservar histórico, exportar a PDF y compartir por email. Incluye panel web de administración para validar usuarios.
