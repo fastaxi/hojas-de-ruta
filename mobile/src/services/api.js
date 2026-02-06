@@ -51,12 +51,19 @@ export const tokenService = {
 
   // Initialize tokens on app start
   async initializeFromStorage() {
-    cachedAccessToken = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-    cachedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    return { 
-      hasAccessToken: !!cachedAccessToken,
-      hasRefreshToken: !!cachedRefreshToken 
-    };
+    try {
+      cachedAccessToken = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+      cachedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      return { 
+        hasAccessToken: !!cachedAccessToken,
+        hasRefreshToken: !!cachedRefreshToken 
+      };
+    } catch (error) {
+      console.log('[TokenService] Error reading from storage:', error.message);
+      cachedAccessToken = null;
+      cachedRefreshToken = null;
+      return { hasAccessToken: false, hasRefreshToken: false };
+    }
   },
 };
 
