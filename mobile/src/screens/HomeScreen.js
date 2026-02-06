@@ -109,6 +109,16 @@ export default function HomeScreen({ navigation }) {
     return `${driver.full_name} (${driver.dni})`;
   };
 
+  // Format date safely
+  const getFormattedDate = () => {
+    try {
+      return format(new Date(), "EEEE, d 'de' MMMM", { locale: es });
+    } catch (error) {
+      console.log('[HomeScreen] Date format error:', error.message);
+      return new Date().toLocaleDateString('es-ES');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -117,7 +127,7 @@ export default function HomeScreen({ navigation }) {
             Hola, {user?.full_name?.split(' ')[0] || 'Usuario'}
           </Text>
           <Text style={styles.date}>
-            {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
+            {getFormattedDate()}
           </Text>
         </View>
 
