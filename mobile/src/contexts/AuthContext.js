@@ -56,15 +56,24 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // Verify token by fetching user profile
-      const response = await api.get(ENDPOINTS.ME);
-      setUser(response.data);
-      setIsAuthenticated(true);
-      console.log('[Auth] Session restored for:', response.data.email);
+      // Verify token by fetching user profile with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const response = await api.get(ENDPOINTS.ME, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        setUser(response.data);
+        setIsAuthenticated(true);
+        console.log('[Auth] Session restored for:', response.data.email);
+      } catch (apiError) {
+        clearTimeout(timeoutId);
+        throw apiError;
+      }
     } catch (error) {
       console.log('[Auth] Session check failed:', error.message);
       // Token invalid or expired - will be handled by interceptor
-      await tokenService.clearTokens();
+      await tokenService.clearTokens().catch(() => {});
       setUser(null);
       setIsAuthenticated(false);
     } finally {
