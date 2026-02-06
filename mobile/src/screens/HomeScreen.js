@@ -61,8 +61,12 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleSubmit = async () => {
-    if (!formData.pickup_address || !formData.destination) {
-      Alert.alert('Error', 'Origen y destino son obligatorios');
+    if (!formData.prebooked_locality) {
+      Alert.alert('Error', 'La localidad de reserva es obligatoria');
+      return;
+    }
+    if (!formData.destination) {
+      Alert.alert('Error', 'El destino es obligatorio');
       return;
     }
 
@@ -88,11 +92,11 @@ export default function HomeScreen({ navigation }) {
       
       // Reset form
       setFormData({
-        contractor_name: '',
         contractor_phone: '',
-        prebooked_at: '',
-        prebooked_name: '',
-        prebooked_phone: '',
+        prebooked_date: new Date().toISOString().split('T')[0],
+        prebooked_locality: '',
+        pickup_type: 'OTHER',
+        flight_number: '',
         pickup_address: '',
         pickup_datetime: new Date().toISOString(),
         destination: '',
