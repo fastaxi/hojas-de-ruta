@@ -41,13 +41,17 @@ export default function HomeScreen({ navigation }) {
 
   // Ensure drivers are loaded when screen mounts or focuses
   useEffect(() => {
-    ensureLoaded().catch(() => {});
+    ensureLoaded().catch((err) => {
+      console.log('[HomeScreen] Error loading drivers:', err.message);
+    });
   }, []);
 
   // Also refresh when screen comes into focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      ensureLoaded().catch(() => {});
+      ensureLoaded().catch((err) => {
+        console.log('[HomeScreen] Error on focus:', err.message);
+      });
     });
     return unsubscribe;
   }, [navigation, ensureLoaded]);
