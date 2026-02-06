@@ -73,11 +73,13 @@ export default function HomeScreen({ navigation }) {
         conductor_driver_id: selectedDriver || undefined,
       };
       
+      console.log('[HomeScreen] Creating route sheet:', JSON.stringify(payload));
       const response = await api.post(ENDPOINTS.ROUTE_SHEETS, payload);
+      console.log('[HomeScreen] Route sheet created:', response.data?.seq_number);
       
       Alert.alert(
         'Hoja Creada',
-        `Hoja de ruta #${response.data.seq_number}/${response.data.year} creada correctamente`,
+        `Hoja de ruta #${response.data?.seq_number || '?'}/${response.data?.year || '?'} creada correctamente`,
         [{ 
           text: 'Ver Histórico', 
           onPress: () => navigation.navigate('History') 
@@ -97,7 +99,8 @@ export default function HomeScreen({ navigation }) {
       });
       setSelectedDriver(null);
     } catch (error) {
-      const message = error.response?.data?.detail || 'Error al crear la hoja';
+      console.log('[HomeScreen] Submit error:', error.message, error.response?.data);
+      const message = error.response?.data?.detail || error.message || 'Error al crear la hoja';
       Alert.alert('Error', message);
     } finally {
       setLoading(false);
