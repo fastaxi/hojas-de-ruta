@@ -190,15 +190,63 @@ export default function HomeScreen({ navigation }) {
             </View>
           )}
 
-          {/* Contratante */}
-          <Text style={styles.sectionTitle}>Contratante (opcional)</Text>
+          {/* Tipo de recogida */}
+          <Text style={styles.sectionTitle}>Tipo de Recogida</Text>
+          <View style={styles.driverButtons}>
+            <TouchableOpacity
+              style={[
+                styles.driverButton,
+                formData.pickup_type === 'OTHER' && styles.driverButtonActive,
+              ]}
+              onPress={() => updateField('pickup_type', 'OTHER')}
+            >
+              <Text style={[
+                styles.driverButtonText,
+                formData.pickup_type === 'OTHER' && styles.driverButtonTextActive,
+              ]}>
+                Normal
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.driverButton,
+                formData.pickup_type === 'AIRPORT' && styles.driverButtonActive,
+              ]}
+              onPress={() => updateField('pickup_type', 'AIRPORT')}
+            >
+              <Text style={[
+                styles.driverButtonText,
+                formData.pickup_type === 'AIRPORT' && styles.driverButtonTextActive,
+              ]}>
+                Aeropuerto
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Flight number (only for airport) */}
+          {formData.pickup_type === 'AIRPORT' && (
+            <TextInput
+              style={styles.input}
+              value={formData.flight_number}
+              onChangeText={(v) => updateField('flight_number', v.toUpperCase())}
+              placeholder="Número de vuelo"
+              placeholderTextColor="#999"
+              autoCapitalize="characters"
+            />
+          )}
+
+          {/* Reserva */}
+          <Text style={styles.sectionTitle}>Reserva</Text>
           <TextInput
             style={styles.input}
-            value={formData.contractor_name}
-            onChangeText={(v) => updateField('contractor_name', v)}
-            placeholder="Nombre del contratante"
+            value={formData.prebooked_locality}
+            onChangeText={(v) => updateField('prebooked_locality', v)}
+            placeholder="Localidad de reserva *"
             placeholderTextColor="#999"
           />
+
+          {/* Contratante */}
+          <Text style={styles.sectionTitle}>Contratante (opcional)</Text>
           <TextInput
             style={styles.input}
             value={formData.contractor_phone}
