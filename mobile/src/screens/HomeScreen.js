@@ -29,11 +29,11 @@ export default function HomeScreen({ navigation }) {
   const [selectedDriver, setSelectedDriver] = useState(null); // null = titular
   
   const [formData, setFormData] = useState({
-    contractor_name: '',
     contractor_phone: '',
-    prebooked_at: '',
-    prebooked_name: '',
-    prebooked_phone: '',
+    prebooked_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+    prebooked_locality: '',
+    pickup_type: 'OTHER', // Default to OTHER
+    flight_number: '',
     pickup_address: '',
     pickup_datetime: new Date().toISOString(),
     destination: '',
