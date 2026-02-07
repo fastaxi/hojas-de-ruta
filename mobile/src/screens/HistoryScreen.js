@@ -578,12 +578,17 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 8,
     backgroundColor: '#7A1F1F',
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 40,
+  },
+  actionButtonOutline: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#7A1F1F',
   },
   actionButtonSecondary: {
     backgroundColor: '#FEE2E2',
@@ -592,9 +597,12 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#fff',
+  },
+  actionButtonTextOutline: {
+    color: '#7A1F1F',
   },
   actionButtonTextSecondary: {
     color: '#991B1B',
