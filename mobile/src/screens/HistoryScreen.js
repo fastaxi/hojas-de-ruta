@@ -45,6 +45,8 @@ export default function HistoryScreen({ navigation, route }) {
     shareRangePdf,
   } = usePdfShare();
 
+  const { viewPdf, isViewingPdf } = usePdfView();
+
   const loadSheets = useCallback(async () => {
     try {
       const params = {};
