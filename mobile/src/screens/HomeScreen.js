@@ -168,14 +168,14 @@ export default function HomeScreen({ navigation }) {
       setFormData({
         contractor_phone: '',
         contractor_email: '',
-        prebooked_date: new Date().toISOString().split('T')[0],
         prebooked_locality: '',
         pickup_type: 'OTHER',
         flight_number: '',
         pickup_address: '',
-        pickup_datetime: new Date().toISOString(),
         destination: '',
       });
+      setPrebookedDateTime(new Date());
+      setPickupDateTime(new Date());
       setSelectedDriver(null);
     } catch (error) {
       console.log('[HomeScreen] Submit error:', error.message, error.response?.data);
