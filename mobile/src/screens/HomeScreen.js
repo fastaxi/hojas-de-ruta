@@ -61,8 +61,21 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleSubmit = async () => {
+    // Validaciones
     if (!formData.prebooked_locality) {
       Alert.alert('Error', 'La localidad de reserva es obligatoria');
+      return;
+    }
+    if (!formData.contractor_phone) {
+      Alert.alert('Error', 'El teléfono del contratante es obligatorio');
+      return;
+    }
+    if (formData.pickup_type === 'OTHER' && !formData.pickup_address) {
+      Alert.alert('Error', 'La dirección de origen es obligatoria');
+      return;
+    }
+    if (formData.pickup_type === 'AIRPORT' && !formData.flight_number) {
+      Alert.alert('Error', 'El número de vuelo es obligatorio para aeropuerto');
       return;
     }
     if (!formData.destination) {
@@ -79,11 +92,14 @@ export default function HomeScreen({ navigation }) {
       
       console.log('[HomeScreen] Creating route sheet:', JSON.stringify(payload));
       const response = await api.post(ENDPOINTS.ROUTE_SHEETS, payload);
-      console.log('[HomeScreen] Route sheet created:', response.data?.seq_number);
+      console.log('[HomeScreen] Route sheet created:', JSON.stringify(response.data));
+      
+      const seqNum = response.data?.seq_number || response.data?.sheet?.seq_number || '?';
+      const year = response.data?.year || response.data?.sheet?.year || '?';
       
       Alert.alert(
         'Hoja Creada',
-        `Hoja de ruta #${response.data?.seq_number || '?'}/${response.data?.year || '?'} creada correctamente`,
+        `Hoja de ruta #${seqNum}/${year} creada correctamente`,
         [{ 
           text: 'Ver Histórico', 
           onPress: () => navigation.navigate('History') 
