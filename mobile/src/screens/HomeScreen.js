@@ -67,8 +67,8 @@ export default function HomeScreen({ navigation }) {
       Alert.alert('Error', 'La localidad de reserva es obligatoria');
       return;
     }
-    if (!formData.contractor_phone) {
-      Alert.alert('Error', 'El teléfono del contratante es obligatorio');
+    if (!formData.contractor_phone && !formData.contractor_email) {
+      Alert.alert('Error', 'Debe indicar teléfono o email del contratante');
       return;
     }
     if (formData.pickup_type === 'OTHER' && !formData.pickup_address) {
@@ -86,8 +86,11 @@ export default function HomeScreen({ navigation }) {
 
     setLoading(true);
     try {
+      // Preparar payload - enviar email vacío como undefined para que backend lo ignore
       const payload = {
         ...formData,
+        contractor_phone: formData.contractor_phone || undefined,
+        contractor_email: formData.contractor_email || undefined,
         conductor_driver_id: selectedDriver || undefined,
       };
       
@@ -96,20 +99,21 @@ export default function HomeScreen({ navigation }) {
       console.log('[HomeScreen] Route sheet created:', JSON.stringify(response.data));
       
       // Backend returns: { id, sheet_number: "001/2026", message }
-      const sheetNumber = response.data?.sheet_number || '?/?';
+      const sheetNumber = response.data?.sheet_number || '---';
       
       Alert.alert(
         'Hoja Creada',
         `Hoja de ruta #${sheetNumber} creada correctamente`,
         [{ 
           text: 'Ver Histórico', 
-          onPress: () => navigation.navigate('History') 
+          onPress: () => navigation.navigate('History', { refresh: true })
         }]
       );
       
       // Reset form
       setFormData({
         contractor_phone: '',
+        contractor_email: '',
         prebooked_date: new Date().toISOString().split('T')[0],
         prebooked_locality: '',
         pickup_type: 'OTHER',
