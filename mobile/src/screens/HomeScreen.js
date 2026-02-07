@@ -138,9 +138,11 @@ export default function HomeScreen({ navigation }) {
 
     setLoading(true);
     try {
-      // Preparar payload - enviar email vacío como undefined para que backend lo ignore
+      // Preparar payload con fechas en ISO
       const payload = {
         ...formData,
+        prebooked_date: prebookedDateTime.toISOString(),
+        pickup_datetime: pickupDateTime.toISOString(),
         contractor_phone: formData.contractor_phone || undefined,
         contractor_email: formData.contractor_email || undefined,
         conductor_driver_id: selectedDriver || undefined,
