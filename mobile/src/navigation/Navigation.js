@@ -189,7 +189,7 @@ export default function Navigation() {
 
   return (
     <NavigationContainer>
-      {isAuthenticated ? <MainTabs /> : <AuthStack />}
+      {isAuthenticated ? <MainStackNavigator /> : <AuthStack />}
     </NavigationContainer>
   );
 }
