@@ -271,14 +271,24 @@ export default function HomeScreen({ navigation }) {
           />
 
           {/* Contratante */}
-          <Text style={styles.sectionTitle}>Contratante *</Text>
+          <Text style={styles.sectionTitle}>Contratante</Text>
+          <Text style={styles.helperText}>Teléfono o email (al menos uno)</Text>
           <TextInput
             style={styles.input}
             value={formData.contractor_phone}
             onChangeText={(v) => updateField('contractor_phone', v)}
-            placeholder="Teléfono del contratante *"
+            placeholder="Teléfono del contratante"
             placeholderTextColor="#999"
             keyboardType="phone-pad"
+          />
+          <TextInput
+            style={styles.input}
+            value={formData.contractor_email}
+            onChangeText={(v) => updateField('contractor_email', v.toLowerCase())}
+            placeholder="Email del contratante"
+            placeholderTextColor="#999"
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
 
           {/* Servicio */}
