@@ -94,12 +94,12 @@ export default function HomeScreen({ navigation }) {
       const response = await api.post(ENDPOINTS.ROUTE_SHEETS, payload);
       console.log('[HomeScreen] Route sheet created:', JSON.stringify(response.data));
       
-      const seqNum = response.data?.seq_number || response.data?.sheet?.seq_number || '?';
-      const year = response.data?.year || response.data?.sheet?.year || '?';
+      // Backend returns: { id, sheet_number: "001/2026", message }
+      const sheetNumber = response.data?.sheet_number || '?/?';
       
       Alert.alert(
         'Hoja Creada',
-        `Hoja de ruta #${seqNum}/${year} creada correctamente`,
+        `Hoja de ruta #${sheetNumber} creada correctamente`,
         [{ 
           text: 'Ver Histórico', 
           onPress: () => navigation.navigate('History') 
