@@ -12,14 +12,17 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../services/api';
 import { ENDPOINTS } from '../services/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useDrivers } from '../contexts/DriversContext';
+import { formatDateTimeES } from '../utils/dateFormat';
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
@@ -27,6 +30,14 @@ export default function HomeScreen({ navigation }) {
   
   const [loading, setLoading] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null); // null = titular
+  
+  // Date picker states
+  const [prebookedDateTime, setPrebookedDateTime] = useState(new Date());
+  const [pickupDateTime, setPickupDateTime] = useState(new Date());
+  const [showPrebookedPicker, setShowPrebookedPicker] = useState(false);
+  const [showPickupPicker, setShowPickupPicker] = useState(false);
+  const [prebookedPickerMode, setPrebookedPickerMode] = useState('date');
+  const [pickupPickerMode, setPickupPickerMode] = useState('date');
   
   const [formData, setFormData] = useState({
     contractor_phone: '',
