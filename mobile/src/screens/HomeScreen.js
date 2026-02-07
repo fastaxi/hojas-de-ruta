@@ -525,6 +525,18 @@ const styles = StyleSheet.create({
     color: '#1C1917',
     marginBottom: 12,
   },
+  datePickerButton: {
+    height: 50,
+    backgroundColor: '#F5F5F4',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#1C1917',
+  },
   submitButton: {
     height: 54,
     backgroundColor: '#7A1F1F',
