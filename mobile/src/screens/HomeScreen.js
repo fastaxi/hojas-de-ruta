@@ -374,6 +374,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
   },
+  helperText: {
+    fontSize: 12,
+    color: '#78716C',
+    marginBottom: 8,
+    marginTop: -8,
+  },
   loadingSmall: {
     marginVertical: 10,
   },
