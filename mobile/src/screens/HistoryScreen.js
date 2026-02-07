@@ -4,7 +4,8 @@
  * 
  * Features:
  * - Filter by status (all/active/annulled)
- * - Share individual PDF
+ * - View sheet details
+ * - View/Share individual PDF
  * - Share PDF by date range
  * - Double-click prevention
  * - Comprehensive error handling
@@ -26,6 +27,7 @@ import { es } from 'date-fns/locale';
 import api from '../services/api';
 import { ENDPOINTS } from '../services/config';
 import { usePdfShare } from '../hooks/usePdfShare';
+import { usePdfView } from '../hooks/usePdfView';
 import DateRangeModal from '../components/DateRangeModal';
 
 export default function HistoryScreen({ navigation, route }) {
