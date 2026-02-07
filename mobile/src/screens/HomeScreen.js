@@ -42,14 +42,55 @@ export default function HomeScreen({ navigation }) {
   const [formData, setFormData] = useState({
     contractor_phone: '',
     contractor_email: '',
-    prebooked_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
     prebooked_locality: '',
     pickup_type: 'OTHER', // Default to OTHER
     flight_number: '',
     pickup_address: '',
-    pickup_datetime: new Date().toISOString(),
     destination: '',
   });
+
+  // Handle date picker changes (Android shows date then time separately)
+  const onPrebookedChange = (event, selectedDate) => {
+    if (event.type === 'dismissed') {
+      setShowPrebookedPicker(false);
+      setPrebookedPickerMode('date');
+      return;
+    }
+    
+    if (selectedDate) {
+      setPrebookedDateTime(selectedDate);
+    }
+    
+    if (Platform.OS === 'android') {
+      if (prebookedPickerMode === 'date') {
+        setPrebookedPickerMode('time');
+      } else {
+        setShowPrebookedPicker(false);
+        setPrebookedPickerMode('date');
+      }
+    }
+  };
+
+  const onPickupChange = (event, selectedDate) => {
+    if (event.type === 'dismissed') {
+      setShowPickupPicker(false);
+      setPickupPickerMode('date');
+      return;
+    }
+    
+    if (selectedDate) {
+      setPickupDateTime(selectedDate);
+    }
+    
+    if (Platform.OS === 'android') {
+      if (pickupPickerMode === 'date') {
+        setPickupPickerMode('time');
+      } else {
+        setShowPickupPicker(false);
+        setPickupPickerMode('date');
+      }
+    }
+  };
 
   // Ensure drivers are loaded when screen mounts or focuses
   useEffect(() => {
