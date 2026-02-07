@@ -15,6 +15,56 @@ from reportlab.platypus import (
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Timezone constants
+MADRID_TZ = ZoneInfo("Europe/Madrid")
+UTC_TZ = ZoneInfo("UTC")
+
+
+def _coerce_datetime(value):
+    """Accepts datetime or ISO string; returns aware datetime in UTC if possible, else None."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except Exception:
+            return None
+    else:
+        return None
+
+    # If naive, assume UTC (Mongo sometimes returns naive depending on driver/config)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC_TZ)
+    return dt
+
+
+def format_date_es(value) -> str:
+    """Format date to dd/mm/aaaa in Europe/Madrid timezone"""
+    dt = _coerce_datetime(value)
+    if not dt:
+        # value could already be "YYYY-MM-DD" string, try parse minimal
+        if isinstance(value, str) and len(value) >= 10:
+            try:
+                dt2 = datetime.fromisoformat(value[:10])
+                return dt2.strftime("%d/%m/%Y")
+            except Exception:
+                pass
+        return str(value) if value else "-"
+    local = dt.astimezone(MADRID_TZ)
+    return local.strftime("%d/%m/%Y")
+
+
+def format_datetime_es(value) -> str:
+    """Format datetime to dd/mm/aaaa HH:MM in Europe/Madrid timezone"""
+    dt = _coerce_datetime(value)
+    if not dt:
+        return str(value) if value else "-"
+    local = dt.astimezone(MADRID_TZ)
+    return local.strftime("%d/%m/%Y %H:%M")
 
 
 def get_logo_path():
