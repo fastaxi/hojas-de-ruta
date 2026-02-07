@@ -150,6 +150,31 @@ function MainTabs() {
   );
 }
 
+// Main Stack Navigator (tabs + detail screens)
+function MainStackNavigator() {
+  return (
+    <MainStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: '#F5F5F4' },
+        headerTintColor: '#7A1F1F',
+        headerTitleStyle: { fontWeight: '600' },
+        headerBackTitle: 'Atrás',
+      }}
+    >
+      <MainStack.Screen 
+        name="MainTabs" 
+        component={MainTabs}
+        options={{ headerShown: false }}
+      />
+      <MainStack.Screen 
+        name="RouteSheetDetail" 
+        component={RouteSheetDetailScreen}
+        options={{ title: 'Detalle de Hoja' }}
+      />
+    </MainStack.Navigator>
+  );
+}
+
 // Main Navigation
 export default function Navigation() {
   const { isAuthenticated, isLoading } = useAuth();
