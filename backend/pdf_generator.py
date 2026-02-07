@@ -514,7 +514,7 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
         data2 = [
             ['Contratante:', sheet.get('contractor_phone') or sheet.get('contractor_email') or '-'],
             ['Recogida:', pickup_loc],
-            ['Fecha/Hora:', sheet.get('pickup_datetime', '-')],
+            ['Fecha/Hora:', format_datetime_es(sheet.get('pickup_datetime'))],
             ['Destino:', sheet.get('destination', '-')],
         ]
         
