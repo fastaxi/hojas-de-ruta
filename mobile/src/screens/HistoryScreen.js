@@ -28,7 +28,7 @@ import { ENDPOINTS } from '../services/config';
 import { usePdfShare } from '../hooks/usePdfShare';
 import DateRangeModal from '../components/DateRangeModal';
 
-export default function HistoryScreen() {
+export default function HistoryScreen({ navigation, route }) {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,14 +46,30 @@ export default function HistoryScreen() {
   const loadSheets = useCallback(async () => {
     try {
       const params = {};
-      if (filter === 'active') params.status = 'ACTIVE';
-      if (filter === 'annulled') params.status = 'ANNULLED';
+      // Backend uses include_annulled, not status
+      if (filter === 'active') {
+        params.include_annulled = false;
+      } else {
+        // For 'all' and 'annulled', we need to include annulled sheets
+        params.include_annulled = true;
+      }
       
       const response = await api.get(ENDPOINTS.ROUTE_SHEETS, { params });
-      setSheets(response.data);
+      
+      // Handle both array response and paginated response {sheets, next_cursor}
+      const data = response.data;
+      let list = Array.isArray(data) ? data : (data.sheets || []);
+      
+      // For 'annulled' filter, filter client-side
+      if (filter === 'annulled') {
+        list = list.filter(s => s.status === 'ANNULLED');
+      }
+      
+      setSheets(list);
     } catch (error) {
       // 401 handled by interceptor, only show other errors
       if (error.response?.status !== 401) {
+        console.log('[History] Load error:', error.message);
         Alert.alert('Error', 'No se pudieron cargar las hojas de ruta');
       }
     } finally {
@@ -62,9 +78,18 @@ export default function HistoryScreen() {
     }
   }, [filter]);
 
+  // Load on mount and when filter changes
   useEffect(() => {
     loadSheets();
   }, [loadSheets]);
+
+  // Reload when screen comes into focus (e.g., after creating a new sheet)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadSheets();
+    });
+    return unsubscribe;
+  }, [navigation, loadSheets]);
 
   const onRefresh = () => {
     setRefreshing(true);
