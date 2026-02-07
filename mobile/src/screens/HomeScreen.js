@@ -266,12 +266,12 @@ export default function HomeScreen({ navigation }) {
           />
 
           {/* Contratante */}
-          <Text style={styles.sectionTitle}>Contratante (opcional)</Text>
+          <Text style={styles.sectionTitle}>Contratante *</Text>
           <TextInput
             style={styles.input}
             value={formData.contractor_phone}
             onChangeText={(v) => updateField('contractor_phone', v)}
-            placeholder="Teléfono"
+            placeholder="Teléfono del contratante *"
             placeholderTextColor="#999"
             keyboardType="phone-pad"
           />
