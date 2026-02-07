@@ -314,13 +314,53 @@ export default function HomeScreen({ navigation }) {
             />
           )}
 
+          {/* Fecha y hora de precontratación */}
+          <Text style={styles.sectionTitle}>Fecha y hora de precontratación *</Text>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowPrebookedPicker(true)}
+          >
+            <Text style={styles.datePickerText}>
+              {formatDateTimeES(prebookedDateTime)}
+            </Text>
+          </TouchableOpacity>
+          {showPrebookedPicker && (
+            <DateTimePicker
+              value={prebookedDateTime}
+              mode={prebookedPickerMode}
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onPrebookedChange}
+            />
+          )}
+
+          {/* Fecha y hora del servicio */}
+          <Text style={styles.sectionTitle}>Fecha y hora del servicio *</Text>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowPickupPicker(true)}
+          >
+            <Text style={styles.datePickerText}>
+              {formatDateTimeES(pickupDateTime)}
+            </Text>
+          </TouchableOpacity>
+          {showPickupPicker && (
+            <DateTimePicker
+              value={pickupDateTime}
+              mode={pickupPickerMode}
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onPickupChange}
+            />
+          )}
+
           {/* Reserva */}
-          <Text style={styles.sectionTitle}>Reserva</Text>
+          <Text style={styles.sectionTitle}>Localidad de reserva *</Text>
           <TextInput
             style={styles.input}
             value={formData.prebooked_locality}
             onChangeText={(v) => updateField('prebooked_locality', v)}
-            placeholder="Localidad de reserva *"
+            placeholder="Localidad de reserva"
             placeholderTextColor="#999"
           />
 
