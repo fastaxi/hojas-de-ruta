@@ -30,6 +30,7 @@ export default function HomeScreen({ navigation }) {
   
   const [formData, setFormData] = useState({
     contractor_phone: '',
+    contractor_email: '',
     prebooked_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
     prebooked_locality: '',
     pickup_type: 'OTHER', // Default to OTHER
