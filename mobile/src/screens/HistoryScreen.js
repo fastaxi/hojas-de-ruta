@@ -268,6 +268,24 @@ export default function HistoryScreen({ navigation, route }) {
         </View>
 
         <View style={styles.sheetActions}>
+          {/* Ver PDF button */}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.actionButtonOutline,
+              isViewing && styles.actionButtonDisabled,
+            ]}
+            onPress={() => handleViewPdf(item)}
+            disabled={isViewing}
+          >
+            {isViewing ? (
+              <ActivityIndicator size="small" color="#7A1F1F" />
+            ) : (
+              <Text style={[styles.actionButtonText, styles.actionButtonTextOutline]}>Ver PDF</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Compartir PDF button */}
           <TouchableOpacity
             style={[
               styles.actionButton,
@@ -284,7 +302,7 @@ export default function HistoryScreen({ navigation, route }) {
                 </Text>
               </View>
             ) : (
-              <Text style={styles.actionButtonText}>Compartir PDF</Text>
+              <Text style={styles.actionButtonText}>Compartir</Text>
             )}
           </TouchableOpacity>
           
