@@ -16,6 +16,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import RouteSheetDetailScreen from '../screens/RouteSheetDetailScreen';
 
 // Settings Sub-screens
 import ProfileScreen from '../screens/ProfileScreen';
@@ -26,6 +27,7 @@ import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const SettingsStack = createNativeStackNavigator();
+const MainStack = createNativeStackNavigator();
 
 // Tab Icon component
 function TabIcon({ name, color, size }) {
