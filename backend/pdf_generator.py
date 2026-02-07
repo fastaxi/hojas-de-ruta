@@ -366,10 +366,7 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
             ['MOTIVO DE ANULACIÓN:', sheet.get('annul_reason', 'No especificado')],
         ]
         if sheet.get('annulled_at'):
-            annul_date = sheet['annulled_at']
-            if isinstance(annul_date, datetime):
-                annul_date = annul_date.strftime('%d/%m/%Y %H:%M')
-            annul_info.append(['Fecha de anulación:', str(annul_date)])
+            annul_info.append(['Fecha de anulación:', format_datetime_es(sheet.get('annulled_at'))])
         
         annul_table = Table(annul_info, colWidths=[45*mm, 125*mm])
         annul_table.setStyle(TableStyle([
