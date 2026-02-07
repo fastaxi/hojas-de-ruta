@@ -308,7 +308,7 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
     
     contract_data = [
         ['Contratante:', contractor_str],
-        ['Fecha precontratación:', sheet.get('prebooked_date', '-')],
+        ['Fecha precontratación:', format_datetime_es(sheet.get('prebooked_date'))],
         ['Localidad precontratación:', sheet.get('prebooked_locality', '-')],
     ]
     
@@ -335,15 +335,8 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
     else:
         pickup_location = sheet.get('pickup_address', '-')
     
-    # Format datetime
-    pickup_dt = sheet.get('pickup_datetime', '-')
-    if pickup_dt and pickup_dt != '-':
-        try:
-            if isinstance(pickup_dt, str):
-                dt = datetime.fromisoformat(pickup_dt.replace('Z', '+00:00'))
-                pickup_dt = dt.strftime('%d/%m/%Y %H:%M')
-        except:
-            pass
+    # Format datetime using helper
+    pickup_dt = format_datetime_es(sheet.get('pickup_datetime'))
     
     service_data = [
         ['Tipo de recogida:', 'Aeropuerto' if sheet.get('pickup_type') == 'AIRPORT' else 'Otra dirección'],
