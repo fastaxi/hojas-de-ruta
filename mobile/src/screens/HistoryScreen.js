@@ -155,9 +155,19 @@ export default function HistoryScreen({ navigation, route }) {
    */
   const showSheetOptions = (sheet) => {
     const isPreparing = isPreparingSheet(sheet.id);
+    const isViewing = isViewingPdf(sheet.id);
+    const sheetNum = sheet.sheet_number || `${String(sheet.seq_number).padStart(3,'0')}/${sheet.year}`;
     
     const options = [
       { text: 'Cancelar', style: 'cancel' },
+      { 
+        text: 'Ver hoja', 
+        onPress: () => navigation.navigate('RouteSheetDetail', { sheetId: sheet.id }),
+      },
+      { 
+        text: isViewing ? 'Abriendo...' : 'Ver PDF', 
+        onPress: isViewing ? undefined : () => viewPdf(sheet.id, sheetNum),
+      },
       { 
         text: isPreparing ? 'Preparando...' : 'Compartir PDF', 
         onPress: isPreparing ? undefined : () => handleSharePdf(sheet),
@@ -173,10 +183,25 @@ export default function HistoryScreen({ navigation, route }) {
     }
 
     Alert.alert(
-      `Hoja #${sheet.sheet_number || `${String(sheet.seq_number).padStart(3,'0')}/${sheet.year}`}`,
+      `Hoja #${sheetNum}`,
       sheet.status === 'ANNULLED' ? '(Anulada)' : '',
       options
     );
+  };
+
+  /**
+   * Handle view sheet detail
+   */
+  const handleViewSheet = (sheet) => {
+    navigation.navigate('RouteSheetDetail', { sheetId: sheet.id });
+  };
+
+  /**
+   * Handle view PDF
+   */
+  const handleViewPdf = (sheet) => {
+    const sheetNum = sheet.sheet_number || `${String(sheet.seq_number).padStart(3,'0')}/${sheet.year}`;
+    viewPdf(sheet.id, sheetNum);
   };
 
   /**
@@ -184,12 +209,13 @@ export default function HistoryScreen({ navigation, route }) {
    */
   const renderSheet = ({ item }) => {
     const isPreparing = isPreparingSheet(item.id);
+    const isViewing = isViewingPdf(item.id);
     const sheetNum = item.sheet_number || `${String(item.seq_number).padStart(3,'0')}/${item.year}`;
     
     return (
       <TouchableOpacity 
         style={styles.sheetCard}
-        onPress={() => showSheetOptions(item)}
+        onPress={() => handleViewSheet(item)}
         activeOpacity={0.7}
       >
         <View style={styles.sheetHeader}>
