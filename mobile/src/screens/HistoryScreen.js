@@ -169,7 +169,7 @@ export default function HistoryScreen({ navigation, route }) {
     }
 
     Alert.alert(
-      `Hoja #${sheet.seq_number}/${sheet.year}`,
+      `Hoja #${sheet.sheet_number || `${String(sheet.seq_number).padStart(3,'0')}/${sheet.year}`}`,
       sheet.status === 'ANNULLED' ? '(Anulada)' : '',
       options
     );
@@ -180,6 +180,7 @@ export default function HistoryScreen({ navigation, route }) {
    */
   const renderSheet = ({ item }) => {
     const isPreparing = isPreparingSheet(item.id);
+    const sheetNum = item.sheet_number || `${String(item.seq_number).padStart(3,'0')}/${item.year}`;
     
     return (
       <TouchableOpacity 
@@ -190,7 +191,7 @@ export default function HistoryScreen({ navigation, route }) {
         <View style={styles.sheetHeader}>
           <View>
             <Text style={styles.sheetNumber}>
-              #{item.seq_number}/{item.year}
+              #{sheetNum}
             </Text>
             <Text style={styles.sheetDate}>
               {format(new Date(item.created_at), "d MMM yyyy, HH:mm", { locale: es })}
