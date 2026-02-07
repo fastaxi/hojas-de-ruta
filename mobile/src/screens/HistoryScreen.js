@@ -120,9 +120,10 @@ export default function HistoryScreen({ navigation, route }) {
    * Handle annul sheet
    */
   const handleAnnul = async (sheet) => {
+    const sheetNum = sheet.sheet_number || `${String(sheet.seq_number).padStart(3,'0')}/${sheet.year}`;
     Alert.alert(
       'Anular Hoja',
-      `¿Estás seguro de anular la hoja #${sheet.seq_number}/${sheet.year}?\n\nEsta acción no se puede deshacer.`,
+      `¿Estás seguro de anular la hoja #${sheetNum}?\n\nEsta acción no se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
