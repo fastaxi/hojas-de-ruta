@@ -662,7 +662,7 @@ async def refresh_tokens(
     access_token = create_access_token(user["id"], user["email"])
     new_refresh_token = create_refresh_token(user["id"], current_version)
     
-    # Create response with access token in JSON
+    # Create response with access token in JSON - return COMPLETE user object
     response = JSONResponse(content={
         "access_token": access_token,
         "token_type": "bearer",
@@ -671,7 +671,17 @@ async def refresh_tokens(
             "id": user["id"],
             "email": user["email"],
             "full_name": user["full_name"],
-            "status": user["status"]
+            "dni_cif": user.get("dni_cif", ""),
+            "license_number": user.get("license_number", ""),
+            "license_council": user.get("license_council", ""),
+            "phone": user.get("phone", ""),
+            "vehicle_brand": user.get("vehicle_brand", ""),
+            "vehicle_model": user.get("vehicle_model", ""),
+            "vehicle_plate": user.get("vehicle_plate", ""),
+            "vehicle_license_number": user.get("vehicle_license_number", ""),
+            "status": user["status"],
+            "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+            "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
         }
     })
     
