@@ -359,7 +359,7 @@ export function ConfiguracionPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                      Nº Licencia
+                      Nº Licencia Taxi
                     </Label>
                     <Input
                       value={profileData.license_number}
