@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -68,13 +69,11 @@ export default function LoginScreen({ navigation }) {
           />
 
           <Text style={styles.label}>CONTRASEÑA</Text>
-          <TextInput
-            style={styles.input}
+          <PasswordInput
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
-            placeholderTextColor="#999"
-            secureTextEntry
+            style={styles.passwordContainer}
           />
 
           <TouchableOpacity
@@ -160,6 +159,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#1C1917',
+    marginBottom: 20,
+  },
+  passwordContainer: {
     marginBottom: 20,
   },
   button: {
