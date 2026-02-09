@@ -28,8 +28,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store",
-      "expo-intent-launcher"
+      "expo-secure-store"
     ],
     "extra": {
       "API_BASE_URL": "https://asturia-taxi.emergent.host"
