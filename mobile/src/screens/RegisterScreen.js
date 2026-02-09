@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 
 const STEPS = [
   { id: 1, title: 'Datos Personales' },
@@ -233,22 +234,18 @@ export default function RegisterScreen({ navigation }) {
               autoCapitalize="none"
             />
             <Text style={styles.label}>CONTRASEÑA</Text>
-            <TextInput
-              style={styles.input}
+            <PasswordInput
               value={formData.password}
               onChangeText={(v) => updateField('password', v)}
               placeholder="Mínimo 8 caracteres"
-              placeholderTextColor="#999"
-              secureTextEntry
+              style={styles.passwordContainer}
             />
             <Text style={styles.label}>CONFIRMAR CONTRASEÑA</Text>
-            <TextInput
-              style={styles.input}
+            <PasswordInput
               value={formData.confirmPassword}
               onChangeText={(v) => updateField('confirmPassword', v)}
               placeholder="Repite la contraseña"
-              placeholderTextColor="#999"
-              secureTextEntry
+              style={styles.passwordContainer}
             />
           </>
         );
@@ -363,6 +360,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#1C1917',
+    marginBottom: 16,
+  },
+  passwordContainer: {
     marginBottom: 16,
   },
   buttons: {
