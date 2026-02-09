@@ -460,13 +460,13 @@ export function ConfiguracionPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                      Nº Licencia Vehículo
+                      Nº VT
                     </Label>
                     <Input
                       value={vehicleData.vehicle_license_number}
                       onChange={(e) => setVehicleData(prev => ({ ...prev, vehicle_license_number: e.target.value.toUpperCase() }))}
                       className="h-12"
-                      placeholder="Ej: VTC-12345"
+                      placeholder="Ej: VT-12345"
                       data-testid="config-vehicle-license-number"
                     />
                   </div>
