@@ -959,7 +959,23 @@ async def mobile_refresh(data: MobileRefreshRequest):
         "refresh_token": new_refresh_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        "refresh_expires_in": MOBILE_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        "refresh_expires_in": MOBILE_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "dni_cif": user.get("dni_cif", ""),
+            "license_number": user.get("license_number", ""),
+            "license_council": user.get("license_council", ""),
+            "phone": user.get("phone", ""),
+            "vehicle_brand": user.get("vehicle_brand", ""),
+            "vehicle_model": user.get("vehicle_model", ""),
+            "vehicle_plate": user.get("vehicle_plate", ""),
+            "vehicle_license_number": user.get("vehicle_license_number", ""),
+            "status": user["status"],
+            "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+            "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
+        }
     }
 
 
