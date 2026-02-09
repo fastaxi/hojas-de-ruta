@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { AlertCircle, Loader2, Shield } from 'lucide-react';
+import { PasswordInput } from '../../components/ui/password-input';
 
 export function AdminLoginPage() {
   const [username, setUsername] = useState('');
@@ -75,8 +76,7 @@ export function AdminLoginPage() {
               <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                 Contraseña
               </Label>
-              <Input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
