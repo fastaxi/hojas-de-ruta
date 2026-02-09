@@ -16,6 +16,7 @@ import {
   User, Car, Users, Loader2, Check, Plus, Trash2, Save, AlertCircle, 
   LogOut, Shield, Pencil
 } from 'lucide-react';
+import { PasswordInput } from '../../components/ui/password-input';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -576,8 +577,7 @@ export function ConfiguracionPage() {
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-stone-600 text-sm">Contraseña Actual</Label>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       value={passwordForm.current_password}
                       onChange={(e) => setPasswordForm(prev => ({ ...prev, current_password: e.target.value }))}
                       placeholder="••••••••"
@@ -587,8 +587,7 @@ export function ConfiguracionPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-stone-600 text-sm">Nueva Contraseña</Label>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       value={passwordForm.new_password}
                       onChange={(e) => setPasswordForm(prev => ({ ...prev, new_password: e.target.value }))}
                       placeholder="Mín. 8 caracteres, 1 mayúscula, 1 número"
@@ -598,8 +597,7 @@ export function ConfiguracionPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-stone-600 text-sm">Confirmar Nueva Contraseña</Label>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       value={passwordForm.confirm_password}
                       onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm_password: e.target.value }))}
                       placeholder="Repite la nueva contraseña"
