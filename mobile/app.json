@@ -33,6 +33,9 @@
       "expo-asset",
       "expo-font"
     ],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "extra": {
       "API_BASE_URL": "https://asturia-taxi.emergent.host"
     }
