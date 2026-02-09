@@ -10,6 +10,7 @@ import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Switch } from '../../components/ui/switch';
 import { AlertCircle, Loader2, ArrowLeft, ArrowRight, Check, Plus, Trash2 } from 'lucide-react';
+import { PasswordInput } from '../../components/ui/password-input';
 
 export function RegisterPage() {
   const [step, setStep] = useState(1);
@@ -431,8 +432,7 @@ export function RegisterPage() {
                     <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                       Contraseña *
                     </Label>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       value={formData.password}
                       onChange={(e) => updateField('password', e.target.value)}
                       placeholder="Mínimo 6 caracteres"
@@ -444,8 +444,7 @@ export function RegisterPage() {
                     <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                       Confirmar Contraseña *
                     </Label>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       value={formData.confirmPassword}
                       onChange={(e) => updateField('confirmPassword', e.target.value)}
                       placeholder="Repite la contraseña"
