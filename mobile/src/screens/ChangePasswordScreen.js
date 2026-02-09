@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { changePassword } from '../services/meService';
 import { validatePasswordChange } from '../utils/validators';
+import PasswordInput from '../components/PasswordInput';
 
 export default function ChangePasswordScreen({ navigation }) {
   const [saving, setSaving] = useState(false);
@@ -77,35 +78,32 @@ export default function ChangePasswordScreen({ navigation }) {
 
             {/* Current Password */}
             <Text style={styles.label}>CONTRASEÑA ACTUAL</Text>
-            <TextInput
-              style={styles.input}
+            <PasswordInput
               value={currentPassword}
               onChangeText={setCurrentPassword}
               placeholder="••••••••"
-              placeholderTextColor="#999"
-              secureTextEntry
+              style={styles.passwordContainer}
+              inputStyle={styles.passwordInput}
             />
 
             {/* New Password */}
             <Text style={styles.label}>NUEVA CONTRASEÑA</Text>
-            <TextInput
-              style={styles.input}
+            <PasswordInput
               value={newPassword}
               onChangeText={setNewPassword}
               placeholder="Mínimo 8 caracteres"
-              placeholderTextColor="#999"
-              secureTextEntry
+              style={styles.passwordContainer}
+              inputStyle={styles.passwordInput}
             />
 
             {/* Confirm Password */}
             <Text style={styles.label}>CONFIRMAR NUEVA CONTRASEÑA</Text>
-            <TextInput
-              style={styles.input}
+            <PasswordInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Repite la nueva contraseña"
-              placeholderTextColor="#999"
-              secureTextEntry
+              style={styles.passwordContainer}
+              inputStyle={styles.passwordInput}
             />
           </View>
         </ScrollView>
@@ -170,6 +168,14 @@ const styles = StyleSheet.create({
     color: '#1C1917',
     borderWidth: 1,
     borderColor: '#E7E5E4',
+  },
+  passwordContainer: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E7E5E4',
+  },
+  passwordInput: {
+    backgroundColor: '#fff',
   },
   footer: {
     padding: 20,
