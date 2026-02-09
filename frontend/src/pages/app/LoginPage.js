@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { AlertCircle, Loader2, ArrowLeft, Info } from 'lucide-react';
+import { PasswordInput } from '../../components/ui/password-input';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -109,9 +110,8 @@ export function LoginPage() {
                 <Label htmlFor="password" className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                   Contraseña
                 </Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
