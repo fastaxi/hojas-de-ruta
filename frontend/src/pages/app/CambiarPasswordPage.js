@@ -9,7 +9,8 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { Loader2, Lock, AlertCircle, Check, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, AlertCircle, Check } from 'lucide-react';
+import { PasswordInput } from '../../components/ui/password-input';
 
 export function CambiarPasswordPage() {
   const { changePassword, user, logout } = useAuth();
@@ -23,11 +24,6 @@ export function CambiarPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [showPasswords, setShowPasswords] = useState({
-    current: false,
-    new: false,
-    confirm: false
-  });
 
   const validatePassword = (password) => {
     if (password.length < 8) {
@@ -86,10 +82,6 @@ export function CambiarPasswordPage() {
     }
   };
 
-  const toggleShow = (field) => {
-    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
-  };
-
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-stone-100 to-stone-200 flex items-center justify-center p-4">
@@ -139,46 +131,26 @@ export function CambiarPasswordPage() {
               <Label className="text-stone-600 font-medium">
                 Contraseña Actual (temporal)
               </Label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.current ? 'text' : 'password'}
-                  value={formData.currentPassword}
-                  onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                  placeholder="Contraseña que te proporcionaron"
-                  className="h-12 pr-12"
-                  data-testid="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleShow('current')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                >
-                  {showPasswords.current ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
+              <PasswordInput
+                value={formData.currentPassword}
+                onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                placeholder="Contraseña que te proporcionaron"
+                className="h-12"
+                data-testid="current-password"
+              />
             </div>
 
             <div className="space-y-2">
               <Label className="text-stone-600 font-medium">
                 Nueva Contraseña
               </Label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.new ? 'text' : 'password'}
-                  value={formData.newPassword}
-                  onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                  placeholder="Mínimo 8 caracteres"
-                  className="h-12 pr-12"
-                  data-testid="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleShow('new')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                >
-                  {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
+              <PasswordInput
+                value={formData.newPassword}
+                onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                placeholder="Mínimo 8 caracteres"
+                className="h-12"
+                data-testid="new-password"
+              />
               <p className="text-xs text-stone-500">
                 Debe incluir: 8+ caracteres, una mayúscula, un número
               </p>
@@ -188,23 +160,13 @@ export function CambiarPasswordPage() {
               <Label className="text-stone-600 font-medium">
                 Confirmar Nueva Contraseña
               </Label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.confirm ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder="Repite la nueva contraseña"
-                  className="h-12 pr-12"
-                  data-testid="confirm-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleShow('confirm')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                >
-                  {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
+              <PasswordInput
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                placeholder="Repite la nueva contraseña"
+                className="h-12"
+                data-testid="confirm-password"
+              />
             </div>
 
             <Button
