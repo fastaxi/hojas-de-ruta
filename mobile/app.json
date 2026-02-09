@@ -28,7 +28,10 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker",
+      "expo-asset",
+      "expo-font"
     ],
     "extra": {
       "API_BASE_URL": "https://asturia-taxi.emergent.host"
