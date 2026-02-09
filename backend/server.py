@@ -847,7 +847,7 @@ async def mobile_login(data: LoginRequest, request: Request):
     
     logger.info(f"Mobile login: {user['email']} (jti: {jti[:8]}...)")
     
-    # Return tokens in JSON (NO cookie)
+    # Return tokens in JSON (NO cookie) - return COMPLETE user object
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -859,8 +859,18 @@ async def mobile_login(data: LoginRequest, request: Request):
             "id": user["id"],
             "email": user["email"],
             "full_name": user["full_name"],
+            "dni_cif": user.get("dni_cif", ""),
+            "license_number": user.get("license_number", ""),
+            "license_council": user.get("license_council", ""),
+            "phone": user.get("phone", ""),
+            "vehicle_brand": user.get("vehicle_brand", ""),
+            "vehicle_model": user.get("vehicle_model", ""),
+            "vehicle_plate": user.get("vehicle_plate", ""),
+            "vehicle_license_number": user.get("vehicle_license_number", ""),
             "status": user["status"],
-            "must_change_password": must_change
+            "must_change_password": must_change,
+            "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+            "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
         }
     }
 
