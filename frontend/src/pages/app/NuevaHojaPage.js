@@ -221,7 +221,7 @@ export function NuevaHojaPage() {
               <p className="text-sm text-stone-500 -mt-2">
                 Teléfono o email obligatorio
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                     Teléfono
