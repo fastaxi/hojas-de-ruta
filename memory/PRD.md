@@ -23,50 +23,58 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 
 ### Hojas de Ruta
 - ✅ Crear hojas de ruta inmutables
-- ✅ Campo obligatorio de pasajero(s)
+- ✅ Campo obligatorio de pasajero(s) en web, móvil y PDF
 - ✅ Numeración atómica única por usuario/año
 - ✅ Anulación de hojas (soft delete)
 - ✅ Historial con paginación
 - ✅ Ordenamiento por número de hoja (año + secuencia)
 - ✅ Filtro de hojas anuladas
+- ✅ Vista detalle con todos los campos incluido pasajeros
 
 ### Exportación PDF
 - ✅ PDF individual con formato oficial FAST
-- ✅ PDF múltiple con mismo formato que individual
-- ✅ 3 secciones: Titular/Vehículo, Contratación, Servicio
-- ✅ Campo Pasajero(s) incluido
+- ✅ PDF múltiple con mismo formato que individual (3 secciones)
+- ✅ Campo Pasajero(s) incluido en todas las secciones
 - ✅ Marca de agua para hojas anuladas
 - ✅ Fechas en formato dd/mm/aaaa HH:MM (Europe/Madrid)
 
 ### Panel Admin
-- ✅ Login separado
+- ✅ Login separado con ojo en contraseña
 - ✅ Aprobar usuarios pendientes
-- ✅ Ver todos los usuarios y hojas
+- ✅ Ver todos los usuarios con paginación (100 por página, "Cargar más")
+- ✅ Contador total de usuarios
+- ✅ Ver hojas de ruta con campo pasajeros
 - ✅ Configuración global del PDF
 - ✅ Reset de contraseñas
 - ✅ Estado del job de retención
+- ✅ Fechas en zona horaria Europe/Madrid
 
 ### App Móvil
-- ✅ Login/Registro
-- ✅ Crear hojas de ruta con todos los campos
-- ✅ Historial con Ver Hoja y Ver PDF
+- ✅ Login/Registro con ojo en contraseña
+- ✅ Crear hojas de ruta con campo pasajeros
+- ✅ Historial con Ver Hoja (incluye pasajeros) y Ver PDF
+- ✅ Compartir PDF funcional
 - ✅ Caché offline de PDFs (límite 50)
-- ✅ Compartir PDFs
 - ✅ Configuración de perfil
 - ✅ Gestión de conductores adicionales
 - ✅ Cambio de contraseña
+
+### Responsive Web
+- ✅ Formularios adaptativos (1 columna en móvil, 2 en desktop)
+- ✅ Campos no se superponen en pantallas pequeñas
 
 ### Infraestructura
 - ✅ GitHub Actions para job de retención diario
 - ✅ Política de retención (ocultar 14 meses, purgar 24 meses)
 - ✅ EAS configurado para builds Android
+- ✅ Paginación escalable para 800+ usuarios
 
 ## Credenciales de Test
 - **Admin Web:** admin / qgyq8wx%dq1AvYgQ
 - **Usuario Test:** juantest@test.com / Test1234!
 
 ## URLs
-- **Web:** https://asturia-taxi.emergent.host
+- **Web Producción:** https://asturia-taxi.emergent.host
 - **Preview:** https://rutasfast-2.preview.emergentagent.com
 
 ## Tareas Pendientes
@@ -82,3 +90,4 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - El servicio de email (`email_service.py`) está deshabilitado
 - Warning de bcrypt en logs (cosmético, sin impacto)
 - Para builds móviles usar Node 18 (no 24)
+- Si hay problemas de caché en el navegador, borrar "datos del sitio" no solo caché
