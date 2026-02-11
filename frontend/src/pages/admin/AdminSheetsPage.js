@@ -361,6 +361,10 @@ export function AdminSheetsPage() {
                   <Label className="text-xs text-stone-500">Destino</Label>
                   <p className="font-medium">{selectedSheet.destination}</p>
                 </div>
+                <div className="col-span-2">
+                  <Label className="text-xs text-stone-500">Pasajero(s)</Label>
+                  <p className="font-medium">{selectedSheet.passenger_info || '-'}</p>
+                </div>
                 {selectedSheet.annul_reason && (
                   <div className="col-span-2 p-3 bg-red-50 rounded-lg">
                     <Label className="text-xs text-red-600">Motivo anulación</Label>
