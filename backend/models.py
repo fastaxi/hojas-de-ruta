@@ -300,6 +300,7 @@ class RouteSheetCreate(BaseModel):
     pickup_address: Optional[str] = None
     pickup_datetime: str
     destination: str
+    passenger_info: str  # Obligatorio: datos de la persona o personas a recoger
     
     @field_validator('conductor_driver_id', 'contractor_phone', 'flight_number', 'pickup_address')
     @classmethod
@@ -309,7 +310,7 @@ class RouteSheetCreate(BaseModel):
         v = v.strip()
         return v if v else None
     
-    @field_validator('prebooked_date', 'prebooked_locality', 'pickup_datetime', 'destination')
+    @field_validator('prebooked_date', 'prebooked_locality', 'pickup_datetime', 'destination', 'passenger_info')
     @classmethod
     def validate_required_strings(cls, v, info):
         if not v or not v.strip():
