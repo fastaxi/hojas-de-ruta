@@ -125,7 +125,8 @@ export function NuevaHojaPage() {
         flight_number: '',
         pickup_address: '',
         pickup_datetime: '',
-        destination: ''
+        destination: '',
+        passenger_info: ''
       });
     } catch (err) {
       // Handle validation errors from backend
