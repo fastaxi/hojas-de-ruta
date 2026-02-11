@@ -229,6 +229,10 @@ export default function RouteSheetDetailScreen({ navigation, route }) {
             <Text style={styles.label}>Destino:</Text>
             <Text style={styles.value}>{sheet?.destination || '-'}</Text>
           </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Pasajero(s):</Text>
+            <Text style={styles.value}>{sheet?.passenger_info || '-'}</Text>
+          </View>
         </View>
 
         {/* Anulación (si aplica) */}
