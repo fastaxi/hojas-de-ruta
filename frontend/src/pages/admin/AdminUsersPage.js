@@ -19,11 +19,15 @@ export function AdminUsersPage() {
   const { adminRequest } = useAdminAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState('PENDING');
   const [search, setSearch] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 100;
   
   // Password reset states
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -36,25 +40,53 @@ export function AdminUsersPage() {
   const [resetHistory, setResetHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
+  const fetchUsers = useCallback(async (resetOffset = true) => {
+    if (resetOffset) {
+      setLoading(true);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
       const params = new URLSearchParams();
       if (filter) params.append('status', filter);
       if (search) params.append('search', search);
+      params.append('limit', LIMIT.toString());
+      params.append('offset', resetOffset ? '0' : offset.toString());
       
       const data = await adminRequest('get', `/admin/users?${params}`);
-      setUsers(data);
+      
+      if (resetOffset) {
+        setUsers(data);
+        setOffset(LIMIT);
+      } else {
+        setUsers(prev => [...prev, ...data]);
+        setOffset(prev => prev + LIMIT);
+      }
+      
+      // Get total count
+      const countParams = new URLSearchParams();
+      if (filter) countParams.append('status', filter);
+      if (search) countParams.append('search', search);
+      const countData = await adminRequest('get', `/admin/users/count?${countParams}`);
+      setTotalCount(countData.count);
+      
     } catch (err) {
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [adminRequest, filter, search]);
+  }, [adminRequest, filter, search, offset]);
+
+  const loadMore = () => {
+    fetchUsers(false);
+  };
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchUsers(true);
+  }, [filter, search]);
 
   // Fetch password reset history for selected user
   const fetchResetHistory = useCallback(async (userId) => {
