@@ -602,6 +602,7 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
             ['Lugar de recogida:', pickup_location],
             ['Fecha y hora:', pickup_dt],
             ['Destino:', sheet.get('destination', '-')],
+            ['Pasajero(s):', sheet.get('passenger_info', '-')],
         ]
         
         service_table = Table(service_data, colWidths=[45*mm, 125*mm])
