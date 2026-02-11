@@ -392,7 +392,8 @@ export function AdminUsersPage() {
                               month: '2-digit',
                               year: 'numeric',
                               hour: '2-digit',
-                              minute: '2-digit'
+                              minute: '2-digit',
+                              timeZone: 'Europe/Madrid'
                             })}
                           </span>
                           <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
