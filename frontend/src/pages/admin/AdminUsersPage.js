@@ -319,6 +319,30 @@ export function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+        
+        {/* Load More Button and Count */}
+        <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-between">
+          <p className="text-sm text-stone-500">
+            Mostrando {users.length} de {totalCount} usuarios
+          </p>
+          {users.length < totalCount && (
+            <Button
+              variant="outline"
+              onClick={loadMore}
+              disabled={loadingMore}
+              data-testid="load-more-users"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Cargando...
+                </>
+              ) : (
+                `Cargar más (${totalCount - users.length} restantes)`
+              )}
+            </Button>
+          )}
+        </div>
       </Card>
 
       {/* User Detail Dialog */}
