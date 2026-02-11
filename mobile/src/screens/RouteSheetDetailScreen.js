@@ -83,7 +83,10 @@ export default function RouteSheetDetailScreen({ navigation, route }) {
   };
 
   const handleSharePdf = () => {
-    shareSheetPdf(sheetId, getSheetNumber());
+    // shareSheetPdf expects full sheet object
+    if (sheet) {
+      shareSheetPdf(sheet);
+    }
   };
 
   if (loading) {
