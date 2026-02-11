@@ -252,7 +252,7 @@ export function NuevaHojaPage() {
             </div>
 
             {/* Precontratación */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                   Fecha Precontratación *
