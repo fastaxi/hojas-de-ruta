@@ -1,195 +1,84 @@
-# RutasFast - PRD (Product Requirements Document)
+# RutasFast - Product Requirements Document
 
-## Estado Actual
-**Fecha última actualización**: 2026-02-06
-**Fase**: MVP Web Completo + App Móvil Android en Producción
-
-## Changelog Reciente
-- **2026-02-06**: APK Android compilado y funcionando. Smoke tests producción OK.
-- **2026-01-30**: Fix crítico - Añadido `vehicle_license_number` al modelo `UserPublic`.
-
-## Rutina de Release APK (Android)
-
-```bash
-cd ~/hojas-de-ruta/mobile
-
-# 1. En app.json, incrementar AMBOS:
-#    "version": "1.0.1"  (para soporte/usuario)
-#    "versionCode": 2    (obligatorio para Android)
-
-# 2. Build
-eas build -p android --profile preview
-
-# 3. Probar 5 min en 1 Android
-
-# 4. Enviar enlace EAS a taxistas
-```
-
-### ⚠️ Importante
-- **NO cambiar credenciales Android en EAS** - Si se pierde el keystore, los usuarios deben desinstalar para actualizar.
-- **Siempre subir versionCode** - Android no instala si es igual o menor.
-
-## Descripción del Proyecto
-App para taxistas en Asturias que permite generar "Hojas de Ruta" numeradas, conservar histórico, exportar a PDF y compartir por email. Incluye panel web de administración para validar usuarios.
+## Descripción
+Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web responsive, panel de administración y app móvil React Native (Expo).
 
 ## Stack Tecnológico
-- **Frontend**: React Web (PWA responsive)
-- **Backend**: FastAPI (Python)
-- **Base de Datos**: MongoDB
-- **Email**: Deshabilitado (sistema de reset manual por admin)
-- **PDF**: ReportLab
-- **Autenticación**: httpOnly cookies (refresh token) + JWT en memoria (access token)
+- **Backend:** FastAPI + MongoDB + Motor
+- **Frontend Web:** React + Tailwind CSS + Shadcn UI
+- **Frontend Móvil:** React Native + Expo
+- **PDF:** ReportLab + Pillow
+- **CI/CD:** GitHub Actions para jobs programados
+- **Builds:** Expo Application Services (EAS)
 
-## Arquitectura
+## Funcionalidades Implementadas
 
-### Colecciones MongoDB
-1. **users** - Usuarios taxistas
-   - Índice único: `email`
-   - Campos: id, full_name, dni_cif, license_number, license_council, phone, email, password_hash, status (PENDING|APPROVED), vehicle_*, token_version, must_change_password, temp_password_expires_at, created_at, updated_at
+### Autenticación
+- ✅ Registro de usuarios con aprobación de admin
+- ✅ Login web con cookies httpOnly
+- ✅ Login móvil con JWT + refresh token rotation
+- ✅ Cambio de contraseña obligatorio
+- ✅ Botón de ojo para mostrar/ocultar contraseña (web y móvil)
+- ✅ Endpoints devuelven objeto de usuario completo
 
-2. **drivers** - Choferes de usuarios
-   - Índice: `user_id`
-   - Campos: id, user_id, full_name, dni, created_at
+### Hojas de Ruta
+- ✅ Crear hojas de ruta inmutables
+- ✅ Campo obligatorio de pasajero(s)
+- ✅ Numeración atómica única por usuario/año
+- ✅ Anulación de hojas (soft delete)
+- ✅ Historial con paginación
+- ✅ Ordenamiento por número de hoja (año + secuencia)
+- ✅ Filtro de hojas anuladas
 
-3. **route_sheets** - Hojas de ruta
-   - Índices: user_id+created_at, user_id+year+seq_number, status, user_visible
-   - Campos: id, user_id, year, seq_number, conductor_driver_id, contractor_*, prebooked_*, pickup_*, destination, status (ACTIVE|ANNULLED), annulled_at, annul_reason, user_visible, hide_at, purge_at, created_at
+### Exportación PDF
+- ✅ PDF individual con formato oficial FAST
+- ✅ PDF múltiple con mismo formato que individual
+- ✅ 3 secciones: Titular/Vehículo, Contratación, Servicio
+- ✅ Campo Pasajero(s) incluido
+- ✅ Marca de agua para hojas anuladas
+- ✅ Fechas en formato dd/mm/aaaa HH:MM (Europe/Madrid)
 
-4. **app_config** - Configuración global (documento único id="global")
-   - Campos: header_title, header_line1, header_line2, legend_text, hide_after_months, purge_after_months
+### Panel Admin
+- ✅ Login separado
+- ✅ Aprobar usuarios pendientes
+- ✅ Ver todos los usuarios y hojas
+- ✅ Configuración global del PDF
+- ✅ Reset de contraseñas
+- ✅ Estado del job de retención
 
-5. **counters** - Contadores atómicos para numeración
-   - Índice: user_id+year (unique)
-   - Campos: user_id, year, seq
+### App Móvil
+- ✅ Login/Registro
+- ✅ Crear hojas de ruta con todos los campos
+- ✅ Historial con Ver Hoja y Ver PDF
+- ✅ Caché offline de PDFs (límite 50)
+- ✅ Compartir PDFs
+- ✅ Configuración de perfil
+- ✅ Gestión de conductores adicionales
+- ✅ Cambio de contraseña
 
-6. **admin_audit_logs** - Registro de acciones administrativas
-   - Campos: action, admin_username, user_id, user_email, timestamp
+### Infraestructura
+- ✅ GitHub Actions para job de retención diario
+- ✅ Política de retención (ocultar 14 meses, purgar 24 meses)
+- ✅ EAS configurado para builds Android
 
-### Rutas Frontend
-- `/` - Landing page
-- `/app/login` - Login usuario
-- `/app/registro` - Registro multi-step (4 pasos)
-- `/app/cambiar-password` - Página forzada para cambiar contraseña temporal
-- `/app/nueva-hoja` - Crear hoja de ruta
-- `/app/historico` - Ver histórico + filtros + anular + PDF
-- `/app/configuracion` - Editar perfil/vehículo/choferes (3 tabs)
-- `/admin/login` - Login admin
-- `/admin/usuarios` - Gestión usuarios + aprobación + reset contraseña
-- `/admin/hojas` - Ver todas las hojas
-- `/admin/config` - Configuración global + ejecutar retención manual
+## Credenciales de Test
+- **Admin Web:** admin / qgyq8wx%dq1AvYgQ
+- **Usuario Test:** juantest@test.com / Test1234!
 
-### Endpoints API (/api)
+## URLs
+- **Web:** https://asturia-taxi.emergent.host
+- **Preview:** https://rutasfast-2.preview.emergentagent.com
 
-#### Auth
-- POST `/auth/register` - Registro usuario
-- POST `/auth/login` - Login usuario (devuelve access_token + cookie refresh)
-- POST `/auth/refresh` - Renovar tokens (usa cookie httpOnly)
-- POST `/auth/logout` - Cerrar sesión (limpia cookies)
-- POST `/auth/forgot-password` - ⚠️ DESHABILITADO (410 Gone)
-- POST `/auth/reset-password` - ⚠️ DESHABILITADO (410 Gone)
+## Tareas Pendientes
 
-#### User (requiere auth)
-- GET `/me` - Obtener perfil
-- PUT `/me` - Actualizar perfil
-- POST `/me/change-password` - Cambiar contraseña (logged in)
-- GET `/me/drivers` - Listar choferes
-- POST `/me/drivers` - Añadir chofer
-- PUT `/me/drivers/{id}` - Editar chofer
-- DELETE `/me/drivers/{id}` - Eliminar chofer
+### P1 - Próximas
+- Dashboard de estadísticas en Admin (hojas creadas, usuarios activos)
 
-#### Route Sheets (requiere auth)
-- POST `/route-sheets` - Crear hoja
-- GET `/route-sheets` - Listar hojas (con filtros)
-- GET `/route-sheets/{id}` - Ver hoja
-- POST `/route-sheets/{id}/annul` - Anular hoja
-- GET `/route-sheets/{id}/pdf` - Descargar PDF individual
-- GET `/route-sheets/pdf/range` - Descargar PDF por rango
+### P2 - Futuras
+- Exportar datos a CSV desde admin
+- Activar servicio de email (actualmente MOCKED)
 
-#### Admin
-- POST `/admin/login` - Login admin
-- GET `/admin/users` - Listar usuarios
-- GET `/admin/users/{id}` - Ver usuario
-- PUT `/admin/users/{id}` - Editar usuario
-- POST `/admin/users/{id}/approve` - Aprobar usuario
-- POST `/admin/users/{id}/reset-password-temp` - Generar contraseña temporal (72h)
-- GET `/admin/route-sheets` - Listar todas las hojas
-- GET `/admin/config` - Ver config
-- PUT `/admin/config` - Actualizar config
-- POST `/admin/run-retention` - Ejecutar job de retención manualmente
-- GET `/admin/retention-runs` - Historial de ejecuciones de retención
-- GET `/admin/retention-runs/last` - Última ejecución de retención
-
-#### Internal (para schedulers)
-- POST `/internal/run-retention` - Ejecutar retención (requiere header X-Job-Token)
-
-## Lo Implementado ✅
-1. ✅ Modelo de datos MongoDB con índices
-2. ✅ Autenticación segura con httpOnly cookies (refresh) + JWT en memoria (access)
-3. ✅ Token rotation y versionado para seguridad
-4. ✅ Registro usuario multi-step
-5. ✅ Login con validación de estado PENDING
-6. ✅ Panel admin con aprobación de usuarios
-7. ✅ **Reset manual de contraseña por admin** (contraseña temporal 72h)
-8. ✅ Página forzada para cambiar contraseña temporal
-9. ✅ CRUD choferes
-10. ✅ Creación hojas de ruta con validaciones
-11. ✅ Numeración secuencial atómica por usuario/año
-12. ✅ Anulación de hojas (soft delete)
-13. ✅ Histórico con filtros
-14. ✅ Generación PDF (ReportLab) con marca de agua para anuladas
-15. ✅ Configuración global editable
-16. ✅ Admin hardening (credenciales via env vars en producción)
-17. ✅ Rate limiting en login admin
-18. ✅ UI responsive (PWA-ready)
-19. ✅ **Retención automatizada**: Endpoint interno con token técnico, lock de concurrencia, logging con stats_after
-20. ✅ **Auditoría de resets**: Logs con admin, user, timestamp, IP. UI en modal de usuario. NUNCA se guarda contraseña.
-21. ✅ **Cambio contraseña usuario**: Tab Seguridad en /app/configuracion. Invalida sesión (token_version++) y limpia cookie.
-22. ✅ **Hardening Pydantic**: extra="forbid", normalización strings (strip, empty→None, uppercase dni/plate), DriverUpdate nuevo
-23. ✅ **PDF Rate Limiting**: 30/10min individual, 10/10min rango. Colección rate_limits con TTL.
-24. ✅ **PDF Caching**: Colección pdf_cache (30 días TTL). Headers X-Cache HIT/MISS. **ACTIVE y ANNULLED** cacheados independientemente.
-25. ✅ **pdf_config_version**: Invalida cache cuando cambian header_* o legend_text. Afecta ACTIVE y ANNULLED.
-26. ✅ **Exportar PDF rango mejorado**: Validaciones frontend (31 días máx, from<to), iOS/Safari compatible, limpieza objectURL.
-27. ✅ **Branding oficial FAST**: Logo en PDFs (individual y rango), iconos PWA (192x192, 512x512), favicon, apple-touch-icon, manifest.json.
-28. ✅ **Compartir PDF**: Web Share API con fallback a descarga. Botones en modal detalle y fila histórico. Manejo de AbortError, rate limit 429, iOS.
-29. ✅ **Sanitización filenames PDF**: Helper `toSafeFilenamePart()` para nombres seguros cross-platform (iOS/Android/Windows). Límite 60 chars.
-30. ✅ **Auth Móvil (Expo-ready)**: Endpoints `/api/auth/mobile/login`, `/refresh`, `/logout`. Refresh tokens en JSON (no cookies), rotación one-time-use, hash en DB, revocación por token_version.
-
-## Backlog P1 (Próximos pasos)
-1. ⬜ Dashboard de estadísticas en panel admin
-2. ⬜ App Expo (React Native) usando los endpoints móviles
-
-## Backlog P2
-1. ⬜ Convertir a React Native (Expo)
-2. ⬜ Estadísticas dashboard admin
-3. ⬜ Exportar datos a CSV
-
-## Credenciales de Desarrollo
-- **Admin**: usuario `admin`, contraseña `admin123`
-- **MongoDB**: MONGO_URL en .env
-- **Email**: Deshabilitado (reset manual por admin)
-- **Seguridad producción**: ADMIN_USERNAME y ADMIN_PASSWORD_HASH en variables de entorno
-- **Token retención**: RETENTION_JOB_TOKEN en .env (para schedulers externos)
-
-## Notas Técnicas Importantes
-1. **Autenticación con cookies**: El refresh token está en una cookie httpOnly. El frontend no lo almacena.
-2. **Email deshabilitado**: `/api/auth/forgot-password` y `/api/auth/reset-password` devuelven 410 Gone.
-3. **Pruebas locales**: La persistencia de sesión solo funciona correctamente usando la URL de preview, no localhost:3000.
-4. **Admin en producción**: Requiere `ADMIN_USERNAME` y `ADMIN_PASSWORD_HASH` en las variables de entorno.
-5. **Retención automatizada**: El endpoint `/api/internal/run-retention` requiere header `X-Job-Token` con el valor de `RETENTION_JOB_TOKEN`. Usar desde GitHub Actions o cron externo.
-
-## Cómo configurar Scheduler Externo (GitHub Actions)
-```yaml
-# .github/workflows/retention-job.yml
-name: Daily Retention Job
-on:
-  schedule:
-    - cron: '30 3 * * *'  # 03:30 UTC diario
-jobs:
-  run-retention:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Execute Retention
-        run: |
-          curl -X POST "${{ secrets.APP_URL }}/api/internal/run-retention" \
-            -H "X-Job-Token: ${{ secrets.RETENTION_JOB_TOKEN }}"
-```
+## Notas Técnicas
+- El servicio de email (`email_service.py`) está deshabilitado
+- Warning de bcrypt en logs (cosmético, sin impacto)
+- Para builds móviles usar Node 18 (no 24)
