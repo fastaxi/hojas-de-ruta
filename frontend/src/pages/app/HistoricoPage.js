@@ -626,6 +626,10 @@ export function HistoricoPage() {
                   <p className="text-stone-500">Destino</p>
                   <p className="font-medium">{detailDialog.sheet.destination}</p>
                 </div>
+                <div className="col-span-2">
+                  <p className="text-stone-500">Pasajero(s)</p>
+                  <p className="font-medium">{detailDialog.sheet.passenger_info || '-'}</p>
+                </div>
                 {detailDialog.sheet.annul_reason && (
                   <div className="col-span-2 p-3 bg-red-50 rounded-lg">
                     <p className="text-red-600 text-sm font-medium">Motivo anulación:</p>
