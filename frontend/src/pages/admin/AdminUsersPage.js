@@ -539,7 +539,7 @@ export function AdminUsersPage() {
                     <p className="font-medium">Importante:</p>
                     <ul className="list-disc list-inside mt-1 space-y-1">
                       <li>Esta contraseña solo se muestra una vez</li>
-                      <li>Válida hasta: {new Date(tempPasswordData.expires_at).toLocaleString('es-ES')}</li>
+                      <li>Válida hasta: {new Date(tempPasswordData.expires_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}</li>
                       <li>El usuario deberá cambiarla al iniciar sesión</li>
                     </ul>
                   </div>
