@@ -1602,8 +1602,8 @@ async def admin_login(data: AdminLoginRequest, request: Request):
 async def admin_get_users(
     status: Optional[str] = None,
     search: Optional[str] = None,
-    limit: int = 50,
-    cursor: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
     admin: dict = Depends(get_current_admin)
 ):
     """Get all users (admin) with pagination"""
@@ -1619,16 +1619,35 @@ async def admin_get_users(
             {"dni_cif": {"$regex": search, "$options": "i"}}
         ]
     
-    # Cursor-based pagination using created_at
-    if cursor:
-        query["created_at"] = {"$lt": cursor}
-    
     users = await db.users.find(
         query,
         {"_id": 0, "password_hash": 0}
-    ).sort("created_at", -1).limit(limit).to_list(limit)
+    ).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
     
     return users
+
+
+@admin_router.get("/users/count")
+async def admin_get_users_count(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    admin: dict = Depends(get_current_admin)
+):
+    """Get total user count for pagination"""
+    query = {}
+    
+    if status:
+        query["status"] = status
+    
+    if search:
+        query["$or"] = [
+            {"full_name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"dni_cif": {"$regex": search, "$options": "i"}}
+        ]
+    
+    count = await db.users.count_documents(query)
+    return {"count": count}
 
 
 @admin_router.get("/users/{user_id}", response_model=dict)
