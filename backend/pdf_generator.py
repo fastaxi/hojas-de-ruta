@@ -406,7 +406,7 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
 
 
 def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map: dict) -> io.BytesIO:
-    """Generate PDF with multiple route sheets (one per page)"""
+    """Generate PDF with multiple route sheets (one per page) - Same format as single sheet"""
     buffer = io.BytesIO()
     
     doc = SimpleDocTemplate(
@@ -419,6 +419,55 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
     )
     
     all_elements = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles (same as single PDF)
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Heading1'],
+        fontSize=18,
+        alignment=TA_CENTER,
+        spaceAfter=2*mm,
+        fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#1a1a1a')
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#444444'),
+        spaceAfter=1*mm
+    )
+    
+    section_header = ParagraphStyle(
+        'SectionHeader',
+        parent=styles['Heading2'],
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#701111'),
+        spaceBefore=4*mm,
+        spaceAfter=2*mm,
+        borderPadding=2*mm,
+    )
+    
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#888888'),
+        alignment=TA_CENTER
+    )
+    
+    sheet_number_style = ParagraphStyle(
+        'SheetNumber',
+        parent=styles['Normal'],
+        fontSize=14,
+        fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#701111'),
+        alignment=TA_RIGHT
+    )
     
     for i, sheet in enumerate(sheets):
         if i > 0:
@@ -428,29 +477,11 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
         if sheet.get("conductor_driver_id"):
             driver_name = drivers_map.get(sheet["conductor_driver_id"], "Titular")
         
-        # Generate single sheet content inline
-        single_buffer = generate_route_sheet_pdf(sheet, user, config, driver_name)
-        
-        # For multi-page, we rebuild inline (simplified)
-        # This duplicates some code but ensures consistency
-        
-        styles = getSampleStyleSheet()
-        
-        title_style = ParagraphStyle('Title', fontSize=18, alignment=TA_CENTER,
-                                      fontName='Helvetica-Bold', textColor=colors.HexColor('#1a1a1a'))
-        subtitle_style = ParagraphStyle('Subtitle', fontSize=10, alignment=TA_CENTER,
-                                         textColor=colors.HexColor('#444444'))
-        section_header = ParagraphStyle('SectionHeader', fontSize=11, fontName='Helvetica-Bold',
-                                         textColor=colors.HexColor('#701111'), spaceBefore=4*mm, spaceAfter=2*mm)
-        footer_style = ParagraphStyle('Footer', fontSize=8, textColor=colors.HexColor('#888888'), alignment=TA_CENTER)
-        sheet_number_style = ParagraphStyle('SheetNumber', fontSize=14, fontName='Helvetica-Bold',
-                                             textColor=colors.HexColor('#701111'), alignment=TA_RIGHT)
-        
         is_annulled = sheet.get('status') == 'ANNULLED'
         sheet_number = f"{sheet['seq_number']:03d}/{sheet['year']}"
         
-        # Header with logo on left, title on right (same as single PDF)
-        logo = get_logo_image(max_width_mm=30, max_height_mm=20)
+        # ============== HEADER ==============
+        logo = get_logo_image(max_width_mm=35, max_height_mm=25)
         
         header_left = []
         if logo:
@@ -465,77 +496,163 @@ def generate_multi_sheet_pdf(sheets: list, user: dict, config: dict, drivers_map
         
         if is_annulled:
             header_right.append(Spacer(1, 2*mm))
-            annul_p = ParagraphStyle('Annul', fontSize=12, fontName='Helvetica-Bold',
-                                      textColor=colors.HexColor('#DC2626'), alignment=TA_CENTER)
-            header_right.append(Paragraph('*** HOJA ANULADA ***', annul_p))
+            annul_stamp = ParagraphStyle('AnnulStamp', fontSize=14, fontName='Helvetica-Bold', 
+                                          textColor=colors.white, alignment=TA_CENTER,
+                                          backColor=colors.HexColor('#DC2626'))
+            header_right.append(Paragraph('*** HOJA ANULADA ***', annul_stamp))
         
         header_table = Table([
             [header_left, header_right]
-        ], colWidths=[40*mm, 130*mm])
+        ], colWidths=[45*mm, 130*mm])
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
             ('ALIGN', (1, 0), (1, 0), 'CENTER'),
         ]))
         all_elements.append(header_table)
-        all_elements.append(Spacer(1, 2*mm))
-        all_elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#701111')))
-        all_elements.append(Paragraph(f"Nº de Hoja: <b>{sheet_number}</b>", sheet_number_style))
+        
+        # Horizontal line
         all_elements.append(Spacer(1, 3*mm))
+        all_elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#701111')))
+        all_elements.append(Spacer(1, 2*mm))
         
-        # Compact data for multi-sheet
-        all_elements.append(Paragraph('TITULAR Y VEHÍCULO', section_header))
-        vehicle_desc_compact = f"{user.get('vehicle_brand', '')} {user.get('vehicle_model', '')}".strip() or '-'
-        data1 = [
-            ['Titular:', user.get('full_name', '-'), 'Licencia:', user.get('license_number', '-')],
-            ['Vehículo:', vehicle_desc_compact, 'Matrícula:', user.get('vehicle_plate', '-')],
+        # Sheet number prominent
+        all_elements.append(Paragraph(f"Nº de Hoja: <b>{sheet_number}</b>", sheet_number_style))
+        all_elements.append(Spacer(1, 4*mm))
+        
+        # ============== DATOS DEL TITULAR ==============
+        all_elements.append(Paragraph('DATOS DEL TITULAR Y VEHÍCULO', section_header))
+        
+        vehicle_desc = f"{user.get('vehicle_brand', '')} {user.get('vehicle_model', '')}".strip() or '-'
+        vehicle_license = user.get('vehicle_license_number', '')
+        
+        titular_data = [
+            ['Titular:', user.get('full_name', '-'), 'DNI/CIF:', user.get('dni_cif', '-')],
+            ['Nº Licencia:', user.get('license_number', '-'), 'Concejo:', user.get('license_council', '-')],
+            ['Teléfono:', user.get('phone', '-'), '', ''],
+            ['Vehículo:', vehicle_desc, 'Matrícula:', user.get('vehicle_plate', '-')],
         ]
-        # Add vehicle license if present
-        if user.get('vehicle_license_number'):
-            data1.append(['Lic. Vehículo:', user.get('vehicle_license_number'), '', ''])
-        if driver_name != "Titular":
-            data1.append(['Conductor:', driver_name, '', ''])
         
-        t1 = Table(data1, colWidths=[22*mm, 55*mm, 22*mm, 55*mm])
-        t1.setStyle(TableStyle([
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
+        if vehicle_license:
+            titular_data.append(['Lic. Vehículo:', vehicle_license, '', ''])
+        
+        if driver_name != "Titular":
+            titular_data.append(['Conductor:', driver_name, '', ''])
+        
+        titular_table = Table(titular_data, colWidths=[25*mm, 60*mm, 25*mm, 60*mm])
+        titular_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#666666')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a1a')),
+            ('TEXTCOLOR', (3, 0), (3, -1), colors.HexColor('#1a1a1a')),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3*mm),
+            ('TOPPADDING', (0, 0), (-1, -1), 1*mm),
+            ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e5e5e5')),
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fafafa')),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2*mm),
         ]))
-        all_elements.append(t1)
+        all_elements.append(titular_table)
         
-        all_elements.append(Paragraph('SERVICIO', section_header))
+        # ============== DATOS DE CONTRATACIÓN ==============
+        all_elements.append(Paragraph('DATOS DE CONTRATACIÓN', section_header))
         
-        pickup_loc = f"Aeropuerto - {sheet.get('flight_number', '')}" if sheet.get('pickup_type') == 'AIRPORT' else sheet.get('pickup_address', '-')
+        contractor_contact = []
+        if sheet.get('contractor_phone'):
+            contractor_contact.append(f"Tel: {sheet['contractor_phone']}")
+        if sheet.get('contractor_email'):
+            contractor_contact.append(f"Email: {sheet['contractor_email']}")
+        contractor_str = ' | '.join(contractor_contact) if contractor_contact else '-'
         
-        data2 = [
-            ['Contratante:', sheet.get('contractor_phone') or sheet.get('contractor_email') or '-'],
-            ['Recogida:', pickup_loc],
-            ['Fecha/Hora:', format_datetime_es(sheet.get('pickup_datetime'))],
+        contract_data = [
+            ['Contratante:', contractor_str],
+            ['Fecha precontratación:', format_datetime_es(sheet.get('prebooked_date'))],
+            ['Localidad precontratación:', sheet.get('prebooked_locality', '-')],
+        ]
+        
+        contract_table = Table(contract_data, colWidths=[45*mm, 125*mm])
+        contract_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a1a')),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3*mm),
+            ('TOPPADDING', (0, 0), (-1, -1), 1*mm),
+            ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e5e5e5')),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fafafa')),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ]))
+        all_elements.append(contract_table)
+        
+        # ============== DATOS DEL SERVICIO ==============
+        all_elements.append(Paragraph('DATOS DEL SERVICIO', section_header))
+        
+        if sheet.get('pickup_type') == 'AIRPORT':
+            pickup_location = f"Aeropuerto de Asturias - Vuelo: {sheet.get('flight_number', '-')}"
+        else:
+            pickup_location = sheet.get('pickup_address', '-')
+        
+        pickup_dt = format_datetime_es(sheet.get('pickup_datetime'))
+        
+        service_data = [
+            ['Tipo de recogida:', 'Aeropuerto' if sheet.get('pickup_type') == 'AIRPORT' else 'Otra dirección'],
+            ['Lugar de recogida:', pickup_location],
+            ['Fecha y hora:', pickup_dt],
             ['Destino:', sheet.get('destination', '-')],
         ]
         
-        t2 = Table(data2, colWidths=[30*mm, 125*mm])
-        t2.setStyle(TableStyle([
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
+        service_table = Table(service_data, colWidths=[45*mm, 125*mm])
+        service_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a1a')),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3*mm),
+            ('TOPPADDING', (0, 0), (-1, -1), 1*mm),
+            ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e5e5e5')),
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fafafa')),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2*mm),
         ]))
-        all_elements.append(t2)
+        all_elements.append(service_table)
         
-        # Footer
-        all_elements.append(Spacer(1, 5*mm))
-        all_elements.append(Paragraph(config.get('legend_text', ''), footer_style))
-        all_elements.append(Paragraph('RutasFast / FAST', footer_style))
+        # ============== ANNULLED INFO ==============
+        if is_annulled:
+            all_elements.append(Spacer(1, 4*mm))
+            annul_info = [
+                ['MOTIVO DE ANULACIÓN:', sheet.get('annul_reason', 'No especificado')],
+            ]
+            if sheet.get('annulled_at'):
+                annul_info.append(['Fecha de anulación:', format_datetime_es(sheet.get('annulled_at'))])
+            
+            annul_table = Table(annul_info, colWidths=[45*mm, 125*mm])
+            annul_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#DC2626')),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FEE2E2')),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#DC2626')),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3*mm),
+                ('TOPPADDING', (0, 0), (-1, -1), 2*mm),
+            ]))
+            all_elements.append(annul_table)
         
-        final_num = ParagraphStyle('Num', fontSize=14, fontName='Helvetica-Bold',
-                                    textColor=colors.HexColor('#701111'), alignment=TA_CENTER)
-        all_elements.append(Paragraph(f"Hoja Nº {sheet_number}", final_num))
+        # ============== FOOTER ==============
+        all_elements.append(Spacer(1, 10*mm))
+        all_elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#cccccc')))
+        all_elements.append(Spacer(1, 3*mm))
+        
+        legend_text = config.get('legend_text', 'Es obligatorio conservar los registros durante 12 meses desde la fecha de recogida del servicio.')
+        all_elements.append(Paragraph(legend_text, footer_style))
+        all_elements.append(Spacer(1, 2*mm))
+        
+        all_elements.append(Paragraph('RutasFast / Federación Asturiana Sindical del Taxi (FAST)', footer_style))
+        all_elements.append(Spacer(1, 3*mm))
+        
+        final_number = ParagraphStyle('FinalNumber', fontSize=16, fontName='Helvetica-Bold',
+                                       textColor=colors.HexColor('#701111'), alignment=TA_CENTER)
+        all_elements.append(Paragraph(f"Hoja Nº {sheet_number}", final_number))
     
     doc.build(all_elements)
     buffer.seek(0)
