@@ -335,6 +335,7 @@ class RouteSheet(BaseModel):
     pickup_address: Optional[str] = None
     pickup_datetime: str
     destination: str
+    passenger_info: Optional[str] = None  # Datos de pasajeros (obligatorio en nuevas hojas)
     status: Literal["ACTIVE", "ANNULLED"] = "ACTIVE"
     annulled_at: Optional[datetime] = None
     annul_reason: Optional[str] = None
