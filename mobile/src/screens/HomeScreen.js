@@ -178,6 +178,7 @@ export default function HomeScreen({ navigation }) {
         flight_number: '',
         pickup_address: '',
         destination: '',
+        passenger_info: '',
       });
       setPrebookedDateTime(new Date());
       setPickupDateTime(new Date());
