@@ -107,6 +107,7 @@ export function NuevaHojaPage() {
         pickup_address: formData.pickup_address || null,
         pickup_datetime: formData.pickup_datetime,
         destination: formData.destination,
+        passenger_info: formData.passenger_info,
         conductor_driver_id: formData.conductor_driver_id === 'titular' ? null : formData.conductor_driver_id
       };
 
