@@ -343,6 +343,7 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
         ['Lugar de recogida:', pickup_location],
         ['Fecha y hora:', pickup_dt],
         ['Destino:', sheet.get('destination', '-')],
+        ['Pasajero(s):', sheet.get('passenger_info', '-')],
     ]
     
     service_table = Table(service_data, colWidths=[45*mm, 125*mm])
