@@ -31,7 +31,8 @@ export function NuevaHojaPage() {
     flight_number: '',
     pickup_address: '',
     pickup_datetime: '',
-    destination: ''
+    destination: '',
+    passenger_info: ''
   });
 
   useEffect(() => {
