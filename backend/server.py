@@ -1295,10 +1295,10 @@ async def get_route_sheets(
         except:
             pass  # Invalid cursor, ignore
     
-    # Query with stable sort: pickup_datetime desc, _id desc
+    # Query with stable sort: year desc, seq_number desc (ordenado por número de hoja)
     sheets = await db.route_sheets.find(
         query
-    ).sort([("pickup_datetime", -1), ("_id", -1)]).limit(limit).to_list(limit)
+    ).sort([("year", -1), ("seq_number", -1), ("_id", -1)]).limit(limit).to_list(limit)
     
     # Build response
     result_sheets = []
