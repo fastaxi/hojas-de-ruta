@@ -407,6 +407,13 @@ export default function HomeScreen({ navigation }) {
             placeholder="Destino *"
             placeholderTextColor="#999"
           />
+          <TextInput
+            style={styles.input}
+            value={formData.passenger_info}
+            onChangeText={(v) => updateField('passenger_info', v)}
+            placeholder="Nombre y datos del pasajero(s) *"
+            placeholderTextColor="#999"
+          />
 
           {/* Submit */}
           <TouchableOpacity
