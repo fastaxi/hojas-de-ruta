@@ -70,6 +70,10 @@ export function NuevaHojaPage() {
       setError('El destino es obligatorio');
       return false;
     }
+    if (!formData.passenger_info) {
+      setError('Los datos del pasajero son obligatorios');
+      return false;
+    }
     if (formData.pickup_type === 'AIRPORT') {
       if (!formData.flight_number) {
         setError('El número de vuelo es obligatorio para recogida en aeropuerto');
