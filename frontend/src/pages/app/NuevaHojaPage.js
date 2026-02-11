@@ -367,6 +367,20 @@ export function NuevaHojaPage() {
               />
             </div>
 
+            {/* Pasajero(s) */}
+            <div className="space-y-2">
+              <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                Pasajero(s) *
+              </Label>
+              <Input
+                value={formData.passenger_info}
+                onChange={(e) => updateField('passenger_info', e.target.value)}
+                placeholder="Nombre y datos del pasajero o pasajeros"
+                className="h-14 text-lg"
+                data-testid="passenger-info"
+              />
+            </div>
+
             <Button
               type="submit"
               disabled={loading}
