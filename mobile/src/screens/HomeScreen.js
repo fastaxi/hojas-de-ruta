@@ -136,6 +136,10 @@ export default function HomeScreen({ navigation }) {
       Alert.alert('Error', 'El destino es obligatorio');
       return;
     }
+    if (!formData.passenger_info) {
+      Alert.alert('Error', 'Los datos del pasajero son obligatorios');
+      return;
+    }
 
     setLoading(true);
     try {
