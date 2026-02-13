@@ -1079,6 +1079,65 @@ async def delete_driver(driver_id: str, user: dict = Depends(get_current_user)):
     return {"message": "Chofer eliminado"}
 
 
+# ============== ASSISTANCE COMPANIES CRUD ==============
+@user_router.get("/assistance-companies", response_model=List[dict])
+async def get_my_assistance_companies(user: dict = Depends(get_current_user)):
+    """Get current user's assistance companies"""
+    companies = await db.assistance_companies.find(
+        {"user_id": user["id"]},
+        {"_id": 0}
+    ).sort("name", 1).to_list(100)
+    return companies
+
+
+@user_router.post("/assistance-companies", response_model=dict)
+async def create_assistance_company(data: AssistanceCompanyCreate, user: dict = Depends(get_current_user)):
+    """Add a new assistance company"""
+    from models import AssistanceCompany
+    company = AssistanceCompany(
+        name=data.name,
+        cif=data.cif,
+        contact_phone=data.contact_phone,
+        contact_email=data.contact_email,
+        user_id=user["id"]
+    )
+    company_dict = company.model_dump()
+    await db.assistance_companies.insert_one(company_dict)
+    return {"id": company.id, "message": "Empresa de asistencia añadida"}
+
+
+@user_router.put("/assistance-companies/{company_id}", response_model=dict)
+async def update_assistance_company(
+    company_id: str,
+    data: AssistanceCompanyCreate,
+    user: dict = Depends(get_current_user)
+):
+    """Update an assistance company"""
+    update_fields = {
+        "name": data.name,
+        "cif": data.cif,
+        "contact_phone": data.contact_phone,
+        "contact_email": data.contact_email
+    }
+    
+    result = await db.assistance_companies.update_one(
+        {"id": company_id, "user_id": user["id"]},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    return {"message": "Empresa actualizada"}
+
+
+@user_router.delete("/assistance-companies/{company_id}")
+async def delete_assistance_company(company_id: str, user: dict = Depends(get_current_user)):
+    """Delete an assistance company"""
+    result = await db.assistance_companies.delete_one({"id": company_id, "user_id": user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    return {"message": "Empresa eliminada"}
+
+
 @user_router.post("/change-password")
 async def change_password(
     data: ChangePasswordRequest,
