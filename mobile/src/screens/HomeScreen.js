@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import api from '../services/api';
 import { ENDPOINTS } from '../services/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +31,7 @@ export default function HomeScreen({ navigation }) {
   
   const [loading, setLoading] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null); // null = titular
+  const [assistanceCompanies, setAssistanceCompanies] = useState([]);
   
   // Date picker states
   const [prebookedDateTime, setPrebookedDateTime] = useState(new Date());
@@ -48,7 +50,41 @@ export default function HomeScreen({ navigation }) {
     pickup_address: '',
     destination: '',
     passenger_info: '',
+    assistance_company_id: '',
   });
+
+  useEffect(() => {
+    ensureLoaded();
+    fetchAssistanceCompanies();
+  }, []);
+
+  const fetchAssistanceCompanies = async () => {
+    try {
+      const response = await api.get(ENDPOINTS.ASSISTANCE_COMPANIES);
+      setAssistanceCompanies(response.data);
+    } catch (err) {
+      console.error('Error fetching assistance companies:', err);
+    }
+  };
+
+  // Handle pickup type change
+  const handlePickupTypeChange = (type) => {
+    setFormData(prev => {
+      const updated = { ...prev, pickup_type: type };
+      if (type === 'AIRPORT') {
+        updated.pickup_address = 'Aeropuerto de Asturias';
+        updated.assistance_company_id = '';
+      } else if (type === 'ROADSIDE') {
+        updated.pickup_address = '';
+        updated.flight_number = '';
+      } else {
+        updated.pickup_address = '';
+        updated.flight_number = '';
+        updated.assistance_company_id = '';
+      }
+      return updated;
+    });
+  };
 
   // Handle date picker changes (Android shows date then time separately)
   const onPrebookedChange = (event, selectedDate) => {
