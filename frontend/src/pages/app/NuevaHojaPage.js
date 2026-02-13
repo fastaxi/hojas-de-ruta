@@ -402,6 +402,50 @@ export function NuevaHojaPage() {
               </div>
             )}
 
+            {/* Campos para Asistencia en carretera */}
+            {formData.pickup_type === 'ROADSIDE' && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                    Ubicación de la Asistencia *
+                  </Label>
+                  <Input
+                    value={formData.pickup_address}
+                    onChange={(e) => updateField('pickup_address', e.target.value)}
+                    placeholder="Carretera, km, localización"
+                    className="h-14 text-lg"
+                    data-testid="roadside-address"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                    Empresa de Asistencia *
+                  </Label>
+                  {assistanceCompanies.length === 0 ? (
+                    <p className="text-sm text-amber-600 p-3 bg-amber-50 rounded-lg">
+                      No tienes empresas de asistencia registradas. Ve a Ajustes → Empresas de Asistencia para añadirlas.
+                    </p>
+                  ) : (
+                    <Select
+                      value={formData.assistance_company_id}
+                      onValueChange={(v) => updateField('assistance_company_id', v)}
+                    >
+                      <SelectTrigger className="h-14 text-lg" data-testid="assistance-company">
+                        <SelectValue placeholder="Selecciona una empresa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assistanceCompanies.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name} ({company.cif})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </>
+            )}
+
             {/* Fecha/hora de recogida */}
             <div className="space-y-2">
               <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
