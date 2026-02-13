@@ -25,6 +25,9 @@ export const ENDPOINTS = {
   // Drivers
   DRIVERS: '/me/drivers',
   
+  // Assistance Companies
+  ASSISTANCE_COMPANIES: '/me/assistance-companies',
+  
   // Route Sheets
   ROUTE_SHEETS: '/route-sheets',
   

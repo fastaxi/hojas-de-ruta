@@ -326,33 +326,47 @@ export default function HomeScreen({ navigation }) {
 
           {/* Tipo de recogida */}
           <Text style={styles.sectionTitle}>Tipo de Recogida</Text>
-          <View style={styles.driverButtons}>
+          <View style={styles.pickupTypeButtons}>
             <TouchableOpacity
               style={[
-                styles.driverButton,
-                formData.pickup_type === 'OTHER' && styles.driverButtonActive,
+                styles.pickupTypeButton,
+                formData.pickup_type === 'OTHER' && styles.pickupTypeButtonActive,
               ]}
-              onPress={() => updateField('pickup_type', 'OTHER')}
+              onPress={() => handlePickupTypeChange('OTHER')}
             >
               <Text style={[
-                styles.driverButtonText,
-                formData.pickup_type === 'OTHER' && styles.driverButtonTextActive,
+                styles.pickupTypeButtonText,
+                formData.pickup_type === 'OTHER' && styles.pickupTypeButtonTextActive,
               ]}>
-                Normal
+                Otra dirección
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
-                styles.driverButton,
-                formData.pickup_type === 'AIRPORT' && styles.driverButtonActive,
+                styles.pickupTypeButton,
+                formData.pickup_type === 'AIRPORT' && styles.pickupTypeButtonActive,
               ]}
-              onPress={() => updateField('pickup_type', 'AIRPORT')}
+              onPress={() => handlePickupTypeChange('AIRPORT')}
             >
               <Text style={[
-                styles.driverButtonText,
-                formData.pickup_type === 'AIRPORT' && styles.driverButtonTextActive,
+                styles.pickupTypeButtonText,
+                formData.pickup_type === 'AIRPORT' && styles.pickupTypeButtonTextActive,
               ]}>
                 Aeropuerto
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.pickupTypeButton,
+                formData.pickup_type === 'ROADSIDE' && styles.pickupTypeButtonActive,
+              ]}
+              onPress={() => handlePickupTypeChange('ROADSIDE')}
+            >
+              <Text style={[
+                styles.pickupTypeButtonText,
+                formData.pickup_type === 'ROADSIDE' && styles.pickupTypeButtonTextActive,
+              ]}>
+                Asistencia
               </Text>
             </TouchableOpacity>
           </View>
@@ -363,10 +377,44 @@ export default function HomeScreen({ navigation }) {
               style={styles.input}
               value={formData.flight_number}
               onChangeText={(v) => updateField('flight_number', v.toUpperCase())}
-              placeholder="Número de vuelo"
+              placeholder="Número de vuelo (ej: VY1234)"
               placeholderTextColor="#999"
               autoCapitalize="characters"
             />
+          )}
+
+          {/* Assistance Company (only for roadside) */}
+          {formData.pickup_type === 'ROADSIDE' && (
+            <View style={styles.assistanceSection}>
+              <Text style={styles.helperText}>Empresa de asistencia *</Text>
+              {assistanceCompanies.length === 0 ? (
+                <TouchableOpacity
+                  style={styles.warningBox}
+                  onPress={() => navigation.navigate('Settings', { screen: 'AssistanceCompanies' })}
+                >
+                  <Text style={styles.warningText}>
+                    No tienes empresas de asistencia. Pulsa aquí para añadir.
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={formData.assistance_company_id}
+                    onValueChange={(value) => updateField('assistance_company_id', value)}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="Seleccionar empresa..." value="" />
+                    {assistanceCompanies.map((company) => (
+                      <Picker.Item
+                        key={company.id}
+                        label={`${company.name} (${company.cif})`}
+                        value={company.id}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              )}
+            </View>
           )}
 
           {/* Fecha y hora de precontratación */}
@@ -442,13 +490,21 @@ export default function HomeScreen({ navigation }) {
 
           {/* Servicio */}
           <Text style={styles.sectionTitle}>Datos del Servicio *</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.pickup_address}
-            onChangeText={(v) => updateField('pickup_address', v)}
-            placeholder="Dirección de origen *"
-            placeholderTextColor="#999"
-          />
+          
+          {/* Pickup address - different label based on type */}
+          {formData.pickup_type === 'AIRPORT' ? (
+            <View style={styles.disabledInputContainer}>
+              <Text style={styles.disabledInputText}>Aeropuerto de Asturias</Text>
+            </View>
+          ) : (
+            <TextInput
+              style={styles.input}
+              value={formData.pickup_address}
+              onChangeText={(v) => updateField('pickup_address', v)}
+              placeholder={formData.pickup_type === 'ROADSIDE' ? "Ubicación de la asistencia *" : "Dirección de origen *"}
+              placeholderTextColor="#999"
+            />
+          )}
           <TextInput
             style={styles.input}
             value={formData.destination}
@@ -564,6 +620,71 @@ const styles = StyleSheet.create({
   },
   driverButtonTextActive: {
     color: '#fff',
+  },
+  pickupTypeButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  pickupTypeButton: {
+    flex: 1,
+    minWidth: '30%',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F4',
+    borderWidth: 1,
+    borderColor: '#E7E5E4',
+    alignItems: 'center',
+  },
+  pickupTypeButtonActive: {
+    backgroundColor: '#7A1F1F',
+    borderColor: '#7A1F1F',
+  },
+  pickupTypeButtonText: {
+    fontSize: 13,
+    color: '#57534E',
+    textAlign: 'center',
+  },
+  pickupTypeButtonTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  assistanceSection: {
+    marginBottom: 12,
+  },
+  warningBox: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#92400E',
+    textAlign: 'center',
+  },
+  pickerContainer: {
+    backgroundColor: '#F5F5F4',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 50,
+  },
+  disabledInputContainer: {
+    height: 50,
+    backgroundColor: '#E7E5E4',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  disabledInputText: {
+    fontSize: 16,
+    color: '#78716C',
   },
   addDriverButton: {
     paddingHorizontal: 16,
