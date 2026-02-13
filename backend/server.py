@@ -34,7 +34,8 @@ from models import (
     AppConfig, AppConfigUpdate,
     LoginRequest, TokenResponse, RefreshRequest,
     ChangePasswordRequest,
-    AdminLoginRequest
+    AdminLoginRequest,
+    AssistanceCompany, AssistanceCompanyCreate
 )
 from auth import (
     hash_password, verify_password,
