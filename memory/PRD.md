@@ -30,6 +30,16 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ Ordenamiento por número de hoja (año + secuencia)
 - ✅ Filtro de hojas anuladas
 - ✅ Vista detalle con todos los campos incluido pasajeros
+- ✅ **3 tipos de recogida:** Aeropuerto (AIRPORT), Otra dirección (OTHER), Asistencia en carretera (ROADSIDE)
+- ✅ Validación específica por tipo (vuelo para AIRPORT, empresa para ROADSIDE)
+
+### Empresas de Asistencia (Nuevo - Feb 2026)
+- ✅ CRUD completo de empresas de asistencia en web y móvil
+- ✅ Campos: nombre, CIF, teléfono contacto, email contacto
+- ✅ Snapshot inmutable guardado en hojas de ruta ROADSIDE
+- ✅ Validación: debe tener teléfono o email de contacto
+- ✅ Selector de empresa al crear hoja tipo ROADSIDE
+- ✅ Detalle de hoja muestra empresa de asistencia para tipo ROADSIDE
 
 ### Exportación PDF
 - ✅ PDF individual con formato oficial FAST
@@ -37,6 +47,7 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ Campo Pasajero(s) incluido en todas las secciones
 - ✅ Marca de agua para hojas anuladas
 - ✅ Fechas en formato dd/mm/aaaa HH:MM (Europe/Madrid)
+- ✅ **Datos de empresa de asistencia** incluidos en PDF para tipo ROADSIDE
 
 ### Panel Admin
 - ✅ Login separado con ojo en contraseña
@@ -58,6 +69,9 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ Configuración de perfil
 - ✅ Gestión de conductores adicionales
 - ✅ Cambio de contraseña
+- ✅ **Formulario con 3 tipos de recogida** (Aeropuerto, Otra dirección, Asistencia)
+- ✅ **Gestión de empresas de asistencia** (nueva pantalla en Ajustes)
+- ✅ **Vista detalle muestra empresa de asistencia** para tipo ROADSIDE
 
 ### Responsive Web
 - ✅ Formularios adaptativos (1 columna en móvil, 2 en desktop)
@@ -72,6 +86,7 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 ## Credenciales de Test
 - **Admin Web:** admin / qgyq8wx%dq1AvYgQ
 - **Usuario Test:** juantest@test.com / Test1234!
+- **Usuario Asistencia:** test-asist@test.com / Test1234!
 
 ## URLs
 - **Web Producción:** https://asturia-taxi.emergent.host
