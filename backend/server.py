@@ -1156,8 +1156,11 @@ async def create_route_sheet(
             detail="Debe proporcionar teléfono o email del contratante"
         )
     
-    # 2. Flight number validation for airport pickup
+    assistance_snapshot = None
+    
+    # 2. Validation based on pickup_type
     if data.pickup_type == "AIRPORT":
+        # Flight number required and validated
         if not data.flight_number:
             raise HTTPException(
                 status_code=400,
@@ -1168,13 +1171,58 @@ async def create_route_sheet(
                 status_code=400,
                 detail="Formato de vuelo inválido. Ejemplo: VY1234"
             )
+        # Force pickup_address to Aeropuerto de Asturias
+        data.pickup_address = "Aeropuerto de Asturias"
     
-    # 3. Pickup address required for non-airport
-    if data.pickup_type == "OTHER":
+    elif data.pickup_type == "OTHER":
+        # Pickup address required
         if not data.pickup_address or not data.pickup_address.strip():
             raise HTTPException(
                 status_code=400,
-                detail="Dirección de recogida obligatoria para recogida fuera del aeropuerto"
+                detail="Dirección de recogida obligatoria"
+            )
+        # flight_number not allowed
+        if data.flight_number:
+            raise HTTPException(
+                status_code=400,
+                detail="Número de vuelo no aplica para este tipo de recogida"
+            )
+    
+    elif data.pickup_type == "ROADSIDE":
+        # Pickup address required (location of breakdown)
+        if not data.pickup_address or not data.pickup_address.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Ubicación de la asistencia obligatoria"
+            )
+        # Assistance company required
+        if not data.assistance_company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Debe seleccionar una empresa de asistencia"
+            )
+        # Verify company belongs to user and get snapshot
+        company = await db.assistance_companies.find_one({
+            "id": data.assistance_company_id,
+            "user_id": user["id"]
+        }, {"_id": 0})
+        if not company:
+            raise HTTPException(
+                status_code=400,
+                detail="Empresa de asistencia no encontrada"
+            )
+        # Create immutable snapshot
+        assistance_snapshot = {
+            "name": company["name"],
+            "cif": company["cif"],
+            "contact_phone": company.get("contact_phone"),
+            "contact_email": company.get("contact_email")
+        }
+        # flight_number not allowed
+        if data.flight_number:
+            raise HTTPException(
+                status_code=400,
+                detail="Número de vuelo no aplica para asistencia en carretera"
             )
     
     # ============== ATOMIC NUMBERING ==============
@@ -1217,13 +1265,19 @@ async def create_route_sheet(
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha/hora inválido")
     
+    # Build sheet data
+    sheet_data = data.model_dump()
+    # Remove assistance_company_id (we store snapshot instead)
+    sheet_data.pop('assistance_company_id', None)
+    
     sheet = RouteSheet(
         user_id=user["id"],
         year=current_year,
         seq_number=next_seq,
         hide_at=hide_at,
         purge_at=purge_at,
-        **data.model_dump()
+        assistance_company_snapshot=assistance_snapshot,
+        **sheet_data
     )
     
     # Keep datetimes as native Python datetime for MongoDB BSON Date storage
