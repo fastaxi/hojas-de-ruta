@@ -639,6 +639,70 @@ export function ConfiguracionPage() {
           </Card>
         </TabsContent>
 
+        {/* Assistance Companies Tab */}
+        <TabsContent value="asistencia">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Empresas de Asistencia</CardTitle>
+                  <CardDescription>Gestiona las empresas de asistencia en carretera con las que trabajas</CardDescription>
+                </div>
+                <Button onClick={() => openCompanyDialog()} size="sm" className="bg-maroon-900 hover:bg-maroon-800">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Añadir
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingCompanies ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-stone-400" />
+                </div>
+              ) : assistanceCompanies.length === 0 ? (
+                <div className="text-center py-8 text-stone-500">
+                  <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No tienes empresas de asistencia registradas</p>
+                  <p className="text-sm">Añade las empresas con las que trabajas para usarlas en tus hojas de ruta</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {assistanceCompanies.map((company) => (
+                    <div key={company.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-stone-900">{company.name}</p>
+                        <p className="text-sm text-stone-500">CIF: {company.cif}</p>
+                        <p className="text-sm text-stone-500">
+                          {company.contact_phone && `Tel: ${company.contact_phone}`}
+                          {company.contact_phone && company.contact_email && ' | '}
+                          {company.contact_email && `Email: ${company.contact_email}`}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openCompanyDialog(company)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:bg-red-50"
+                          onClick={() => setDeleteCompanyConfirm(company.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Security Tab */}
         <TabsContent value="seguridad">
           <Card className="border-0 shadow-lg">
