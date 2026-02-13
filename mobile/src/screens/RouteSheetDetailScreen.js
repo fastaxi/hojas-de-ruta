@@ -207,7 +207,11 @@ export default function RouteSheetDetailScreen({ navigation, route }) {
           <View style={styles.row}>
             <Text style={styles.label}>Tipo recogida:</Text>
             <Text style={styles.value}>
-              {sheet?.pickup_type === 'AIRPORT' ? 'Aeropuerto' : 'Otra dirección'}
+              {sheet?.pickup_type === 'AIRPORT' 
+                ? 'Aeropuerto' 
+                : sheet?.pickup_type === 'ROADSIDE'
+                  ? 'Asistencia en carretera'
+                  : 'Otra dirección'}
             </Text>
           </View>
           <View style={styles.row}>
@@ -223,6 +227,24 @@ export default function RouteSheetDetailScreen({ navigation, route }) {
               <Text style={styles.label}>Nº Vuelo:</Text>
               <Text style={styles.value}>{sheet.flight_number}</Text>
             </View>
+          )}
+          {sheet?.pickup_type === 'ROADSIDE' && sheet?.assistance_company_snapshot && (
+            <>
+              <View style={styles.row}>
+                <Text style={styles.label}>Empresa asist.:</Text>
+                <Text style={styles.value}>{sheet.assistance_company_snapshot.name}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>CIF empresa:</Text>
+                <Text style={styles.value}>{sheet.assistance_company_snapshot.cif}</Text>
+              </View>
+              {sheet.assistance_company_snapshot.contact_phone && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Tel. empresa:</Text>
+                  <Text style={styles.value}>{sheet.assistance_company_snapshot.contact_phone}</Text>
+                </View>
+              )}
+            </>
           )}
           <View style={styles.row}>
             <Text style={styles.label}>Fecha y hora:</Text>
