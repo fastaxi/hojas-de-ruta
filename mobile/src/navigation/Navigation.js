@@ -23,6 +23,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import VehicleScreen from '../screens/VehicleScreen';
 import DriversScreen from '../screens/DriversScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import AssistanceCompaniesScreen from '../screens/AssistanceCompaniesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -85,6 +86,11 @@ function SettingsStackNavigator() {
         name="Drivers" 
         component={DriversScreen}
         options={{ title: 'Conductores' }}
+      />
+      <SettingsStack.Screen 
+        name="AssistanceCompanies" 
+        component={AssistanceCompaniesScreen}
+        options={{ title: 'Empresas de Asistencia' }}
       />
       <SettingsStack.Screen 
         name="ChangePassword" 

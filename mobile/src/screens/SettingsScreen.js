@@ -55,6 +55,11 @@ export default function SettingsScreen({ navigation }) {
       onPress: () => navigation.navigate('Drivers'),
     },
     {
+      title: 'Empresas de Asistencia',
+      subtitle: 'Gestionar empresas de asistencia en carretera',
+      onPress: () => navigation.navigate('AssistanceCompanies'),
+    },
+    {
       title: 'Cambiar Contraseña',
       subtitle: 'Actualiza tu contraseña de acceso',
       onPress: () => navigation.navigate('ChangePassword'),
