@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { 
   User, Car, Users, Loader2, Check, Plus, Trash2, Save, AlertCircle, 
-  LogOut, Shield, Pencil
+  LogOut, Shield, Pencil, Truck
 } from 'lucide-react';
 import { PasswordInput } from '../../components/ui/password-input';
 
@@ -53,6 +53,20 @@ export function ConfiguracionPage() {
   const [editingDriver, setEditingDriver] = useState(null);
   const [driverForm, setDriverForm] = useState({ full_name: '', dni: '' });
   const [savingDriver, setSavingDriver] = useState(false);
+  
+  // Assistance Companies
+  const [assistanceCompanies, setAssistanceCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [companyDialog, setCompanyDialog] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null);
+  const [companyForm, setCompanyForm] = useState({ 
+    name: '', 
+    cif: '', 
+    contact_phone: '', 
+    contact_email: '' 
+  });
+  const [savingCompany, setSavingCompany] = useState(false);
+  const [deleteCompanyConfirm, setDeleteCompanyConfirm] = useState(null);
   
   // Confirm dialogs
   const [deleteConfirm, setDeleteConfirm] = useState(null);
