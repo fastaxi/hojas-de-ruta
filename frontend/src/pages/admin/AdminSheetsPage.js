@@ -352,7 +352,9 @@ export function AdminSheetsPage() {
                   <Label className="text-xs text-stone-500">Recogida</Label>
                   <p className="font-medium">
                     {selectedSheet.pickup_type === 'AIRPORT' 
-                      ? `Aeropuerto - ${selectedSheet.flight_number}`
+                      ? `Aeropuerto de Asturias - Vuelo: ${selectedSheet.flight_number}`
+                      : selectedSheet.pickup_type === 'ROADSIDE'
+                      ? `Asistencia: ${selectedSheet.pickup_address || '-'}`
                       : selectedSheet.pickup_address || 'No especificada'}
                   </p>
                   <p className="text-stone-500">{formatDate(selectedSheet.pickup_datetime)}</p>
@@ -365,6 +367,18 @@ export function AdminSheetsPage() {
                   <Label className="text-xs text-stone-500">Pasajero(s)</Label>
                   <p className="font-medium">{selectedSheet.passenger_info || '-'}</p>
                 </div>
+                {selectedSheet.pickup_type === 'ROADSIDE' && selectedSheet.assistance_company_snapshot && (
+                  <div className="col-span-2 p-3 bg-amber-50 rounded-lg">
+                    <Label className="text-xs text-amber-600">Empresa de Asistencia</Label>
+                    <p className="text-amber-900 font-medium">
+                      {selectedSheet.assistance_company_snapshot.name} 
+                      (CIF: {selectedSheet.assistance_company_snapshot.cif})
+                    </p>
+                    <p className="text-amber-700 text-sm">
+                      Contacto: {selectedSheet.assistance_company_snapshot.contact_phone || selectedSheet.assistance_company_snapshot.contact_email || '-'}
+                    </p>
+                  </div>
+                )}
                 {selectedSheet.annul_reason && (
                   <div className="col-span-2 p-3 bg-red-50 rounded-lg">
                     <Label className="text-xs text-red-600">Motivo anulación</Label>
