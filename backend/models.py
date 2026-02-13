@@ -286,6 +286,49 @@ class ChangePasswordRequest(BaseModel):
 
 
 # ============== ROUTE SHEET MODELS ==============
+class AssistanceCompanyCreate(BaseModel):
+    """Create assistance company - extra fields forbidden"""
+    model_config = ConfigDict(extra="forbid")
+    
+    name: str
+    cif: str
+    contact_phone: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    
+    @field_validator('name', 'cif')
+    @classmethod
+    def validate_required(cls, v, info):
+        if not v or not v.strip():
+            raise ValueError(f'{info.field_name} no puede estar vacío')
+        return v.strip()
+    
+    @model_validator(mode='after')
+    def validate_contact(self):
+        if not self.contact_phone and not self.contact_email:
+            raise ValueError('Se requiere teléfono o email de contacto')
+        return self
+
+
+class AssistanceCompany(BaseModel):
+    """Assistance company stored in DB"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=generate_id)
+    user_id: str
+    name: str
+    cif: str
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AssistanceCompanySnapshot(BaseModel):
+    """Immutable snapshot of assistance company for route sheet"""
+    name: str
+    cif: str
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+
+
 class RouteSheetCreate(BaseModel):
     """Create a new route sheet - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
@@ -295,14 +338,15 @@ class RouteSheetCreate(BaseModel):
     contractor_email: Optional[EmailStr] = None
     prebooked_date: str
     prebooked_locality: str
-    pickup_type: Literal["AIRPORT", "OTHER"]
+    pickup_type: Literal["AIRPORT", "OTHER", "ROADSIDE"]
     flight_number: Optional[str] = None
     pickup_address: Optional[str] = None
     pickup_datetime: str
     destination: str
     passenger_info: str  # Obligatorio: datos de la persona o personas a recoger
+    assistance_company_id: Optional[str] = None  # Required if ROADSIDE
     
-    @field_validator('conductor_driver_id', 'contractor_phone', 'flight_number', 'pickup_address')
+    @field_validator('conductor_driver_id', 'contractor_phone', 'flight_number', 'pickup_address', 'assistance_company_id')
     @classmethod
     def normalize_optional_strings(cls, v):
         if v is None:
@@ -330,12 +374,13 @@ class RouteSheet(BaseModel):
     contractor_email: Optional[str] = None
     prebooked_date: str
     prebooked_locality: str
-    pickup_type: Literal["AIRPORT", "OTHER"]
+    pickup_type: Literal["AIRPORT", "OTHER", "ROADSIDE"]
     flight_number: Optional[str] = None
     pickup_address: Optional[str] = None
     pickup_datetime: str
     destination: str
     passenger_info: Optional[str] = None  # Datos de pasajeros (obligatorio en nuevas hojas)
+    assistance_company_snapshot: Optional[dict] = None  # Snapshot inmutable de empresa asistencia
     status: Literal["ACTIVE", "ANNULLED"] = "ACTIVE"
     annulled_at: Optional[datetime] = None
     annul_reason: Optional[str] = None
