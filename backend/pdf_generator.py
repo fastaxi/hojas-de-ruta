@@ -329,22 +329,35 @@ def generate_route_sheet_pdf(sheet: dict, user: dict, config: dict, driver_name:
     # ============== DATOS DEL SERVICIO ==============
     elements.append(Paragraph('DATOS DEL SERVICIO', section_header))
     
-    # Pickup location
-    if sheet.get('pickup_type') == 'AIRPORT':
+    # Pickup type label
+    pickup_type = sheet.get('pickup_type', 'OTHER')
+    if pickup_type == 'AIRPORT':
+        pickup_type_label = 'Aeropuerto'
         pickup_location = f"Aeropuerto de Asturias - Vuelo: {sheet.get('flight_number', '-')}"
+    elif pickup_type == 'ROADSIDE':
+        pickup_type_label = 'Asistencia en carretera'
+        pickup_location = sheet.get('pickup_address', '-')
     else:
+        pickup_type_label = 'Otra dirección'
         pickup_location = sheet.get('pickup_address', '-')
     
     # Format datetime using helper
     pickup_dt = format_datetime_es(sheet.get('pickup_datetime'))
     
     service_data = [
-        ['Tipo de recogida:', 'Aeropuerto' if sheet.get('pickup_type') == 'AIRPORT' else 'Otra dirección'],
+        ['Tipo de recogida:', pickup_type_label],
         ['Lugar de recogida:', pickup_location],
         ['Fecha y hora:', pickup_dt],
         ['Destino:', sheet.get('destination', '-')],
         ['Pasajero(s):', sheet.get('passenger_info', '-')],
     ]
+    
+    # Add assistance company info if ROADSIDE
+    if pickup_type == 'ROADSIDE' and sheet.get('assistance_company_snapshot'):
+        company = sheet['assistance_company_snapshot']
+        company_contact = company.get('contact_phone') or company.get('contact_email') or '-'
+        service_data.append(['Empresa asistencia:', f"{company.get('name', '-')} (CIF: {company.get('cif', '-')})"])
+        service_data.append(['Contacto empresa:', company_contact])
     
     service_table = Table(service_data, colWidths=[45*mm, 125*mm])
     service_table.setStyle(TableStyle([
