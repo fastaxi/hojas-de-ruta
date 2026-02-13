@@ -614,7 +614,9 @@ export function HistoricoPage() {
                   <p className="text-stone-500">Recogida</p>
                   <p className="font-medium">
                     {detailDialog.sheet.pickup_type === 'AIRPORT' 
-                      ? `Aeropuerto - ${detailDialog.sheet.flight_number}`
+                      ? `Aeropuerto de Asturias - Vuelo: ${detailDialog.sheet.flight_number}`
+                      : detailDialog.sheet.pickup_type === 'ROADSIDE'
+                      ? `Asistencia: ${detailDialog.sheet.pickup_address || '-'}`
                       : detailDialog.sheet.pickup_address || '-'}
                   </p>
                 </div>
@@ -630,6 +632,18 @@ export function HistoricoPage() {
                   <p className="text-stone-500">Pasajero(s)</p>
                   <p className="font-medium">{detailDialog.sheet.passenger_info || '-'}</p>
                 </div>
+                {detailDialog.sheet.pickup_type === 'ROADSIDE' && detailDialog.sheet.assistance_company_snapshot && (
+                  <div className="col-span-2 p-3 bg-amber-50 rounded-lg">
+                    <p className="text-amber-700 text-sm font-medium">Empresa de Asistencia:</p>
+                    <p className="text-amber-900">
+                      {detailDialog.sheet.assistance_company_snapshot.name} 
+                      (CIF: {detailDialog.sheet.assistance_company_snapshot.cif})
+                    </p>
+                    <p className="text-amber-700 text-sm">
+                      Contacto: {detailDialog.sheet.assistance_company_snapshot.contact_phone || detailDialog.sheet.assistance_company_snapshot.contact_email || '-'}
+                    </p>
+                  </div>
+                )}
                 {detailDialog.sheet.annul_reason && (
                   <div className="col-span-2 p-3 bg-red-50 rounded-lg">
                     <p className="text-red-600 text-sm font-medium">Motivo anulación:</p>
