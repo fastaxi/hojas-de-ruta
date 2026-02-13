@@ -169,7 +169,8 @@ export function NuevaHojaPage() {
         pickup_address: '',
         pickup_datetime: '',
         destination: '',
-        passenger_info: ''
+        passenger_info: '',
+        assistance_company_id: ''
       });
     } catch (err) {
       // Handle validation errors from backend
