@@ -10,7 +10,7 @@ import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
-import { AlertCircle, Loader2, Check, Plane, MapPin } from 'lucide-react';
+import { AlertCircle, Loader2, Check, Plane, MapPin, Truck } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -20,6 +20,7 @@ export function NuevaHojaPage() {
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState('');
   const [drivers, setDrivers] = useState([]);
+  const [assistanceCompanies, setAssistanceCompanies] = useState([]);
 
   const [formData, setFormData] = useState({
     conductor_driver_id: 'titular',
@@ -32,11 +33,13 @@ export function NuevaHojaPage() {
     pickup_address: '',
     pickup_datetime: '',
     destination: '',
-    passenger_info: ''
+    passenger_info: '',
+    assistance_company_id: ''
   });
 
   useEffect(() => {
     fetchDrivers();
+    fetchAssistanceCompanies();
   }, []);
 
   const fetchDrivers = async () => {
@@ -48,8 +51,35 @@ export function NuevaHojaPage() {
     }
   };
 
+  const fetchAssistanceCompanies = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/me/assistance-companies`);
+      setAssistanceCompanies(response.data);
+    } catch (err) {
+      console.error('Error fetching assistance companies:', err);
+    }
+  };
+
   const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      // Auto-fill pickup_address when AIRPORT is selected
+      if (field === 'pickup_type') {
+        if (value === 'AIRPORT') {
+          updated.pickup_address = 'Aeropuerto de Asturias';
+          updated.flight_number = prev.flight_number || '';
+          updated.assistance_company_id = '';
+        } else if (value === 'ROADSIDE') {
+          updated.pickup_address = '';
+          updated.flight_number = '';
+        } else {
+          updated.pickup_address = '';
+          updated.flight_number = '';
+          updated.assistance_company_id = '';
+        }
+      }
+      return updated;
+    });
     setError('');
   };
 
