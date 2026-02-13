@@ -100,6 +100,7 @@ export function ConfiguracionPage() {
       });
     }
     fetchDrivers();
+    fetchAssistanceCompanies();
   }, [user]);
 
   const fetchDrivers = async () => {
@@ -113,6 +114,17 @@ export function ConfiguracionPage() {
     }
   };
 
+  const fetchAssistanceCompanies = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/me/assistance-companies`);
+      setAssistanceCompanies(response.data);
+    } catch (err) {
+      console.error('Error fetching assistance companies:', err);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
   const showSuccess = (msg) => {
     setSuccess(msg);
     setError('');
@@ -122,6 +134,62 @@ export function ConfiguracionPage() {
   const showError = (msg) => {
     setError(msg);
     setSuccess('');
+  };
+
+  // ============== ASSISTANCE COMPANIES ==============
+  const openCompanyDialog = (company = null) => {
+    if (company) {
+      setEditingCompany(company);
+      setCompanyForm({
+        name: company.name,
+        cif: company.cif,
+        contact_phone: company.contact_phone || '',
+        contact_email: company.contact_email || ''
+      });
+    } else {
+      setEditingCompany(null);
+      setCompanyForm({ name: '', cif: '', contact_phone: '', contact_email: '' });
+    }
+    setCompanyDialog(true);
+  };
+
+  const handleCompanySave = async () => {
+    if (!companyForm.name.trim() || !companyForm.cif.trim()) {
+      showError('Nombre y CIF son obligatorios');
+      return;
+    }
+    if (!companyForm.contact_phone.trim() && !companyForm.contact_email.trim()) {
+      showError('Teléfono o email de contacto es obligatorio');
+      return;
+    }
+
+    setSavingCompany(true);
+    try {
+      if (editingCompany) {
+        await axios.put(`${API_URL}/me/assistance-companies/${editingCompany.id}`, companyForm);
+        showSuccess('Empresa actualizada');
+      } else {
+        await axios.post(`${API_URL}/me/assistance-companies`, companyForm);
+        showSuccess('Empresa añadida');
+      }
+      setCompanyDialog(false);
+      fetchAssistanceCompanies();
+    } catch (err) {
+      showError(err.response?.data?.detail || 'Error al guardar');
+    } finally {
+      setSavingCompany(false);
+    }
+  };
+
+  const handleCompanyDelete = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/me/assistance-companies/${id}`);
+      showSuccess('Empresa eliminada');
+      setDeleteCompanyConfirm(null);
+      fetchAssistanceCompanies();
+    } catch (err) {
+      showError('Error al eliminar empresa');
+    }
   };
 
   // ============== PROFILE ==============
