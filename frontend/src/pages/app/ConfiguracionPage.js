@@ -175,7 +175,14 @@ export function ConfiguracionPage() {
       setCompanyDialog(false);
       fetchAssistanceCompanies();
     } catch (err) {
-      showError(err.response?.data?.detail || 'Error al guardar');
+      // Handle Pydantic validation errors (array of objects)
+      const errorDetail = err.response?.data?.detail;
+      if (Array.isArray(errorDetail)) {
+        const messages = errorDetail.map(e => e.msg).join(', ');
+        showError(messages);
+      } else {
+        showError(errorDetail || 'Error al guardar');
+      }
     } finally {
       setSavingCompany(false);
     }
