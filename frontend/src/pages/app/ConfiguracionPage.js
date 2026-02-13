@@ -889,6 +889,98 @@ export function ConfiguracionPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assistance Company Dialog */}
+      <Dialog open={companyDialog} onOpenChange={setCompanyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingCompany ? 'Editar Empresa' : 'Añadir Empresa de Asistencia'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nombre de la Empresa *</Label>
+              <Input
+                value={companyForm.name}
+                onChange={(e) => setCompanyForm({...companyForm, name: e.target.value})}
+                placeholder="Nombre de la empresa"
+                data-testid="company-name-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>CIF *</Label>
+              <Input
+                value={companyForm.cif}
+                onChange={(e) => setCompanyForm({...companyForm, cif: e.target.value.toUpperCase()})}
+                placeholder="B12345678"
+                data-testid="company-cif-input"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Teléfono de Contacto</Label>
+                <Input
+                  type="tel"
+                  value={companyForm.contact_phone}
+                  onChange={(e) => setCompanyForm({...companyForm, contact_phone: e.target.value})}
+                  placeholder="612345678"
+                  data-testid="company-phone-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email de Contacto</Label>
+                <Input
+                  type="email"
+                  value={companyForm.contact_email}
+                  onChange={(e) => setCompanyForm({...companyForm, contact_email: e.target.value})}
+                  placeholder="contacto@empresa.com"
+                  data-testid="company-email-input"
+                />
+              </div>
+            </div>
+            <p className="text-sm text-stone-500">* Teléfono o email obligatorio</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompanyDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCompanySave}
+              disabled={savingCompany}
+              className="bg-maroon-900 hover:bg-maroon-800"
+              data-testid="save-company-btn"
+            >
+              {savingCompany ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Company Confirm */}
+      <Dialog open={!!deleteCompanyConfirm} onOpenChange={() => setDeleteCompanyConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar Empresa</DialogTitle>
+          </DialogHeader>
+          <p className="py-4 text-stone-600">
+            ¿Estás seguro de eliminar esta empresa de asistencia?
+            Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteCompanyConfirm(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => handleCompanyDelete(deleteCompanyConfirm)}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-delete-company"
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
