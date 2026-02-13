@@ -398,13 +398,17 @@ export function ConfiguracionPage() {
             <Car className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">Vehículo</span>
           </TabsTrigger>
-          <TabsTrigger value="choferes" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white">
-            <Users className="w-4 h-4 mr-2" />
-            Choferes
+          <TabsTrigger value="choferes" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white text-xs sm:text-sm">
+            <Users className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Choferes</span>
           </TabsTrigger>
-          <TabsTrigger value="seguridad" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white">
-            <Shield className="w-4 h-4 mr-2" />
-            Seguridad
+          <TabsTrigger value="asistencia" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white text-xs sm:text-sm">
+            <Truck className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Asistencia</span>
+          </TabsTrigger>
+          <TabsTrigger value="seguridad" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white text-xs sm:text-sm">
+            <Shield className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Seguridad</span>
           </TabsTrigger>
         </TabsList>
 
