@@ -75,7 +75,7 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 
 ## URLs
 - **Web Producción:** https://asturia-taxi.emergent.host
-- **Preview:** https://rutasfast-2.preview.emergentagent.com
+- **Preview:** https://taxi-rescue.preview.emergentagent.com
 
 ## Tareas Pendientes
 
