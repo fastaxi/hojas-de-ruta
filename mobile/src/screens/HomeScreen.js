@@ -142,6 +142,7 @@ export default function HomeScreen({ navigation }) {
       ensureLoaded().catch((err) => {
         console.log('[HomeScreen] Error on focus:', err.message);
       });
+      fetchAssistanceCompanies();
     });
     return unsubscribe;
   }, [navigation, ensureLoaded]);
@@ -168,6 +169,16 @@ export default function HomeScreen({ navigation }) {
       Alert.alert('Error', 'El número de vuelo es obligatorio para aeropuerto');
       return;
     }
+    if (formData.pickup_type === 'ROADSIDE') {
+      if (!formData.pickup_address) {
+        Alert.alert('Error', 'La ubicación de la asistencia es obligatoria');
+        return;
+      }
+      if (!formData.assistance_company_id) {
+        Alert.alert('Error', 'Debe seleccionar una empresa de asistencia');
+        return;
+      }
+    }
     if (!formData.destination) {
       Alert.alert('Error', 'El destino es obligatorio');
       return;
@@ -187,6 +198,8 @@ export default function HomeScreen({ navigation }) {
         contractor_phone: formData.contractor_phone || undefined,
         contractor_email: formData.contractor_email || undefined,
         conductor_driver_id: selectedDriver || undefined,
+        flight_number: formData.pickup_type === 'AIRPORT' ? formData.flight_number : undefined,
+        assistance_company_id: formData.pickup_type === 'ROADSIDE' ? formData.assistance_company_id : undefined,
       };
       
       console.log('[HomeScreen] Creating route sheet:', JSON.stringify(payload));
