@@ -115,6 +115,18 @@ export function NuevaHojaPage() {
         return false;
       }
     }
+    if (formData.pickup_type === 'OTHER' || formData.pickup_type === 'ROADSIDE') {
+      if (!formData.pickup_address) {
+        setError('La dirección/ubicación de recogida es obligatoria');
+        return false;
+      }
+    }
+    if (formData.pickup_type === 'ROADSIDE') {
+      if (!formData.assistance_company_id) {
+        setError('Debe seleccionar una empresa de asistencia');
+        return false;
+      }
+    }
     return true;
   };
 
@@ -133,12 +145,13 @@ export function NuevaHojaPage() {
         prebooked_date: formData.prebooked_date,
         prebooked_locality: formData.prebooked_locality,
         pickup_type: formData.pickup_type,
-        flight_number: formData.flight_number || null,
+        flight_number: formData.pickup_type === 'AIRPORT' ? formData.flight_number : null,
         pickup_address: formData.pickup_address || null,
         pickup_datetime: formData.pickup_datetime,
         destination: formData.destination,
         passenger_info: formData.passenger_info,
-        conductor_driver_id: formData.conductor_driver_id === 'titular' ? null : formData.conductor_driver_id
+        conductor_driver_id: formData.conductor_driver_id === 'titular' ? null : formData.conductor_driver_id,
+        assistance_company_id: formData.pickup_type === 'ROADSIDE' ? formData.assistance_company_id : null
       };
 
       const response = await axios.post(`${API_URL}/route-sheets`, submitData);
