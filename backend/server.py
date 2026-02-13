@@ -1094,7 +1094,6 @@ async def get_my_assistance_companies(user: dict = Depends(get_current_user)):
 @user_router.post("/assistance-companies", response_model=dict)
 async def create_assistance_company(data: AssistanceCompanyCreate, user: dict = Depends(get_current_user)):
     """Add a new assistance company"""
-    from models import AssistanceCompany
     company = AssistanceCompany(
         name=data.name,
         cif=data.cif,
