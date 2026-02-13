@@ -331,13 +331,13 @@ export function NuevaHojaPage() {
               <RadioGroup
                 value={formData.pickup_type}
                 onValueChange={(v) => updateField('pickup_type', v)}
-                className="flex gap-4"
+                className="flex flex-col sm:flex-row gap-4"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="AIRPORT" id="airport" data-testid="pickup-airport" />
                   <Label htmlFor="airport" className="flex items-center gap-2 cursor-pointer">
                     <Plane className="w-4 h-4" />
-                    Aeropuerto de Asturias
+                    Aeropuerto
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -347,31 +347,50 @@ export function NuevaHojaPage() {
                     Otra dirección
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="ROADSIDE" id="roadside" data-testid="pickup-roadside" />
+                  <Label htmlFor="roadside" className="flex items-center gap-2 cursor-pointer">
+                    <Truck className="w-4 h-4" />
+                    Asistencia en carretera
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
 
             {/* Número de vuelo (solo aeropuerto) */}
             {formData.pickup_type === 'AIRPORT' && (
-              <div className="space-y-2">
-                <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                  Número de Vuelo * (Formato: VY1234)
-                </Label>
-                <Input
-                  value={formData.flight_number}
-                  onChange={(e) => updateField('flight_number', e.target.value.toUpperCase())}
-                  placeholder="VY1234"
-                  className="h-14 text-lg font-mono"
-                  maxLength={6}
-                  data-testid="flight-number"
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                    Lugar de Recogida
+                  </Label>
+                  <Input
+                    value="Aeropuerto de Asturias"
+                    disabled
+                    className="h-14 text-lg bg-stone-100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
+                    Número de Vuelo * (Formato: VY1234)
+                  </Label>
+                  <Input
+                    value={formData.flight_number}
+                    onChange={(e) => updateField('flight_number', e.target.value.toUpperCase())}
+                    placeholder="VY1234"
+                    className="h-14 text-lg font-mono"
+                    maxLength={6}
+                    data-testid="flight-number"
+                  />
+                </div>
+              </>
             )}
 
-            {/* Dirección de recogida (solo si no es aeropuerto) */}
+            {/* Dirección de recogida (solo si es OTHER) */}
             {formData.pickup_type === 'OTHER' && (
               <div className="space-y-2">
                 <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                  Dirección de Recogida
+                  Dirección de Recogida *
                 </Label>
                 <Input
                   value={formData.pickup_address}
