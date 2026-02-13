@@ -389,14 +389,14 @@ export function ConfiguracionPage() {
       )}
 
       <Tabs defaultValue="perfil" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-12">
-          <TabsTrigger value="perfil" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white">
-            <User className="w-4 h-4 mr-2" />
-            Perfil
+        <TabsList className="grid w-full grid-cols-5 h-12">
+          <TabsTrigger value="perfil" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white text-xs sm:text-sm">
+            <User className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Perfil</span>
           </TabsTrigger>
-          <TabsTrigger value="vehiculo" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white">
-            <Car className="w-4 h-4 mr-2" />
-            Vehículo
+          <TabsTrigger value="vehiculo" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white text-xs sm:text-sm">
+            <Car className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Vehículo</span>
           </TabsTrigger>
           <TabsTrigger value="choferes" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white">
             <Users className="w-4 h-4 mr-2" />
