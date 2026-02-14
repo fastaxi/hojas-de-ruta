@@ -178,7 +178,7 @@ export default function HistoryScreen({ navigation, route }) {
               await api.post(`${ENDPOINTS.ROUTE_SHEETS}/${sheet.id}/annul`, {
                 reason: 'Anulada por el usuario desde la app móvil',
               });
-              loadSheets();
+              loadSheets(true);
               Alert.alert('Éxito', 'Hoja anulada correctamente');
             } catch (error) {
               const message = error.response?.data?.detail || 'No se pudo anular la hoja';
@@ -434,6 +434,16 @@ export default function HistoryScreen({ navigation, route }) {
             colors={['#7A1F1F']}
             tintColor="#7A1F1F"
           />
+        }
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color="#7A1F1F" />
+              <Text style={styles.loadingMoreText}>Cargando más...</Text>
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
