@@ -368,7 +368,7 @@ async def record_pdf_request(user_id: str, action: str):
 
 
 # ============== PDF CACHING ==============
-PDF_CACHE_DAYS = 30
+PDF_CACHE_DAYS = 7
 
 
 async def get_cached_pdf(sheet_id: str, config_version: int, status: str) -> Optional[bytes]:
@@ -465,15 +465,12 @@ async def root():
 @api_router.get("/health")
 async def health_check():
     """Health check with service status (for /api/health)"""
-    from auth import ADMIN_PASSWORD_HASH as decoded_hash, _raw_admin_hash
     return {
         "status": "healthy" if (DB_CONNECTED and INDEXES_OK) else "degraded",
         "environment": "production" if IS_PRODUCTION else "development",
         "admin_configured": is_admin_configured(),
         "admin_env_configured": is_admin_env_configured(),
         "admin_username": get_admin_username(),
-        "admin_hash_raw_preview": _raw_admin_hash[:20] + "..." if _raw_admin_hash and len(_raw_admin_hash) > 20 else _raw_admin_hash,
-        "admin_hash_decoded_preview": decoded_hash[:20] + "..." if decoded_hash and len(decoded_hash) > 20 else decoded_hash,
         "email_enabled": False,
         "db_connected": DB_CONNECTED,
         "indexes_ok": INDEXES_OK
@@ -1285,7 +1282,8 @@ async def create_route_sheet(
             )
     
     # ============== ATOMIC NUMBERING ==============
-    current_year = datetime.now(timezone.utc).year
+    # Use Madrid timezone for year determination (avoid edge-case on New Year's Eve)
+    current_year = datetime.now(MADRID_TZ).year
     
     # findOneAndUpdate with $inc is atomic - no race conditions
     # ReturnDocument.AFTER ensures we get the incremented value
