@@ -83,6 +83,16 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ EAS configurado para builds Android
 - ✅ Paginación escalable para 800+ usuarios
 
+## Escalabilidad y Seguridad (Feb 2026)
+- ✅ Logo PDF optimizado en memoria con lru_cache (decenas de KB vs megas)
+- ✅ Generación PDF con asyncio.to_thread (no bloquea event loop)
+- ✅ Cache PDF reducido a 7 días (TTL index)
+- ✅ Validación conductor_driver_id pertenece al usuario
+- ✅ Año para numeración usa timezone Europe/Madrid
+- ✅ /api/health no expone previews de hashes
+- ✅ Paginación cursor en histórico móvil (scroll infinito, 50 por página)
+- ✅ Paginación cursor en histórico web (botón "Cargar más", 50 por página)
+
 ## Credenciales de Test
 - **Admin Web:** admin / qgyq8wx%dq1AvYgQ
 - **Usuario Test:** juantest@test.com / Test1234!
