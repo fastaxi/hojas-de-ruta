@@ -64,11 +64,16 @@ const extractBlobErrorMessage = async (blob) => {
 export function HistoricoPage() {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [includeAnnulled, setIncludeAnnulled] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExportingRange, setIsExportingRange] = useState(false);
+  
+  // Pagination state
+  const cursorRef = React.useRef(null);
+  const [hasMore, setHasMore] = useState(false);
   
   // Annul dialog
   const [annulDialog, setAnnulDialog] = useState({ open: false, sheet: null });
@@ -88,27 +93,57 @@ export function HistoricoPage() {
   const rangeTooLarge = rangeDays != null && rangeDays > 31;
   const canExportRange = rangeReady && !rangeInvalid && !rangeTooLarge && !isExportingRange;
 
-  const fetchSheets = useCallback(async () => {
-    setLoading(true);
+  const fetchSheets = useCallback(async ({ reset = false } = {}) => {
+    if (reset) {
+      setLoading(true);
+      cursorRef.current = null;
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
       const params = new URLSearchParams();
       if (fromDate) params.append('from_date', fromDate);
       if (toDate) params.append('to_date', toDate);
       if (includeAnnulled) params.append('include_annulled', 'true');
+      params.append('limit', '50');
+      
+      // Add cursor for pagination
+      if (!reset && cursorRef.current) {
+        params.append('cursor', cursorRef.current);
+      }
       
       const response = await axios.get(`${API_URL}/route-sheets?${params}`);
       // API returns { sheets: [], next_cursor: null, count: 0 }
-      setSheets(response.data.sheets || []);
+      const data = response.data;
+      const newSheets = data.sheets || [];
+      const nextCursor = data.next_cursor;
+      
+      cursorRef.current = nextCursor;
+      setHasMore(!!nextCursor);
+      
+      if (reset) {
+        setSheets(newSheets);
+      } else {
+        setSheets(prev => [...prev, ...newSheets]);
+      }
     } catch (err) {
       console.error('Error fetching sheets:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [fromDate, toDate, includeAnnulled]);
 
   useEffect(() => {
-    fetchSheets();
-  }, [fetchSheets]);
+    fetchSheets({ reset: true });
+  }, [fromDate, toDate, includeAnnulled]);
+  
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchSheets({ reset: false });
+    }
+  };
 
   const handleAnnul = async () => {
     if (!annulDialog.sheet) return;
