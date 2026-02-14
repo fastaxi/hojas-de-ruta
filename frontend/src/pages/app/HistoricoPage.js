@@ -568,6 +568,28 @@ export function HistoricoPage() {
         </div>
       )}
 
+      {/* Load More Button */}
+      {!loading && hasMore && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="min-w-40"
+            data-testid="load-more"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Cargando...
+              </>
+            ) : (
+              'Cargar más'
+            )}
+          </Button>
+        </div>
+      )}
+
       {/* Annul Dialog */}
       <Dialog open={annulDialog.open} onOpenChange={(open) => !open && setAnnulDialog({ open: false, sheet: null })}>
         <DialogContent>
