@@ -9,8 +9,9 @@
  * - Share PDF by date range
  * - Double-click prevention
  * - Comprehensive error handling
+ * - Cursor-based pagination (infinite scroll)
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,8 +35,13 @@ export default function HistoryScreen({ navigation, route }) {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState('all'); // all, active, annulled
   const [showRangeModal, setShowRangeModal] = useState(false);
+  
+  // Use ref for cursor to avoid re-render loops
+  const cursorRef = useRef(null);
+  const hasMoreRef = useRef(true);
 
   const { 
     preparingPdfId,
@@ -47,9 +53,21 @@ export default function HistoryScreen({ navigation, route }) {
 
   const { viewPdf, isViewingPdf } = usePdfView();
 
-  const loadSheets = useCallback(async () => {
+  const loadSheets = useCallback(async (reset = false) => {
+    // Avoid loading more if already loading or no more data
+    if (!reset && (loadingMore || !hasMoreRef.current)) return;
+    
     try {
-      const params = {};
+      if (reset) {
+        setLoading(true);
+        cursorRef.current = null;
+        hasMoreRef.current = true;
+      } else {
+        setLoadingMore(true);
+      }
+      
+      const params = { limit: 50 };
+      
       // Backend uses include_annulled, not status
       if (filter === 'active') {
         params.include_annulled = false;
@@ -58,18 +76,33 @@ export default function HistoryScreen({ navigation, route }) {
         params.include_annulled = true;
       }
       
+      // Add cursor for pagination (only when not resetting)
+      if (!reset && cursorRef.current) {
+        params.cursor = cursorRef.current;
+      }
+      
       const response = await api.get(ENDPOINTS.ROUTE_SHEETS, { params });
       
-      // Handle both array response and paginated response {sheets, next_cursor}
+      // Handle paginated response {sheets, next_cursor}
       const data = response.data;
-      let list = Array.isArray(data) ? data : (data.sheets || []);
+      let list = data.sheets || [];
+      const nextCursor = data.next_cursor;
       
       // For 'annulled' filter, filter client-side
       if (filter === 'annulled') {
         list = list.filter(s => s.status === 'ANNULLED');
       }
       
-      setSheets(list);
+      // Update cursor and hasMore
+      cursorRef.current = nextCursor;
+      hasMoreRef.current = !!nextCursor;
+      
+      // Append or replace sheets
+      if (reset) {
+        setSheets(list);
+      } else {
+        setSheets(prev => [...prev, ...list]);
+      }
     } catch (error) {
       // 401 handled by interceptor, only show other errors
       if (error.response?.status !== 401) {
@@ -79,25 +112,32 @@ export default function HistoryScreen({ navigation, route }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, [filter]);
 
-  // Load on mount and when filter changes
+  // Load on mount and when filter changes (reset list)
   useEffect(() => {
-    loadSheets();
-  }, [loadSheets]);
+    loadSheets(true);
+  }, [filter]);
 
   // Reload when screen comes into focus (e.g., after creating a new sheet)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      loadSheets();
+      loadSheets(true);
     });
     return unsubscribe;
   }, [navigation, loadSheets]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadSheets();
+    loadSheets(true);
+  };
+  
+  const onEndReached = () => {
+    if (!loading && !loadingMore && hasMoreRef.current) {
+      loadSheets(false);
+    }
   };
 
   /**
