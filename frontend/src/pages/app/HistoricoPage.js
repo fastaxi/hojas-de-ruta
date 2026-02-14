@@ -155,7 +155,7 @@ export function HistoricoPage() {
       });
       setAnnulDialog({ open: false, sheet: null });
       setAnnulReason('');
-      fetchSheets();
+      fetchSheets({ reset: true });
     } catch (err) {
       console.error('Error annulling sheet:', err);
     } finally {
