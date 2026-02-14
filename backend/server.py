@@ -1281,6 +1281,19 @@ async def create_route_sheet(
                 detail="Número de vuelo no aplica para asistencia en carretera"
             )
     
+    # ============== VALIDATE CONDUCTOR_DRIVER_ID ==============
+    if data.conductor_driver_id:
+        # Verify driver belongs to this user
+        driver = await db.drivers.find_one({
+            "id": data.conductor_driver_id,
+            "user_id": user["id"]
+        }, {"_id": 0, "id": 1})
+        if not driver:
+            raise HTTPException(
+                status_code=400,
+                detail="Conductor no encontrado o no pertenece a este usuario"
+            )
+    
     # ============== ATOMIC NUMBERING ==============
     # Use Madrid timezone for year determination (avoid edge-case on New Year's Eve)
     current_year = datetime.now(MADRID_TZ).year
