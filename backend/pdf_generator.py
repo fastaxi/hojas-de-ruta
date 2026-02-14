@@ -4,6 +4,7 @@ Genera PDFs A4 con identidad FAST para inspección
 """
 import io
 import os
+from functools import lru_cache
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -16,6 +17,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from PIL import Image as PILImage
 
 # Timezone constants
 MADRID_TZ = ZoneInfo("Europe/Madrid")
@@ -75,21 +77,60 @@ def get_logo_path():
     return None
 
 
-def get_logo_image(max_width_mm=35, max_height_mm=25):
+@lru_cache(maxsize=1)
+def get_optimized_logo_bytes():
     """
-    Get logo Image maintaining aspect ratio.
-    Returns None if logo not found.
+    Load and optimize logo image once, cache in memory.
+    Returns (BytesIO, orig_width, orig_height) or (None, 0, 0) if not found.
+    Resizes large logos to reasonable DPI for PDF (250 DPI target).
     """
     logo_path = get_logo_path()
     if not logo_path:
+        return None, 0, 0
+    
+    try:
+        with PILImage.open(logo_path) as img:
+            orig_width, orig_height = img.size
+            
+            # Target: 35mm at 250 DPI = ~345 pixels max width
+            # Only resize if larger than needed
+            max_pixel_width = 400
+            if orig_width > max_pixel_width:
+                ratio = max_pixel_width / orig_width
+                new_width = int(orig_width * ratio)
+                new_height = int(orig_height * ratio)
+                img = img.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
+                orig_width, orig_height = new_width, new_height
+            
+            # Convert to RGB if RGBA to reduce size
+            if img.mode == 'RGBA':
+                background = PILImage.new('RGB', img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[3])
+                img = background
+            
+            # Save to BytesIO with optimization
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG', optimize=True)
+            buffer.seek(0)
+            return buffer, orig_width, orig_height
+    except Exception as e:
+        print(f"Error optimizing logo: {e}")
+        return None, 0, 0
+
+
+def get_logo_image(max_width_mm=35, max_height_mm=25):
+    """
+    Get logo Image maintaining aspect ratio.
+    Uses cached, optimized logo bytes to avoid re-reading file for each PDF.
+    Returns None if logo not found.
+    """
+    logo_buffer, orig_width, orig_height = get_optimized_logo_bytes()
+    if not logo_buffer:
         return None
     
     try:
-        from PIL import Image as PILImage
-        
-        # Get original dimensions
-        with PILImage.open(logo_path) as img:
-            orig_width, orig_height = img.size
+        # Reset buffer position for each read
+        logo_buffer.seek(0)
         
         # Calculate aspect ratio
         aspect = orig_width / orig_height
@@ -104,7 +145,7 @@ def get_logo_image(max_width_mm=35, max_height_mm=25):
             height = max_height_mm * mm
             width = height * aspect
         
-        return Image(logo_path, width=width, height=height)
+        return Image(logo_buffer, width=width, height=height)
     except Exception as e:
         print(f"Error loading logo: {e}")
         return None
