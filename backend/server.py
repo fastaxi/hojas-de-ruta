@@ -1542,15 +1542,15 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
     driver_name = "Titular"
     if sheet.get("conductor_driver_id"):
         driver = await db.drivers.find_one(
-            {"id": sheet["conductor_driver_id"]},
+            {"id": sheet["conductor_driver_id"], "user_id": user["id"]},
             {"_id": 0}
         )
         if driver:
             driver_name = driver["full_name"]
     
-    # Generate PDF (includes watermark for ANNULLED)
+    # Generate PDF in thread pool (CPU-bound, avoid blocking event loop)
     from pdf_generator import generate_route_sheet_pdf
-    pdf_buffer = generate_route_sheet_pdf(sheet, user_data, config, driver_name)
+    pdf_buffer = await asyncio.to_thread(generate_route_sheet_pdf, sheet, user_data, config, driver_name)
     pdf_bytes = pdf_buffer.getvalue()
     
     # Cache the PDF (both ACTIVE and ANNULLED)
@@ -1620,9 +1620,9 @@ async def get_route_sheets_pdf_range(
     drivers = await db.drivers.find({"user_id": user["id"]}, {"_id": 0}).to_list(100)
     drivers_map = {d["id"]: d["full_name"] for d in drivers}
     
-    # Generate multi-page PDF
+    # Generate multi-page PDF in thread pool (CPU-bound, avoid blocking event loop)
     from pdf_generator import generate_multi_sheet_pdf
-    pdf_buffer = generate_multi_sheet_pdf(sheets, user_data, config, drivers_map)
+    pdf_buffer = await asyncio.to_thread(generate_multi_sheet_pdf, sheets, user_data, config, drivers_map)
     pdf_bytes = pdf_buffer.getvalue()
     
     # Record request for rate limiting
