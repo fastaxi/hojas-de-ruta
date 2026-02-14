@@ -684,4 +684,15 @@ const styles = StyleSheet.create({
     color: '#57534E',
     textAlign: 'center',
   },
+  loadingMore: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: '#57534E',
+  },
 });
