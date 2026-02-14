@@ -2031,15 +2031,15 @@ async def admin_get_route_sheet_pdf(
     driver_name = "Titular"
     if sheet.get("conductor_driver_id"):
         driver = await db.drivers.find_one(
-            {"id": sheet["conductor_driver_id"]},
+            {"id": sheet["conductor_driver_id"], "user_id": sheet["user_id"]},
             {"_id": 0}
         )
         if driver:
             driver_name = driver["full_name"]
     
-    # Generate PDF
+    # Generate PDF in thread pool (CPU-bound, avoid blocking event loop)
     from pdf_generator import generate_route_sheet_pdf
-    pdf_buffer = generate_route_sheet_pdf(sheet, user_data, config, driver_name)
+    pdf_buffer = await asyncio.to_thread(generate_route_sheet_pdf, sheet, user_data, config, driver_name)
     pdf_bytes = pdf_buffer.getvalue()
     
     # Cache the PDF
