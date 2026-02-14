@@ -9,7 +9,6 @@
  * - Share PDF by date range
  * - Double-click prevention
  * - Comprehensive error handling
- * - Cursor-based pagination (infinite scroll)
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -35,13 +34,20 @@ export default function HistoryScreen({ navigation, route }) {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState('all'); // all, active, annulled
   const [showRangeModal, setShowRangeModal] = useState(false);
-  
-  // Use ref for cursor to avoid re-render loops
+
+  // Cursor pagination (backend: {sheets, next_cursor, count})
+  const PAGE_LIMIT = 50;
+  const [cursor, setCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const cursorRef = useRef(null);
-  const hasMoreRef = useRef(true);
+
+  // Keep a ref so pagination doesn't recreate callbacks (prevents re-fetch loops)
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
 
   const { 
     preparingPdfId,
@@ -53,21 +59,15 @@ export default function HistoryScreen({ navigation, route }) {
 
   const { viewPdf, isViewingPdf } = usePdfView();
 
-  const loadSheets = useCallback(async (reset = false) => {
-    // Avoid loading more if already loading or no more data
-    if (!reset && (loadingMore || !hasMoreRef.current)) return;
-    
+  const loadSheets = useCallback(async ({ reset = false } = {}) => {
     try {
       if (reset) {
-        setLoading(true);
         cursorRef.current = null;
-        hasMoreRef.current = true;
-      } else {
-        setLoadingMore(true);
+        setCursor(null);
+        setHasMore(true);
       }
-      
-      const params = { limit: 50 };
-      
+
+      const params = {};
       // Backend uses include_annulled, not status
       if (filter === 'active') {
         params.include_annulled = false;
@@ -75,34 +75,42 @@ export default function HistoryScreen({ navigation, route }) {
         // For 'all' and 'annulled', we need to include annulled sheets
         params.include_annulled = true;
       }
-      
-      // Add cursor for pagination (only when not resetting)
-      if (!reset && cursorRef.current) {
-        params.cursor = cursorRef.current;
+
+      params.limit = PAGE_LIMIT;
+      const currentCursor = cursorRef.current;
+      if (!reset && currentCursor) {
+        params.cursor = currentCursor;
       }
       
       const response = await api.get(ENDPOINTS.ROUTE_SHEETS, { params });
       
-      // Handle paginated response {sheets, next_cursor}
+      // Handle both array response and paginated response {sheets, next_cursor}
       const data = response.data;
-      let list = data.sheets || [];
-      const nextCursor = data.next_cursor;
+      let list = Array.isArray(data) ? data : (data.sheets || []);
+      const next = Array.isArray(data) ? null : (data.next_cursor || null);
       
       // For 'annulled' filter, filter client-side
       if (filter === 'annulled') {
         list = list.filter(s => s.status === 'ANNULLED');
       }
-      
-      // Update cursor and hasMore
-      cursorRef.current = nextCursor;
-      hasMoreRef.current = !!nextCursor;
-      
-      // Append or replace sheets
-      if (reset) {
-        setSheets(list);
-      } else {
-        setSheets(prev => [...prev, ...list]);
-      }
+
+      // Merge (dedupe by id) when paginating
+      setSheets(prev => {
+        const base = reset ? [] : prev;
+        const seen = new Set(base.map(s => s.id));
+        const out = [...base];
+        for (const item of list) {
+          if (!seen.has(item.id)) {
+            out.push(item);
+            seen.add(item.id);
+          }
+        }
+        return out;
+      });
+
+      cursorRef.current = next;
+      setCursor(next);
+      setHasMore(Boolean(next));
     } catch (error) {
       // 401 handled by interceptor, only show other errors
       if (error.response?.status !== 401) {
@@ -116,28 +124,31 @@ export default function HistoryScreen({ navigation, route }) {
     }
   }, [filter]);
 
-  // Load on mount and when filter changes (reset list)
+  // Load on mount and when filter changes
   useEffect(() => {
-    loadSheets(true);
-  }, [filter]);
+    setLoading(true);
+    loadSheets({ reset: true });
+  }, [loadSheets]);
 
   // Reload when screen comes into focus (e.g., after creating a new sheet)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      loadSheets(true);
+      setLoading(true);
+      loadSheets({ reset: true });
     });
     return unsubscribe;
   }, [navigation, loadSheets]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadSheets(true);
+    loadSheets({ reset: true });
   };
-  
+
   const onEndReached = () => {
-    if (!loading && !loadingMore && hasMoreRef.current) {
-      loadSheets(false);
-    }
+    if (loading || refreshing || loadingMore) return;
+    if (!hasMore) return;
+    setLoadingMore(true);
+    loadSheets({ reset: false });
   };
 
   /**
@@ -178,7 +189,7 @@ export default function HistoryScreen({ navigation, route }) {
               await api.post(`${ENDPOINTS.ROUTE_SHEETS}/${sheet.id}/annul`, {
                 reason: 'Anulada por el usuario desde la app móvil',
               });
-              loadSheets(true);
+              loadSheets({ reset: true });
               Alert.alert('Éxito', 'Hoja anulada correctamente');
             } catch (error) {
               const message = error.response?.data?.detail || 'No se pudo anular la hoja';
@@ -427,6 +438,8 @@ export default function HistoryScreen({ navigation, route }) {
         renderItem={renderSheet}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl 
             refreshing={refreshing} 
@@ -435,13 +448,11 @@ export default function HistoryScreen({ navigation, route }) {
             tintColor="#7A1F1F"
           />
         }
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.3}
         ListFooterComponent={
           loadingMore ? (
-            <View style={styles.loadingMore}>
+            <View style={styles.footerLoading}>
               <ActivityIndicator size="small" color="#7A1F1F" />
-              <Text style={styles.loadingMoreText}>Cargando más...</Text>
+              <Text style={styles.footerLoadingText}>Cargando más...</Text>
             </View>
           ) : null
         }
@@ -552,6 +563,16 @@ const styles = StyleSheet.create({
   list: {
     padding: 16,
     paddingTop: 0,
+  },
+  footerLoading: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerLoadingText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#57534E',
   },
   sheetCard: {
     backgroundColor: '#fff',
@@ -683,16 +704,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#57534E',
     textAlign: 'center',
-  },
-  loadingMore: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  loadingMoreText: {
-    fontSize: 14,
-    color: '#57534E',
   },
 });

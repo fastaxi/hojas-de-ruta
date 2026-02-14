@@ -17,7 +17,6 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from PIL import Image as PILImage
 
 # Timezone constants
 MADRID_TZ = ZoneInfo("Europe/Madrid")
@@ -77,75 +76,66 @@ def get_logo_path():
     return None
 
 
-@lru_cache(maxsize=1)
-def get_optimized_logo_bytes():
-    """
-    Load and optimize logo image once, cache in memory.
-    Returns (BytesIO, orig_width, orig_height) or (None, 0, 0) if not found.
-    Resizes large logos to reasonable DPI for PDF (250 DPI target).
+@lru_cache(maxsize=8)
+def _get_resized_logo_bytes(target_w_px: int, target_h_px: int):
+    """Load and resize logo once per process.
+
+    ReportLab can embed the full bitmap even if you visually scale it down.
+    To keep PDFs lightweight, we resize the bitmap to a sensible pixel size
+    before handing it to ReportLab.
     """
     logo_path = get_logo_path()
     if not logo_path:
-        return None, 0, 0
-    
+        return None
+
     try:
+        from PIL import Image as PILImage
+
+        with PILImage.open(logo_path) as img:
+            img = img.convert("RGBA")
+            img.thumbnail((max(1, target_w_px), max(1, target_h_px)), PILImage.Resampling.LANCZOS)
+            out = io.BytesIO()
+            img.save(out, format="PNG", optimize=True)
+            return out.getvalue()
+    except Exception as e:
+        print(f"Error resizing logo: {e}")
+        return None
+
+
+def get_logo_image(max_width_mm=35, max_height_mm=25, dpi: int = 250):
+    """Get logo Image maintaining aspect ratio.
+
+    Returns a ReportLab Image built from an in-memory, resized bitmap to prevent
+    huge PDFs. If logo not found (or PIL fails), returns None.
+    """
+    logo_path = get_logo_path()
+    if not logo_path:
+        return None
+
+    try:
+        from PIL import Image as PILImage
+
         with PILImage.open(logo_path) as img:
             orig_width, orig_height = img.size
-            
-            # Target: 35mm at 250 DPI = ~345 pixels max width
-            # Only resize if larger than needed
-            max_pixel_width = 400
-            if orig_width > max_pixel_width:
-                ratio = max_pixel_width / orig_width
-                new_width = int(orig_width * ratio)
-                new_height = int(orig_height * ratio)
-                img = img.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
-                orig_width, orig_height = new_width, new_height
-            
-            # Convert to RGB if RGBA to reduce size
-            if img.mode == 'RGBA':
-                background = PILImage.new('RGB', img.size, (255, 255, 255))
-                background.paste(img, mask=img.split()[3])
-                img = background
-            
-            # Save to BytesIO with optimization
-            buffer = io.BytesIO()
-            img.save(buffer, format='PNG', optimize=True)
-            buffer.seek(0)
-            return buffer, orig_width, orig_height
-    except Exception as e:
-        print(f"Error optimizing logo: {e}")
-        return None, 0, 0
 
+        aspect = orig_width / max(1, orig_height)
 
-def get_logo_image(max_width_mm=35, max_height_mm=25):
-    """
-    Get logo Image maintaining aspect ratio.
-    Uses cached, optimized logo bytes to avoid re-reading file for each PDF.
-    Returns None if logo not found.
-    """
-    logo_buffer, orig_width, orig_height = get_optimized_logo_bytes()
-    if not logo_buffer:
-        return None
-    
-    try:
-        # Reset buffer position for each read
-        logo_buffer.seek(0)
-        
-        # Calculate aspect ratio
-        aspect = orig_width / orig_height
-        
-        # Calculate dimensions maintaining aspect ratio
-        # Try fitting to max width first
-        width = max_width_mm * mm
-        height = width / aspect
-        
-        # If height exceeds max, fit to height instead
-        if height > max_height_mm * mm:
-            height = max_height_mm * mm
-            width = height * aspect
-        
-        return Image(logo_buffer, width=width, height=height)
+        # Printed size (points)
+        width_pt = max_width_mm * mm
+        height_pt = width_pt / aspect
+        if height_pt > max_height_mm * mm:
+            height_pt = max_height_mm * mm
+            width_pt = height_pt * aspect
+
+        # Target pixel size for embedding
+        target_w_px = int((float(width_pt) / 72.0) * dpi)
+        target_h_px = int((float(height_pt) / 72.0) * dpi)
+
+        resized = _get_resized_logo_bytes(target_w_px, target_h_px)
+        if not resized:
+            return None
+
+        return Image(io.BytesIO(resized), width=width_pt, height=height_pt)
     except Exception as e:
         print(f"Error loading logo: {e}")
         return None

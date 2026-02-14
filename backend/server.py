@@ -368,6 +368,8 @@ async def record_pdf_request(user_id: str, action: str):
 
 
 # ============== PDF CACHING ==============
+# Keep the cache small: mobile devices already cache/share locally.
+# Long TTL + large PDFs can explode Mongo storage.
 PDF_CACHE_DAYS = 7
 
 
@@ -1280,22 +1282,21 @@ async def create_route_sheet(
                 status_code=400,
                 detail="Número de vuelo no aplica para asistencia en carretera"
             )
-    
-    # ============== VALIDATE CONDUCTOR_DRIVER_ID ==============
+
+    # 3. Validate conductor driver belongs to the user (if provided)
     if data.conductor_driver_id:
-        # Verify driver belongs to this user
-        driver = await db.drivers.find_one({
-            "id": data.conductor_driver_id,
-            "user_id": user["id"]
-        }, {"_id": 0, "id": 1})
+        driver = await db.drivers.find_one(
+            {"id": data.conductor_driver_id, "user_id": user["id"]},
+            {"_id": 0}
+        )
         if not driver:
             raise HTTPException(
                 status_code=400,
-                detail="Conductor no encontrado o no pertenece a este usuario"
+                detail="Conductor seleccionado no encontrado"
             )
     
     # ============== ATOMIC NUMBERING ==============
-    # Use Madrid timezone for year determination (avoid edge-case on New Year's Eve)
+    # Use local year (Europe/Madrid) to avoid edge cases around New Year.
     current_year = datetime.now(MADRID_TZ).year
     
     # findOneAndUpdate with $inc is atomic - no race conditions
@@ -1542,13 +1543,13 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
     driver_name = "Titular"
     if sheet.get("conductor_driver_id"):
         driver = await db.drivers.find_one(
-            {"id": sheet["conductor_driver_id"], "user_id": user["id"]},
+            {"id": sheet["conductor_driver_id"], "user_id": sheet["user_id"]},
             {"_id": 0}
         )
         if driver:
             driver_name = driver["full_name"]
     
-    # Generate PDF in thread pool (CPU-bound, avoid blocking event loop)
+    # Generate PDF (includes watermark for ANNULLED)
     from pdf_generator import generate_route_sheet_pdf
     pdf_buffer = await asyncio.to_thread(generate_route_sheet_pdf, sheet, user_data, config, driver_name)
     pdf_bytes = pdf_buffer.getvalue()
@@ -1620,7 +1621,7 @@ async def get_route_sheets_pdf_range(
     drivers = await db.drivers.find({"user_id": user["id"]}, {"_id": 0}).to_list(100)
     drivers_map = {d["id"]: d["full_name"] for d in drivers}
     
-    # Generate multi-page PDF in thread pool (CPU-bound, avoid blocking event loop)
+    # Generate multi-page PDF
     from pdf_generator import generate_multi_sheet_pdf
     pdf_buffer = await asyncio.to_thread(generate_multi_sheet_pdf, sheets, user_data, config, drivers_map)
     pdf_bytes = pdf_buffer.getvalue()
@@ -2037,7 +2038,7 @@ async def admin_get_route_sheet_pdf(
         if driver:
             driver_name = driver["full_name"]
     
-    # Generate PDF in thread pool (CPU-bound, avoid blocking event loop)
+    # Generate PDF
     from pdf_generator import generate_route_sheet_pdf
     pdf_buffer = await asyncio.to_thread(generate_route_sheet_pdf, sheet, user_data, config, driver_name)
     pdf_bytes = pdf_buffer.getvalue()
@@ -2110,18 +2111,48 @@ async def admin_get_route_sheets(
         
         if date_query:
             query["pickup_datetime"] = date_query
+
+    # Cursor pagination (stable by _id)
+    if cursor:
+        try:
+            query["_id"] = {"$lt": ObjectId(cursor)}
+        except Exception:
+            pass
     
-    sheets = await db.route_sheets.find(query, {"_id": 0}).sort("pickup_datetime", -1).limit(limit).to_list(limit)
-    
-    # Add formatted sheet number and user info
+    sheets = await db.route_sheets.find(query).sort([("pickup_datetime", -1), ("_id", -1)]).limit(limit).to_list(limit)
+
+    # Compute next cursor and collect user ids
+    next_cursor = None
+    user_ids = []
     for sheet in sheets:
+        oid = sheet.pop("_id", None)
+        if oid is not None:
+            next_cursor = str(oid)
         sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
-        user = await db.users.find_one({"id": sheet["user_id"]}, {"_id": 0, "email": 1, "full_name": 1})
-        if user:
-            sheet["user_email"] = user.get("email")
-            sheet["user_name"] = user.get("full_name")
+        user_ids.append(sheet.get("user_id"))
+
+    # Batch user lookup (avoid N+1)
+    users_map = {}
+    unique_user_ids = [uid for uid in set(user_ids) if uid]
+    if unique_user_ids:
+        users = await db.users.find(
+            {"id": {"$in": unique_user_ids}},
+            {"_id": 0, "id": 1, "email": 1, "full_name": 1}
+        ).to_list(len(unique_user_ids))
+        users_map = {u["id"]: u for u in users}
     
-    return sheets
+    # Attach user info
+    for sheet in sheets:
+        u = users_map.get(sheet.get("user_id"))
+        if u:
+            sheet["user_email"] = u.get("email")
+            sheet["user_name"] = u.get("full_name")
+
+    headers = {}
+    if len(sheets) == limit and next_cursor:
+        headers["X-Next-Cursor"] = next_cursor
+
+    return JSONResponse(content=sheets, headers=headers)
 
 
 @admin_router.get("/config", response_model=dict)

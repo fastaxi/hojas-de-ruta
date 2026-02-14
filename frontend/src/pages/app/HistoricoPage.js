@@ -1,7 +1,7 @@
 /**
  * RutasFast - Histórico Page
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -70,10 +70,16 @@ export function HistoricoPage() {
   const [toDate, setToDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExportingRange, setIsExportingRange] = useState(false);
-  
-  // Pagination state
-  const cursorRef = React.useRef(null);
+
+  // Cursor pagination
+  const PAGE_LIMIT = 50;
+  const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
+  const cursorRef = useRef(null);
+
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
   
   // Annul dialog
   const [annulDialog, setAnnulDialog] = useState({ open: false, sheet: null });
@@ -97,36 +103,42 @@ export function HistoricoPage() {
     if (reset) {
       setLoading(true);
       cursorRef.current = null;
+      setCursor(null);
+      setHasMore(false);
     } else {
       setLoadingMore(true);
     }
-    
     try {
       const params = new URLSearchParams();
       if (fromDate) params.append('from_date', fromDate);
       if (toDate) params.append('to_date', toDate);
       if (includeAnnulled) params.append('include_annulled', 'true');
-      params.append('limit', '50');
-      
-      // Add cursor for pagination
-      if (!reset && cursorRef.current) {
-        params.append('cursor', cursorRef.current);
-      }
+
+      params.append('limit', String(PAGE_LIMIT));
+      const currentCursor = cursorRef.current;
+      if (!reset && currentCursor) params.append('cursor', currentCursor);
       
       const response = await axios.get(`${API_URL}/route-sheets?${params}`);
       // API returns { sheets: [], next_cursor: null, count: 0 }
-      const data = response.data;
-      const newSheets = data.sheets || [];
-      const nextCursor = data.next_cursor;
-      
-      cursorRef.current = nextCursor;
-      setHasMore(!!nextCursor);
-      
-      if (reset) {
-        setSheets(newSheets);
-      } else {
-        setSheets(prev => [...prev, ...newSheets]);
-      }
+      const list = response.data.sheets || [];
+      const next = response.data.next_cursor || null;
+
+      setSheets(prev => {
+        if (reset) return list;
+        const seen = new Set(prev.map(s => s.id));
+        const out = [...prev];
+        for (const item of list) {
+          if (!seen.has(item.id)) {
+            out.push(item);
+            seen.add(item.id);
+          }
+        }
+        return out;
+      });
+
+      cursorRef.current = next;
+      setCursor(next);
+      setHasMore(Boolean(next));
     } catch (err) {
       console.error('Error fetching sheets:', err);
     } finally {
@@ -137,13 +149,7 @@ export function HistoricoPage() {
 
   useEffect(() => {
     fetchSheets({ reset: true });
-  }, [fromDate, toDate, includeAnnulled]);
-  
-  const handleLoadMore = () => {
-    if (!loadingMore && hasMore) {
-      fetchSheets({ reset: false });
-    }
-  };
+  }, [fetchSheets]);
 
   const handleAnnul = async () => {
     if (!annulDialog.sheet) return;
@@ -565,28 +571,27 @@ export function HistoricoPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
 
-      {/* Load More Button */}
-      {!loading && hasMore && (
-        <div className="flex justify-center pt-4">
-          <Button
-            variant="outline"
-            onClick={handleLoadMore}
-            disabled={loadingMore}
-            className="min-w-40"
-            data-testid="load-more"
-          >
-            {loadingMore ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Cargando...
-              </>
-            ) : (
-              'Cargar más'
-            )}
-          </Button>
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                onClick={() => fetchSheets({ reset: false })}
+                disabled={loadingMore}
+                className="border-stone-300"
+                data-testid="load-more"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Cargando...
+                  </>
+                ) : (
+                  'Cargar más'
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
