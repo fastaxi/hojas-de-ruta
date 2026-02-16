@@ -119,3 +119,7 @@ chainlit.md
 .chainlit
 .ipynb_checkpoints/
 .ac
+-e 
+# Environment files
+*.env
+*.env.*
