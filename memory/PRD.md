@@ -93,10 +93,24 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ Paginación cursor en histórico móvil (scroll infinito, 50 por página)
 - ✅ Paginación cursor en histórico web (botón "Cargar más", 50 por página)
 
-## Credenciales de Test
-- **Admin Web:** admin / qgyq8wx%dq1AvYgQ
-- **Usuario Test:** juantest@test.com / Test1234!
-- **Usuario Asistencia:** test-asist@test.com / Test1234!
+## Configuración de Credenciales
+
+Las credenciales NO se almacenan en el repositorio. Configurar mediante variables de entorno:
+
+### Variables Requeridas en Producción
+- `JWT_SECRET` - Clave secreta para JWT (mín. 32 caracteres, único por entorno)
+- `ADMIN_USERNAME` - Usuario administrador
+- `ADMIN_PASSWORD_HASH` - Hash bcrypt de la contraseña admin (usar `htpasswd -nbBC 10 "" <password> | tr -d ':'`)
+- `MONGO_URL` - Conexión a MongoDB
+
+### Variables Opcionales
+- `ENVIRONMENT` - "production" o "development"
+- `COOKIE_SECURE` - "true" en HTTPS
+- `COOKIE_SAMESITE` - "lax" o "strict"
+
+### Para Desarrollo Local
+En desarrollo (sin `ENVIRONMENT=production`), el sistema usa valores por defecto seguros.
+Crear usuarios de test mediante el flujo de registro normal + aprobación admin.
 
 ## URLs
 - **Web Producción:** https://asturia-taxi.emergent.host
