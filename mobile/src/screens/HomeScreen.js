@@ -169,6 +169,16 @@ export default function HomeScreen({ navigation }) {
       Alert.alert('Error', 'El número de vuelo es obligatorio para aeropuerto');
       return;
     }
+    // Validate flight number format for AIRPORT
+    if (formData.pickup_type === 'AIRPORT' && formData.flight_number) {
+      const fn = formData.flight_number.toUpperCase().replace(/[\s-]+/g, '');
+      const validChars = /^[A-Z0-9]{1,10}$/.test(fn);
+      const hasDigit = /\d/.test(fn);
+      if (!validChars || !hasDigit) {
+        Alert.alert('Error', 'Formato de vuelo inválido. Ejemplos: VY1234, QF9, 1234');
+        return;
+      }
+    }
     if (formData.pickup_type === 'ROADSIDE') {
       if (!formData.pickup_address) {
         Alert.alert('Error', 'La ubicación de la asistencia es obligatoria');
