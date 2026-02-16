@@ -63,8 +63,21 @@ export default function VehicleScreen({ navigation }) {
     try {
       await updateMe(payload);
       await refreshUser();
-      Alert.alert('Éxito', 'Vehículo actualizado correctamente');
-      navigation.goBack();
+      Alert.alert('Éxito', 'Vehículo actualizado correctamente', [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs' }],
+              });
+            }
+          },
+        },
+      ]);
     } catch (error) {
       const message = error.response?.data?.detail || 'Error al guardar el vehículo';
       Alert.alert('Error', message);
