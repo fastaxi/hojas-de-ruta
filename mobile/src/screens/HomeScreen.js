@@ -392,9 +392,10 @@ export default function HomeScreen({ navigation }) {
               style={styles.input}
               value={formData.flight_number}
               onChangeText={(v) => updateField('flight_number', v.toUpperCase())}
-              placeholder="Número de vuelo (ej: VY1234)"
+              placeholder="Nº vuelo (ej: VY1234, QF9, 1234)"
               placeholderTextColor="#999"
               autoCapitalize="characters"
+              maxLength={10}
             />
           )}
 
