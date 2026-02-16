@@ -143,3 +143,5 @@ chainlit.md
 # Environment files
 *.env
 *.env.*
+.expo/
+mobile/android/

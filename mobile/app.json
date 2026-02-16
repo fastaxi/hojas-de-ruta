@@ -29,12 +29,7 @@
     },
     "plugins": [
       "expo-secure-store",
-      "@react-native-community/datetimepicker",
-      "expo-asset",
-      "expo-font"
-    ],
-    "assetBundlePatterns": [
-      "**/*"
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "API_BASE_URL": "https://asturia-taxi.emergent.host"
