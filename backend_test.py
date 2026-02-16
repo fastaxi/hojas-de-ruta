@@ -277,7 +277,8 @@ class RutasFastAPITester:
             "flight_number": "VY1234",
             "pickup_address": "Terminal T1",
             "pickup_datetime": "2024-12-25T10:00:00Z",
-            "destination": "Hotel Reconquista"
+            "destination": "Hotel Reconquista",
+            "passenger_info": "Test passenger"
         }
         
         success, data = self.make_request('POST', '/route-sheets', valid_data, 
