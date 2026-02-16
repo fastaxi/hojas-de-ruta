@@ -232,23 +232,34 @@ class RutasFastAPITester:
             "prebooked_locality": "Oviedo",
             "pickup_type": "AIRPORT",
             "pickup_datetime": "2024-12-25T10:00:00Z",
-            "destination": "Hotel Reconquista"
+            "destination": "Hotel Reconquista",
+            "passenger_info": "Test passenger"
         }
         
         success1, data1 = self.make_request('POST', '/route-sheets', invalid_data, 
                                           token=self.user_token, expected_status=400)
         
-        # Test invalid flight number format
-        invalid_data["flight_number"] = "INVALID123"
+        # Test invalid flight number format (no digits - must fail)
+        invalid_data["flight_number"] = "ABC"
         success2, data2 = self.make_request('POST', '/route-sheets', invalid_data, 
                                           token=self.user_token, expected_status=400)
         
-        expected_format_error = "Formato de vuelo inválido. Ejemplo: VY1234"
+        expected_format_error = "Formato de vuelo inválido"
         format_error_correct = expected_format_error in data2.get('detail', '')
         
-        overall_success = success1 and success2 and format_error_correct
+        # Test valid short format (QF9 should pass)
+        invalid_data["flight_number"] = "QF9"
+        success3, data3 = self.make_request('POST', '/route-sheets', invalid_data, 
+                                          token=self.user_token, expected_status=200)
+        
+        # Test valid numbers-only format (1234 should pass)
+        invalid_data["flight_number"] = "1234"
+        success4, data4 = self.make_request('POST', '/route-sheets', invalid_data, 
+                                          token=self.user_token, expected_status=200)
+        
+        overall_success = success1 and success2 and format_error_correct and success3 and success4
         self.log_test("Flight Number Validation", overall_success, 
-                     f"Missing: {data1.get('detail', '')}, Invalid format: {data2.get('detail', '')}")
+                     f"Missing: {data1.get('detail', '')}, ABC rejected: {format_error_correct}, QF9 accepted: {success3}, 1234 accepted: {success4}")
         return overall_success
 
     def test_create_valid_route_sheet(self):
