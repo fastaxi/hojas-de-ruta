@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
-# Test credentials
-TEST_EMAIL = "test-asist@test.com"
-TEST_PASSWORD = "Test1234!"
+# Test credentials from environment (do NOT hardcode)
+TEST_EMAIL = os.environ.get('TEST_USER_EMAIL', '')
+TEST_PASSWORD = os.environ.get('TEST_USER_PASSWORD', '')
 
 
 class TestAssistanceCompanies:
