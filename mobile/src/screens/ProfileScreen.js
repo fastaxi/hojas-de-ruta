@@ -67,8 +67,22 @@ export default function ProfileScreen({ navigation }) {
     try {
       await updateMe(payload);
       await refreshUser();
-      Alert.alert('Éxito', 'Perfil actualizado correctamente');
-      navigation.goBack();
+      Alert.alert('Éxito', 'Perfil actualizado correctamente', [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Safe navigation: check if we can go back, otherwise go to main screen
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs' }],
+              });
+            }
+          },
+        },
+      ]);
     } catch (error) {
       const message = error.response?.data?.detail || 'Error al guardar el perfil';
       Alert.alert('Error', message);
