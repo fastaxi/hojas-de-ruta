@@ -143,13 +143,18 @@ export function NuevaHojaPage() {
 
     try {
       // Clean up empty strings to null for optional fields
+      // Normalize flight_number if AIRPORT
+      const normalizedFlightNumber = formData.pickup_type === 'AIRPORT' 
+        ? formData.flight_number.toUpperCase().replace(/[\s-]+/g, '') 
+        : null;
+      
       const submitData = {
         contractor_phone: formData.contractor_phone || null,
         contractor_email: formData.contractor_email || null,
         prebooked_date: formData.prebooked_date,
         prebooked_locality: formData.prebooked_locality,
         pickup_type: formData.pickup_type,
-        flight_number: formData.pickup_type === 'AIRPORT' ? formData.flight_number : null,
+        flight_number: normalizedFlightNumber,
         pickup_address: formData.pickup_address || null,
         pickup_datetime: formData.pickup_datetime,
         destination: formData.destination,
