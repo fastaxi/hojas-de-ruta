@@ -1224,11 +1224,16 @@ async def create_route_sheet(
                 status_code=400,
                 detail="Número de vuelo obligatorio para recogida en aeropuerto"
             )
-        if not re.match(r'^[A-Z]{2}\d{3,4}$', data.flight_number):
+        # Normalize: uppercase, remove spaces/hyphens
+        fn_normalized = re.sub(r'[\s-]+', '', data.flight_number.strip().upper())
+        # Validate: only alphanumeric, max 10 chars, must contain at least one digit
+        if not re.match(r'^[A-Z0-9]{1,10}$', fn_normalized) or not re.search(r'\d', fn_normalized):
             raise HTTPException(
                 status_code=400,
-                detail="Formato de vuelo inválido. Ejemplo: VY1234"
+                detail="Formato de vuelo inválido. Ejemplos: VY1234, QF9, 1234, TP-217A"
             )
+        # Store normalized value
+        data.flight_number = fn_normalized
         # Force pickup_address to Aeropuerto de Asturias
         data.pickup_address = "Aeropuerto de Asturias"
     
