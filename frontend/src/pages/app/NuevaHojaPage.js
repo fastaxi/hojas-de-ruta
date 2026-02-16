@@ -109,9 +109,13 @@ export function NuevaHojaPage() {
         setError('El número de vuelo es obligatorio para recogida en aeropuerto');
         return false;
       }
-      const flightRegex = /^[A-Z]{2}\d{3,4}$/;
-      if (!flightRegex.test(formData.flight_number)) {
-        setError('Formato de vuelo inválido. Ejemplo: VY1234');
+      // Normalize: uppercase, remove spaces/hyphens
+      const fn = formData.flight_number.toUpperCase().replace(/[\s-]+/g, '');
+      // Validate: only alphanumeric, max 10 chars, must contain at least one digit
+      const validChars = /^[A-Z0-9]{1,10}$/.test(fn);
+      const hasDigit = /\d/.test(fn);
+      if (!validChars || !hasDigit) {
+        setError('Formato de vuelo inválido. Ejemplos: VY1234, QF9, 1234, TP-217A');
         return false;
       }
     }
