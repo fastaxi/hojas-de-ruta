@@ -175,7 +175,7 @@ export default function HomeScreen({ navigation }) {
       const validChars = /^[A-Z0-9]{1,10}$/.test(fn);
       const hasDigit = /\d/.test(fn);
       if (!validChars || !hasDigit) {
-        Alert.alert('Error', 'Formato de vuelo inválido. Ejemplos: VY1234, QF9, 1234');
+        Alert.alert('Error', 'Formato de vuelo inválido. Usa letras y números (máx. 10), debe contener al menos un dígito. Ej: VY1234, QF9, 1234');
         return;
       }
     }
