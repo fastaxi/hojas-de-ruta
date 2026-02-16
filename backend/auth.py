@@ -16,7 +16,27 @@ import bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production")
+# SECURITY: JWT_SECRET is REQUIRED in production, fail-closed
+_jwt_secret_raw = os.environ.get("JWT_SECRET")
+
+# Detect production environment (defined early for JWT validation)
+IS_PRODUCTION = (
+    os.environ.get("ENVIRONMENT") == "production" or  # Explicit (preferred)
+    os.environ.get("VERCEL_ENV") == "production" or   # Vercel
+    os.environ.get("RAILWAY_ENVIRONMENT") == "production" or  # Railway
+    (bool(os.environ.get("RENDER")) and os.environ.get("ENVIRONMENT") != "development")  # Render (with dev override)
+)
+
+# Fail-closed: Production MUST have JWT_SECRET configured
+if IS_PRODUCTION and not _jwt_secret_raw:
+    raise RuntimeError(
+        "SECURITY ERROR: JWT_SECRET environment variable is REQUIRED in production. "
+        "Set a strong, unique secret (min 32 chars) before deploying."
+    )
+
+# Development fallback (only when NOT in production)
+JWT_SECRET = _jwt_secret_raw or "dev-secret-change-in-production"
+
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -25,16 +45,6 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 COOKIE_NAME = "refresh_token"
 COOKIE_PATH = "/api/auth"
 COOKIE_MAX_AGE = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60  # in seconds
-
-# Detect production environment
-# Priority: explicit ENVIRONMENT > platform-specific vars
-# Note: RENDER detection may give false positives in some CI environments
-IS_PRODUCTION = (
-    os.environ.get("ENVIRONMENT") == "production" or  # Explicit (preferred)
-    os.environ.get("VERCEL_ENV") == "production" or   # Vercel
-    os.environ.get("RAILWAY_ENVIRONMENT") == "production" or  # Railway
-    (bool(os.environ.get("RENDER")) and os.environ.get("ENVIRONMENT") != "development")  # Render (with dev override)
-)
 
 # Cookie secure flag - must be True in production with HTTPS
 COOKIE_SECURE = IS_PRODUCTION or os.environ.get("COOKIE_SECURE", "false").lower() == "true"
