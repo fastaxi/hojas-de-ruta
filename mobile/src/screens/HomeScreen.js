@@ -200,6 +200,11 @@ export default function HomeScreen({ navigation }) {
 
     setLoading(true);
     try {
+      // Normalize flight_number for AIRPORT
+      const normalizedFlightNumber = formData.pickup_type === 'AIRPORT' && formData.flight_number
+        ? formData.flight_number.toUpperCase().replace(/[\s-]+/g, '')
+        : undefined;
+      
       // Preparar payload con fechas en ISO
       const payload = {
         ...formData,
@@ -208,7 +213,7 @@ export default function HomeScreen({ navigation }) {
         contractor_phone: formData.contractor_phone || undefined,
         contractor_email: formData.contractor_email || undefined,
         conductor_driver_id: selectedDriver || undefined,
-        flight_number: formData.pickup_type === 'AIRPORT' ? formData.flight_number : undefined,
+        flight_number: normalizedFlightNumber,
         assistance_company_id: formData.pickup_type === 'ROADSIDE' ? formData.assistance_company_id : undefined,
       };
       
