@@ -381,14 +381,14 @@ export function NuevaHojaPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
-                    Número de Vuelo * (Formato: VY1234)
+                    Número de Vuelo * (ej: VY1234, QF9, 1234)
                   </Label>
                   <Input
                     value={formData.flight_number}
                     onChange={(e) => updateField('flight_number', e.target.value.toUpperCase())}
-                    placeholder="VY1234"
+                    placeholder="VY1234, QF9, 1234..."
                     className="h-14 text-lg font-mono"
-                    maxLength={6}
+                    maxLength={10}
                     data-testid="flight-number"
                   />
                 </div>
