@@ -1495,7 +1495,8 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
     """
     Generate PDF for a single route sheet.
     - Rate limited: 30 requests per 10 minutes per user
-    - Cached: PDF cached for 30 days (both ACTIVE and ANNULLED), invalidated on config change
+    - Cached: PDF cached for 7 days (both ACTIVE and ANNULLED), invalidated on config change
+      (Short TTL to prevent MongoDB storage growth with large PDFs)
     - Only returns user_visible=true sheets
     """
     # Check rate limit
