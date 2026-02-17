@@ -2189,11 +2189,15 @@ async def admin_get_route_sheets(
             sheet["sheet_number"] = f"{seq:03d}/{year}" if year else "---"
             user_ids.append(sheet.get("user_id"))
             
-            # Convert datetime objects to ISO strings for JSON serialization
-            for key in ['created_at', 'updated_at', 'pickup_datetime', 'prebooked_date', 'annulled_at']:
-                if key in sheet and sheet[key] is not None:
-                    if hasattr(sheet[key], 'isoformat'):
-                        sheet[key] = sheet[key].isoformat()
+            # Convert ALL datetime objects to ISO strings for JSON serialization
+            for key, val in list(sheet.items()):
+                if hasattr(val, 'isoformat'):
+                    sheet[key] = val.isoformat()
+                elif isinstance(val, dict):
+                    # Handle nested dicts (like assistance_company_snapshot)
+                    for k2, v2 in list(val.items()):
+                        if hasattr(v2, 'isoformat'):
+                            val[k2] = v2.isoformat()
 
         # Batch user lookup (avoid N+1)
         users_map = {}
