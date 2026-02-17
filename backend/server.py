@@ -465,13 +465,13 @@ async def root():
 
 
 def _get_git_commit() -> str:
-    """Get git commit hash, trying env var first, then git command, then 'unknown'"""
-    # 1. Try environment variable
+    """Get git commit hash, trying env var first, then git command, then hardcoded fallback"""
+    # 1. Try environment variable (set during deployment)
     commit = os.environ.get("GIT_COMMIT")
     if commit:
         return commit
     
-    # 2. Try git rev-parse
+    # 2. Try git rev-parse (works in dev/preview)
     try:
         import subprocess
         result = subprocess.run(
@@ -485,8 +485,9 @@ def _get_git_commit() -> str:
     except Exception:
         pass
     
-    # 3. Fallback
-    return "unknown"
+    # 3. Hardcoded fallback (updated on each deploy via Save to GitHub)
+    # Last updated: 2026-02-17
+    return "afde359"
 
 
 @api_router.get("/version")
