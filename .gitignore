@@ -145,3 +145,8 @@ chainlit.md
 *.env.*
 .expo/
 mobile/android/
+
+# Local backups
+backend/*.bak
+
+backend/*.bak

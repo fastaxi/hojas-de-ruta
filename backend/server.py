@@ -27,25 +27,49 @@ from datetime import datetime, timezone, timedelta, date
 import io
 
 # Local imports (AFTER load_dotenv)
-from models import (
-    User, UserCreate, UserUpdate, UserPublic,
-    Driver, DriverCreate, DriverUpdate,
-    RouteSheet, RouteSheetCreate, RouteSheetAnnul,
-    AppConfig, AppConfigUpdate,
-    LoginRequest, TokenResponse, RefreshRequest,
-    ChangePasswordRequest,
-    AdminLoginRequest,
-    AssistanceCompany, AssistanceCompanyCreate
-)
-from auth import (
-    hash_password, verify_password,
-    create_access_token, create_refresh_token, decode_token,
-    verify_admin_password, create_admin_token, get_cookie_settings,
-    is_admin_configured, is_admin_env_configured, get_admin_username,
-    ACCESS_TOKEN_EXPIRE_MINUTES, IS_PRODUCTION,
-    create_mobile_refresh_token, hash_token, get_mobile_refresh_expiry,
-    MOBILE_REFRESH_TOKEN_EXPIRE_DAYS
-)
+# Local imports (AFTER load_dotenv)
+try:
+    # When running as a package (e.g. uvicorn backend.server:app)
+    from .models import (
+        User, UserCreate, UserUpdate, UserPublic,
+        Driver, DriverCreate, DriverUpdate,
+        RouteSheet, RouteSheetCreate, RouteSheetAnnul,
+        AppConfig, AppConfigUpdate,
+        LoginRequest, TokenResponse, RefreshRequest,
+        ChangePasswordRequest,
+        AdminLoginRequest,
+        AssistanceCompany, AssistanceCompanyCreate
+    )
+    from .auth import (
+        hash_password, verify_password,
+        create_access_token, create_refresh_token, decode_token,
+        verify_admin_password, create_admin_token, get_cookie_settings,
+        is_admin_configured, is_admin_env_configured, get_admin_username,
+        ACCESS_TOKEN_EXPIRE_MINUTES, IS_PRODUCTION,
+        create_mobile_refresh_token, hash_token, get_mobile_refresh_expiry,
+        MOBILE_REFRESH_TOKEN_EXPIRE_DAYS
+    )
+except ImportError:
+    # When running from backend/ as a script/module (e.g. uvicorn server:app)
+    from models import (
+        User, UserCreate, UserUpdate, UserPublic,
+        Driver, DriverCreate, DriverUpdate,
+        RouteSheet, RouteSheetCreate, RouteSheetAnnul,
+        AppConfig, AppConfigUpdate,
+        LoginRequest, TokenResponse, RefreshRequest,
+        ChangePasswordRequest,
+        AdminLoginRequest,
+        AssistanceCompany, AssistanceCompanyCreate
+    )
+    from auth import (
+        hash_password, verify_password,
+        create_access_token, create_refresh_token, decode_token,
+        verify_admin_password, create_admin_token, get_cookie_settings,
+        is_admin_configured, is_admin_env_configured, get_admin_username,
+        ACCESS_TOKEN_EXPIRE_MINUTES, IS_PRODUCTION,
+        create_mobile_refresh_token, hash_token, get_mobile_refresh_expiry,
+        MOBILE_REFRESH_TOKEN_EXPIRE_DAYS
+    )
 from dateutil.relativedelta import relativedelta
 import secrets
 import string
@@ -69,11 +93,39 @@ sheets_router = APIRouter(prefix="/route-sheets", tags=["route-sheets"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 internal_router = APIRouter(prefix="/internal", tags=["internal"])
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+@api_router.get("/version", tags=["internal"])
+async def api_version():
+    """
+    Devuelve info mínima de versión para poder verificar qué commit está desplegado.
+    - Usa env var (p.ej. GIT_SHA/COMMIT_SHA/RENDER_GIT_COMMIT) si existe
+    - Si no, intenta leer git local (solo en dev)
+    """
+    commit = (
+        os.environ.get("GIT_SHA")
+        or os.environ.get("COMMIT_SHA")
+        or os.environ.get("RENDER_GIT_COMMIT")
+        or os.environ.get("VERCEL_GIT_COMMIT_SHA")
+        or os.environ.get("RAILWAY_GIT_COMMIT_SHA")
+    )
+
+    if not commit:
+        try:
+            import subprocess
+            commit = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=str(ROOT_DIR.parent),
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        except Exception:
+            commit = "unknown"
+
+    return {
+        "service": "RutasFast API",
+        "api_version": app.version,
+        "commit": commit,
+    }
+
 logger = logging.getLogger(__name__)
 
 # Retention job token (for automated schedulers)
