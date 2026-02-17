@@ -2126,86 +2126,100 @@ async def admin_get_route_sheets(
     admin: dict = Depends(get_current_admin)
 ):
     """Get all route sheets (admin) with pagination - can see ALL including hidden"""
-    query = {}
-    
-    if user_id:
-        query["user_id"] = user_id
-    if status:
-        query["status"] = status
-    if user_visible is not None:
-        query["user_visible"] = user_visible
-    
-    # Date filtering using pickup_datetime (same as user endpoints)
-    # Convert Europe/Madrid local dates to UTC datetime
-    madrid_tz = pytz.timezone("Europe/Madrid")
-    
-    if from_date or to_date:
-        date_query = {}
+    try:
+        query = {}
         
-        if from_date:
+        if user_id:
+            query["user_id"] = user_id
+        if status:
+            query["status"] = status
+        if user_visible is not None:
+            query["user_visible"] = user_visible
+        
+        # Date filtering using pickup_datetime (same as user endpoints)
+        # Convert Europe/Madrid local dates to UTC datetime
+        madrid_tz = pytz.timezone("Europe/Madrid")
+        
+        if from_date or to_date:
+            date_query = {}
+            
+            if from_date:
+                try:
+                    from_dt_local = madrid_tz.localize(
+                        datetime.strptime(from_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0)
+                    )
+                    from_dt_utc = from_dt_local.astimezone(pytz.UTC)
+                    date_query["$gte"] = from_dt_utc
+                except ValueError:
+                    pass
+            
+            if to_date:
+                try:
+                    to_dt_local = madrid_tz.localize(
+                        datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
+                    )
+                    to_dt_utc = to_dt_local.astimezone(pytz.UTC)
+                    date_query["$lte"] = to_dt_utc
+                except ValueError:
+                    pass
+            
+            if date_query:
+                query["pickup_datetime"] = date_query
+
+        # Cursor pagination (stable by _id)
+        if cursor:
             try:
-                from_dt_local = madrid_tz.localize(
-                    datetime.strptime(from_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0)
-                )
-                from_dt_utc = from_dt_local.astimezone(pytz.UTC)
-                date_query["$gte"] = from_dt_utc
-            except ValueError:
+                query["_id"] = {"$lt": ObjectId(cursor)}
+            except Exception:
                 pass
         
-        if to_date:
-            try:
-                to_dt_local = madrid_tz.localize(
-                    datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
-                )
-                to_dt_utc = to_dt_local.astimezone(pytz.UTC)
-                date_query["$lte"] = to_dt_utc
-            except ValueError:
-                pass
+        # Sort by year and seq_number for consistent ordering
+        sheets = await db.route_sheets.find(query).sort([("year", -1), ("seq_number", -1), ("_id", -1)]).limit(limit).to_list(limit)
+
+        # Compute next cursor and collect user ids
+        next_cursor = None
+        user_ids = []
+        for sheet in sheets:
+            oid = sheet.pop("_id", None)
+            if oid is not None:
+                next_cursor = str(oid)
+            # Safe sheet_number calculation
+            seq = sheet.get('seq_number', 0) or 0
+            year = sheet.get('year', 0) or 0
+            sheet["sheet_number"] = f"{seq:03d}/{year}" if year else "---"
+            user_ids.append(sheet.get("user_id"))
+            
+            # Convert datetime objects to ISO strings for JSON serialization
+            for key in ['created_at', 'updated_at', 'pickup_datetime', 'prebooked_date', 'annulled_at']:
+                if key in sheet and sheet[key] is not None:
+                    if hasattr(sheet[key], 'isoformat'):
+                        sheet[key] = sheet[key].isoformat()
+
+        # Batch user lookup (avoid N+1)
+        users_map = {}
+        unique_user_ids = [uid for uid in set(user_ids) if uid]
+        if unique_user_ids:
+            users = await db.users.find(
+                {"id": {"$in": unique_user_ids}},
+                {"_id": 0, "id": 1, "email": 1, "full_name": 1}
+            ).to_list(len(unique_user_ids))
+            users_map = {u["id"]: u for u in users}
         
-        if date_query:
-            query["pickup_datetime"] = date_query
+        # Attach user info
+        for sheet in sheets:
+            u = users_map.get(sheet.get("user_id"))
+            if u:
+                sheet["user_email"] = u.get("email")
+                sheet["user_name"] = u.get("full_name")
 
-    # Cursor pagination (stable by _id)
-    if cursor:
-        try:
-            query["_id"] = {"$lt": ObjectId(cursor)}
-        except Exception:
-            pass
-    
-    sheets = await db.route_sheets.find(query).sort([("pickup_datetime", -1), ("_id", -1)]).limit(limit).to_list(limit)
+        headers = {}
+        if len(sheets) == limit and next_cursor:
+            headers["X-Next-Cursor"] = next_cursor
 
-    # Compute next cursor and collect user ids
-    next_cursor = None
-    user_ids = []
-    for sheet in sheets:
-        oid = sheet.pop("_id", None)
-        if oid is not None:
-            next_cursor = str(oid)
-        sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
-        user_ids.append(sheet.get("user_id"))
-
-    # Batch user lookup (avoid N+1)
-    users_map = {}
-    unique_user_ids = [uid for uid in set(user_ids) if uid]
-    if unique_user_ids:
-        users = await db.users.find(
-            {"id": {"$in": unique_user_ids}},
-            {"_id": 0, "id": 1, "email": 1, "full_name": 1}
-        ).to_list(len(unique_user_ids))
-        users_map = {u["id"]: u for u in users}
-    
-    # Attach user info
-    for sheet in sheets:
-        u = users_map.get(sheet.get("user_id"))
-        if u:
-            sheet["user_email"] = u.get("email")
-            sheet["user_name"] = u.get("full_name")
-
-    headers = {}
-    if len(sheets) == limit and next_cursor:
-        headers["X-Next-Cursor"] = next_cursor
-
-    return JSONResponse(content=sheets, headers=headers)
+        return JSONResponse(content=sheets, headers=headers)
+    except Exception as e:
+        logger.error(f"Error in admin_get_route_sheets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
 @admin_router.get("/config", response_model=dict)
