@@ -2605,6 +2605,42 @@ async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin))
     }
 
 
+@admin_router.get("/debug/db-info")
+async def admin_debug_db_info(admin: dict = Depends(get_current_admin)):
+    """
+    Debug endpoint: DB info for troubleshooting admin/web discrepancies.
+    Returns environment, database name, counts, and latest records.
+    """
+    # Get counts
+    users_count = await db.users.count_documents({})
+    sheets_count = await db.route_sheets.count_documents({})
+    
+    # Get latest user
+    last_user = await db.users.find_one(
+        {},
+        {"_id": 0, "email": 1, "created_at": 1},
+        sort=[("created_at", -1)]
+    )
+    
+    # Get latest sheet
+    last_sheet = await db.route_sheets.find_one(
+        {},
+        {"_id": 0, "sheet_number": 1, "created_at": 1},
+        sort=[("created_at", -1)]
+    )
+    
+    return {
+        "app_env": os.environ.get("ENVIRONMENT", "development"),
+        "db_name": db.name,
+        "users_count": users_count,
+        "sheets_count": sheets_count,
+        "last_user_created_at": last_user.get("created_at").isoformat() if last_user and last_user.get("created_at") else None,
+        "last_user_email": last_user.get("email") if last_user else None,
+        "last_sheet_created_at": last_sheet.get("created_at").isoformat() if last_sheet and last_sheet.get("created_at") else None,
+        "last_sheet_number": last_sheet.get("sheet_number") if last_sheet else None
+    }
+
+
 # Include routers
 api_router.include_router(auth_router)
 api_router.include_router(mobile_auth_router)
