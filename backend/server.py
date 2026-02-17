@@ -487,7 +487,7 @@ def _get_git_commit() -> str:
     
     # 3. Hardcoded fallback (updated on each deploy via Save to GitHub)
     # Last updated: 2026-02-17
-    return "afde359"
+    return "7e0b267"
 
 
 @api_router.get("/version")
