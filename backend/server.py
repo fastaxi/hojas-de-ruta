@@ -464,6 +464,42 @@ async def root():
     return {"message": "RutasFast API v1.0", "status": "ok"}
 
 
+def _get_git_commit() -> str:
+    """Get git commit hash, trying env var first, then git command, then 'unknown'"""
+    # 1. Try environment variable
+    commit = os.environ.get("GIT_COMMIT")
+    if commit:
+        return commit
+    
+    # 2. Try git rev-parse
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    
+    # 3. Fallback
+    return "unknown"
+
+
+@api_router.get("/version")
+async def get_version():
+    """API version info (no auth required)"""
+    return {
+        "service": "RutasFast API",
+        "api_version": "1.0.0",
+        "commit": _get_git_commit(),
+        "deployed_at": datetime.now(timezone.utc).isoformat()
+    }
+
+
 @api_router.get("/health")
 async def health_check():
     """Health check with service status (for /api/health)"""
