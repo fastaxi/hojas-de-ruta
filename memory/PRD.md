@@ -114,7 +114,7 @@ Crear usuarios de test mediante el flujo de registro normal + aprobación admin.
 
 ## URLs
 - **Web Producción:** https://asturia-taxi.emergent.host
-- **Preview:** https://taxi-rescue.preview.emergentagent.com
+- **Preview:** https://rutas-staging.preview.emergentagent.com
 
 ## Tareas Pendientes
 
