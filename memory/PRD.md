@@ -93,6 +93,12 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ Paginación cursor en histórico móvil (scroll infinito, 50 por página)
 - ✅ Paginación cursor en histórico web (botón "Cargar más", 50 por página)
 
+## Corrección Timezone (Abr 2026)
+- ✅ Backend devuelve datetimes con indicador UTC (sufijo Z) para correcta serialización JSON
+- ✅ Previsualización web muestra hora correcta Europe/Madrid (antes mostraba UTC, 2h menos)
+- ✅ App móvil usa timeZone Europe/Madrid explícito en formateo de fechas
+- ✅ PDF, preview web y preview móvil ahora muestran la misma hora correcta
+
 ## Configuración de Credenciales
 
 Las credenciales NO se almacenan en el repositorio. Configurar mediante variables de entorno:

@@ -308,6 +308,16 @@ async def shutdown_db_client():
 MADRID_TZ = pytz.timezone('Europe/Madrid')
 
 
+def _ensure_utc_aware(doc: dict) -> dict:
+    """Ensure all datetime fields have UTC tzinfo for correct JSON serialization.
+    MongoDB returns naive datetimes (UTC); marking them ensures JavaScript
+    parses them correctly (ISO string gets +00:00 suffix)."""
+    for key, val in doc.items():
+        if isinstance(val, datetime) and val.tzinfo is None:
+            doc[key] = val.replace(tzinfo=timezone.utc)
+    return doc
+
+
 def date_to_utc_range(d: date) -> tuple[datetime, datetime]:
     """Convert a local date (Europe/Madrid) to UTC datetime range"""
     # Start of day in Madrid
@@ -1486,6 +1496,7 @@ async def get_route_sheets(
         sheet_id = sheet.pop("_id")
         next_cursor = str(sheet_id)
         sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
+        _ensure_utc_aware(sheet)
         result_sheets.append(sheet)
     
     return {
@@ -1506,6 +1517,7 @@ async def get_route_sheet(sheet_id: str, user: dict = Depends(get_current_user))
         raise HTTPException(status_code=404, detail="Hoja no encontrada")
     
     sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
+    _ensure_utc_aware(sheet)
     return sheet
 
 
@@ -2188,6 +2200,9 @@ async def admin_get_route_sheets(
             year = sheet.get('year', 0) or 0
             sheet["sheet_number"] = f"{seq:03d}/{year}" if year else "---"
             user_ids.append(sheet.get("user_id"))
+            
+            # Ensure datetimes are UTC-aware before serialization
+            _ensure_utc_aware(sheet)
             
             # Convert ALL datetime objects to ISO strings for JSON serialization
             for key, val in list(sheet.items()):
