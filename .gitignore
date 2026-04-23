@@ -160,6 +160,7 @@ frontend/node_modules/.cache/default-development/0.pack
 # Environment files
 *.env
 *.env.*
+<<<<<<< conflict_170226_1908
 -e 
 # Environment files
 *.env
@@ -226,3 +227,9 @@ credentials.json
 *.pem
 *.key
 .credentials
+=======
+
+# Mobile build artifacts
+mobile/.expo/
+mobile/android/
+>>>>>>> main
