@@ -23,6 +23,7 @@ export function formatDateTimeES(value) {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
+      timeZone: 'Europe/Madrid',
     }).format(date);
   } catch (error) {
     console.log('[dateFormat] Error formatting datetime:', error.message);
@@ -47,6 +48,7 @@ export function formatDateES(value) {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
+      timeZone: 'Europe/Madrid',
     }).format(date);
   } catch (error) {
     console.log('[dateFormat] Error formatting date:', error.message);
