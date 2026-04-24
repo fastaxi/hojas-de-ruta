@@ -5,10 +5,11 @@
 - Password: TestPass1234
 - Status: APPROVED
 
-## Admin (Development only - falls back if ADMIN_PASSWORD_HASH not set)
+## Admin (Preview Environment)
 - Username: admin
-- Password: admin123 (only when IS_PRODUCTION=false AND no ADMIN_PASSWORD_HASH)
+- Password: AdminTest123
 
 ## Notes
 - Production admin uses ADMIN_PASSWORD_HASH from .env (bcrypt)
-- Do NOT commit real credentials to git
+- Preview admin password was set for testing only
+- Do NOT commit real production credentials

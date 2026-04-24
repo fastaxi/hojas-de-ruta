@@ -58,6 +58,12 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ Configuración global del PDF
 - ✅ Reset de contraseñas
 - ✅ Estado del job de retención
+
+## Corrección Timezone (Abr 2026)
+- ✅ Backend devuelve datetimes con indicador UTC (sufijo Z) para correcta serialización JSON
+- ✅ Previsualización web muestra hora correcta Europe/Madrid (antes mostraba UTC, 2h menos)
+- ✅ App móvil usa timeZone Europe/Madrid explícito en formateo de fechas
+- ✅ PDF, preview web y preview móvil ahora muestran la misma hora correcta
 - ✅ Fechas en zona horaria Europe/Madrid
 
 ### App Móvil
@@ -93,11 +99,11 @@ Aplicación full-stack para taxistas en Asturias, España. Incluye una PWA web r
 - ✅ Paginación cursor en histórico móvil (scroll infinito, 50 por página)
 - ✅ Paginación cursor en histórico web (botón "Cargar más", 50 por página)
 
-## Corrección Timezone (Abr 2026)
-- ✅ Backend devuelve datetimes con indicador UTC (sufijo Z) para correcta serialización JSON
-- ✅ Previsualización web muestra hora correcta Europe/Madrid (antes mostraba UTC, 2h menos)
-- ✅ App móvil usa timeZone Europe/Madrid explícito en formateo de fechas
-- ✅ PDF, preview web y preview móvil ahora muestran la misma hora correcta
+## Corrección Admin Panel (Abr 2026)
+- ✅ AdminAuthContext usa useRef para token - evita closures stale en adminRequest
+- ✅ adminRequest maneja 401 con logout automático (antes mostraba listas vacías)
+- ✅ Aprobación de usuarios: diálogo se cierra antes de mostrar mensaje (antes quedaba oculto)
+- ✅ useEffect de usuarios depende de adminRequest para refetch correcto
 
 ## Configuración de Credenciales
 
