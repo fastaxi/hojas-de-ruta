@@ -8,7 +8,7 @@ from datetime import datetime
 
 def test_approved_user():
     """Test with the pre-approved test user"""
-    base_url = "https://rutas-staging.preview.emergentagent.com"
+    base_url = "https://taxi-rescue.preview.emergentagent.com"
     
     # Test user credentials from review request
     login_data = {

@@ -1,1 +1,0 @@
-{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"ad7e297abc3149ab98fd6194f8f86ca4","collectionName":"retention_locks","type":"collection"}

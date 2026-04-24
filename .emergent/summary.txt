@@ -1,133 +1,276 @@
-<analysis>**original_problem_statement**: 
-The user is building a full-stack application named RutasFast for taxi drivers in Asturias, Spain (React web PWA, React Native mobile app, FastAPI backend, MongoDB). The session involved completing the Roadside Assistance workflow on the mobile app, implementing heavy backend scalability optimizations (async PDFs, memory caching, cursor pagination), fixing production bugs (empty admin panel, datetime serialization), removing hardcoded secrets/improving security hygiene, and finally providing a comprehensive deployment infrastructure inventory so the user can plan a migration away from the Emergent platform.
+<analysis>**original_problem_statement:**
+The user wants to build a full-stack application named RutasFast for taxi drivers in Asturias, Spain. This includes a responsive React web PWA for users and an admin panel, a FastAPI backend with MongoDB, and eventually, a React Native mobile app.
 
-**User's preferred language**: Spanish (Español). INSTRUCT next agent to respond in Spanish only.
+**PRODUCT REQUIREMENTS:**
+- **Platform:** A responsive React web PWA for both the user-facing app and an admin panel. A React Native (Expo) mobile app for users.
+- **Backend:** FastAPI with MongoDB.
+- **Core User Features:**
+    - Secure user registration with an admin approval system.
+    - Login for approved users.
+    - Create and view immutable Hojas de Ruta (Route Sheets).
+    - Annulling sheets (soft delete).
+    - Export route sheets to PDF, with download and share capabilities.
+    - Manage personal profile, vehicle, and additional drivers.
+    - Change password.
+- **Core Admin Features:**
+    - A separate web admin panel () with secure login.
+    - Approve pending users.
+    - View all user data and route sheets.
+    - Edit global PDF configuration.
+    - Manually reset user passwords.
+- **Key Business Logic:**
+    - Atomic, unique sheet numbering per user, per year.
+    - Automated data retention policy (hide at 14 months, purge at 24 months).
+    - Professionally formatted PDFs with watermarks for annulled sheets.
+- **Security:**
+    - Session management via httpOnly cookies for the web admin panel.
+    - JWT-based authentication for the mobile app, with secure refresh token rotation.
+    - Admin credentials in production must be set via environment variables.
 
-**what currently exists?** 
-A robust, production-ready full-stack application. It features role-based auth, route sheet management, PDF generation with ReportLab, and roadside assistance handling. The backend is optimized with async execution for CPU-heavy tasks and cursor-based pagination. The mobile app builds via EAS. The environment is secured, with  failing-closed in production and no secrets tracked in Git.
+**User's preferred language**: Español
 
-**Last working item**: 
-    - Last item agent was working: Providing a detailed deployment inventory (infrastructure, backend execution, MongoDB location, frontend domains) to help the user migrate the application from Emergent Hosting to Render/Railway/Cloud Run.
-    - Status: NONE (Informational task completed)
-    - Agent Testing Done: N/A
-    - Which testing method agent to use? NA
-    - User Testing Done: Y (User actively verified production environment)
+**what currently exists?**
+- A full-stack web application with a FastAPI backend and React frontend.
+- A React Native (Expo) mobile app with complete authentication, route sheet creation, history, PDF viewing/sharing with an offline cache, and a detailed settings section.
+- A GitHub Actions workflow is in place for a daily data retention job.
+- The user has been guided through the process of building and deploying the mobile APK for testing.
 
-**All Pending/In progress Issue list**: 
-  *None active. All reported bugs (mobile white screen on goBack, admin empty list, datetime serialization, flight number validation) were fixed and verified by the user.*
+**Last working item**:
+- **Last item agent was working:** The agent was addressing a critical data inconsistency issue reported by the user. After a user logs in (on web or mobile), their full profile data (DNI, vehicle info, etc.) does not appear in the Configuration or View Sheet screens, even though it was entered during registration. The agent identified that the backend's authentication endpoints (, , ) were only returning a partial user object. The last action taken was to modify the web login endpoint ( in ) to return the complete user object.
+- **Status:** IN PROGRESS
+- **Agent Testing Done:** Y
+- **Which testing method agent to use?** backend testing agent
+- **User Testing Done:** N
 
-**In progress Task List**: 
-  *None. The agent completed all user requests.*
+**All Pending/In progress Issue list**:
+- **Issue 1: Data inconsistency after login (P0)**
+    - **Description:** After a user registers and logs in, their profile information (DNI, vehicle details, etc.) is missing from the web app's Configuration page and the mobile app's View Sheet details screen. This happens because the various login and refresh token endpoints in the backend only return a minimal user object (uid=0(root) gid=0(root) groups=0(root), , ), causing the frontend state to be incomplete.
+    - **Attempted fixes:** The agent successfully modified the web login endpoint () in  to return the full user document from the database, which should resolve the issue for the initial web login.
+    - **Next debug checklist:**
+        1.  Open .
+        2.  Locate the  function for the web app. Modify it to also fetch and return the complete user object, similar to the fix applied to the  function.
+        3.  Locate the  function. Modify it to return the complete user object.
+        4.  Locate the  function. Modify it to return the complete user object.
+        5.  Test the entire authentication flow on both web and mobile to confirm that the user's data is fully populated after login and session refresh.
+    - **Why fix this issue and what will be achieved with the fix?** Fixing this will resolve the core data consistency bug across the entire application, ensuring that user profile information is always available and displayed correctly after any authentication event.
+    - **Status:** IN PROGRESS
+    - **Is recurring issue?** N
+    - **Should Test frontend/backend/both after fix?** Both
+    - **Blocked on other issue:** None
+
+**In progress Task List**:
+- **Task 1: Complete Backend Auth Refactor (P0)**
+    - **Where to resume:** The agent has fixed the web login endpoint in . The immediate next step is to apply the same fix to the web  endpoint, and then to the  and  endpoints in the same file.
+    - **What will be achieved with this?** This will ensure all authentication methods provide the frontend with a complete user object, eliminating data inconsistency.
+    - **Status:** IN PROGRESS
+    - **Should Test frontend/backend/both after fix?** Both
+    - **Blocked on something:** None
 
 **Upcoming and Future Tasks**
-    Upcoming Tasks:
-    - P1: Admin Dashboard Statistics: Implement a dashboard in the web admin panel to show key metrics (e.g., sheets created, active users).
-    
-    Future Tasks:
-    - P2: Export Data to CSV: Add functionality for admins to export user or route sheet data from the web admin panel.
-    - P2: Activate Email Service: The email service in  is currently mocked and might need to be fully implemented now that the user has provisioned a .
+- **Upcoming Tasks:**
+  - **P1: Admin Dashboard Statistics**: Implement a dashboard in the web admin panel to show key metrics (e.g., sheets created, active users).
+- **Future Tasks:**
+  - **P2: Export Data to CSV**: Add functionality for admins to export user or route sheet data from the web admin panel.
 
 **Completed work in this session**
-- Mobile App Roadside Assistance: Implemented , updated  UI, and  (DONE)
-- Scalability: PDF logo memory optimization (, PIL resize) in  (DONE)
-- Scalability: Non-blocking async PDF generation using  in  (DONE)
-- Scalability: Cursor-based pagination for history on mobile () and web ( Cargar más) (DONE)
-- Backend Logic:  validation and timezone fixes for year generation (DONE)
-- UX Bug: Fixed white screen crash on mobile  and  using  fallback (DONE)
-- Security: Forced fail-closed  in production (), wiped  and secrets from  (DONE)
-- Feature: Soft validation for  (allows spaces, dashes, 1-10 chars) across backend, frontend, and mobile (DONE)
-- Prod Fix: Fixed  to use a dynamic  file, fixed Admin panel API pointing to the wrong URL, and resolved 500 error related to  JSON serialization in  (DONE)
-- Ops: Guided user through EAS Android Build, prod secret rotation (JWT, Admin Hash, Resend), and provided infrastructure map (DONE)
+- **Backend Fixes:**
+  - Fixed  returning stale data by adding  to the  model in .
+  - Implemented robust date/time formatting in  to display all dates in  format and in the  timezone, resolving inconsistencies in generated PDFs.
+- **Web Frontend:**
+  - Added the  field to the user configuration page ().
+  - Added a status indicator card to the admin panel () to show the status of the last retention job run, with backend support in .
+  - Corrected UI labels Nº Licencia Taxi and Nº VT as requested by the user.
+- **Mobile App (Expo):**
+  - Resolved numerous critical bugs, including a blank screen on startup, by implementing more robust error handling in  and .
+  - Fixed a crash during route sheet creation by adding missing required fields (, , etc.) to the  form.
+  - Corrected the History screen () to properly handle paginated API responses and display the correct .
+  - Implemented a View Sheet details screen () to display full sheet data without needing a PDF.
+  - Implemented a robust offline PDF caching system (, ) with a limit of 50 files.
+  - Added date/time pickers to the  for Fecha de precontratación and Fecha del servicio.
+- **Infrastructure & Build Process:**
+  - Created a GitHub Actions workflow () to run the daily data retention job automatically.
+  - Debugged and resolved multiple, complex mobile build issues related to dependency mismatches, Node.js version incompatibilities ( ->  -> ), and npm cache permission errors, successfully guiding the user to generate a working APK.
+  - Configured the Expo project for EAS builds by creating  and updating .
 
 **Earlier issues found/mentioned but not fixed**
-   - Issue 1:  warning in logs
-     - Debug checklist: A warning  appears in the backend logs due to a passlib dependency issue.
-     - Why to solve this issue and what will be achieved with this? Cleans up logs. Purely cosmetic.
-     - Should Test frontend/backend/both after fix: Backend
-     - Is recurring issue? Y
+   - **Issue 1:  warning in logs**
+     - **Debug checklist:** A warning  appears in the backend logs. This is likely due to a version mismatch or an issue in a dependency of .
+     - **Why to solve this issue and what will be achieved with this?** It's a low-priority cosmetic issue. Fixing it would clean up the logs, but it has no functional impact.
+     - **Should Test frontend/backend/both after fix:** Backend
+     - **Is recurring issue?** Y
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: None
-  - Recurrence count: 0
-  - Status: RESOLVED
+- None in this session.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend**: FastAPI, MongoDB (Motor async), Pydantic, asyncio (threads for blocking tasks)
-- **Frontend**: React, Create React App (CRA), Tailwind CSS
-- **Mobile**: React Native, Expo, EAS Builds
-- **Security**: Strict environment variable enforcement (no hardcoded secrets in git), bcrypt, JWT.
-- **Data Flow**: Cursor-based pagination () for infinite scrolling lists.
+- **Backend**: FastAPI, Motor, Pydantic v2
+- **Frontend (Web)**: React, React Router, Tailwind CSS, Shadcn UI
+- **Frontend (Mobile)**: React Native, Expo, React Navigation, , , 
+- **Database**: MongoDB
+- **Authentication**: Dual system (httpOnly cookies for web, JWT with refresh token rotation for mobile).
+- **CI/CD**: GitHub Actions for scheduled jobs.
+- **Builds**: Expo Application Services (EAS) for Android APK builds.
 
 **key DB schema**
-  - route_sheets: 
-  - assistance_companies: 
-  - users: 
+- No changes to the schema.
 
 **changes in tech stack**
-  - None, but heavy emphasis on  for reportlab CPU-bound PDF generation to prevent event loop blocking.
+- **GitHub Actions** was introduced for cron jobs.
+- **Expo Application Services (EAS)** was configured and used for building the mobile app.
 
 **All files of reference**
-  -  (Core logic, async handling, cursor pagination, admin endpoints)
-  -  (Optimized logo handling)
-  -  (Security fail-safes)
-  -  (Web pagination)
-  -  (Mobile infinite scroll)
-  -  (Flight number UI updates)
-  -  (Kept clean of plaintext credentials)
+- : Core logic for auth endpoints and retention status. (Partially fixed).
+- : Updated  model.
+- : Updated with new date formatting logic.
+- : UI labels updated.
+- : New retention status UI.
+- : Heavily modified to fix bugs and add date pickers.
+- : Heavily modified to add new features and fix bugs.
+- : New file for viewing sheet details.
+- : New file for PDF caching.
+- : New file for PDF viewing logic.
+- : Updated to include the new detail screen.
+- : Updated multiple times for build configurations.
+- : New file for EAS build configuration.
+- : New file for the cron job.
 
 **Areas that need refactoring**:
-  - The email service () is currently mocked. Now that the user has added a  to production, this file could be refactored to actually send emails.
+- None identified.
 
 **key api endpoints**
-  - : Enhanced with  validation and flexible  format.
-  - : Returns  for infinite scrolling.
-  -  & : Now run in  to prevent backend freezing.
-  - : Reads from  to return real deployed commit SHA.
-  - : Diagnostics endpoint to verify DB connections and environment.
+-  (Web): Partially fixed to return full user object.
+-  (Web): Needs to be fixed to return full user object.
+-  (Mobile): Needs to be fixed to return full user object.
+-  (Mobile): Needs to be fixed to return full user object.
+- : Used to fetch the complete user profile.
+- : Used by the new .
+- : Used for downloading PDFs.
+- : Endpoint for the cron job.
 
 **Critical Info for New Agent**
-  - **Environment Hygiene:** The repo was strictly cleansed of hardcoded secrets,  files, and . Do NOT commit any credentials or test reports.
-  - **Production Security:**  will crash the app intentionally on startup if  and  is missing. 
-  - **Migration Context:** The user requested a detailed inventory of the Emergent deployment because they plan to migrate the app to Render/Railway. Be prepared to assist with migration scripts,  commands, or Dockerization if requested.
-  - **Mobile Builds:** The user builds the APK locally on their Mac using Expo/EAS. Do not break  or standard React Native dependencies.
+- The top priority is to fix the data inconsistency issue by ensuring all backend authentication endpoints (web refresh, mobile login, mobile refresh) return the complete user object, just as the web login endpoint now does. This is the root cause of the UI bugs reported by the user.
+- The user builds the mobile APK on their local machine (a Mac). Be prepared to guide them through usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+
+start a working area (see also: git help tutorial)
+   clone     Clone a repository into a new directory
+   init      Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+   add       Add file contents to the index
+   mv        Move or rename a file, a directory, or a symlink
+   restore   Restore working tree files
+   rm        Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect    Use binary search to find the commit that introduced a bug
+   diff      Show changes between commits, commit and working tree, etc
+   grep      Print lines matching a pattern
+   log       Show commit logs
+   show      Show various types of objects
+   status    Show the working tree status
+
+grow, mark and tweak your common history
+   branch    List, create, or delete branches
+   commit    Record changes to the repository
+   merge     Join two or more development histories together
+   rebase    Reapply commits on top of another base tip
+   reset     Reset current HEAD to the specified state
+   switch    Switch branches
+   tag       Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch     Download objects and refs from another repository
+   pull      Fetch from and integrate with another repository or a local branch
+   push      Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+See 'git help git' for an overview of the system., npm <command>
+
+Usage:
+
+npm install        install all the dependencies in your project
+npm install <foo>  add the <foo> dependency to your project
+npm test           run this project's tests
+npm run <foo>      run the script named <foo>
+npm <command> -h   quick help on <command>
+npm -l             display usage info for all commands
+npm help <term>    search for help on <term>
+npm help npm       more involved overview
+
+All commands:
+
+    access, adduser, audit, bugs, cache, ci, completion,
+    config, dedupe, deprecate, diff, dist-tag, docs, doctor,
+    edit, exec, explain, explore, find-dupes, fund, get, help,
+    help-search, hook, init, install, install-ci-test,
+    install-test, link, ll, login, logout, ls, org, outdated,
+    owner, pack, ping, pkg, prefix, profile, prune, publish,
+    query, rebuild, repo, restart, root, run-script, sbom,
+    search, set, shrinkwrap, star, stars, start, stop, team,
+    test, token, uninstall, unpublish, unstar, update, version,
+    view, whoami
+
+Specify configs in the ini-formatted file:
+    /root/.npmrc
+or on the command line via: npm <command> --key=value
+
+More configuration info: npm help config
+Configuration fields: npm help 7 config
+
+npm@10.8.2 /usr/lib/node_modules/npm, and  commands, and to troubleshoot local environment issues (like Node.js version or npm permissions).
+- The production backend has been deployed with recent changes, but any new backend modifications will require another Save to Github and Redeploy cycle.
 
 **documents and test reports created in this job**
-  -  (Updated, removed secrets)
-  -  (Roadside assistance testing)
-  -  (Scalability testing)
-  -  (Dynamic version tracking file)
+-  (Updated with release notes)
+-  (New)
 
-**Last 10 User Messages and any pending HUMAN messages** 
- - *User*: Requested deployment architecture inventory (Emergent hosting, git link, DB location, env vars, etc.) to plan a migration to Render/Railway/Cloud Run. (Completed)
- - *User*: Requested rotation of secrets in production (JWT, Admin password, Resend API key). (Completed)
- - *User*: Asked how to change subdomain or shutdown the app on Emergent. (Completed)
- - *User*: Confirmed admin panel is working after clearing browser cache. (Completed)
- - *User*: Admin panel showing empty lists. Debugging requested. (Completed, fixed datetime serialization and .env URLs).
- - *User*: Asked why  showed unknown in production. (Completed, added VERSION file).
- - *User*: Requested  endpoint to track deployed commit. (Completed)
- - *User*: Asked how to verify if deployment on Emergent matches latest GitHub commit. (Completed)
- - *User*: Prompted for mobile UI placeholder update for flexible flight numbers. (Completed)
- - *User*: Requested flexible/soft validation for flight numbers. (Completed)
+**Last 10 User Messages and any pending HUMAN messages**
+1. **User**: Reports that after building the APK, it has a white screen after registration. (Bug)
+2. **Agent**: Debugs the mobile app, finds multiple potential issues, and applies fixes to  and .
+3. **User**: After a new build, reports that creating a route sheet shows  and the sheet doesn't appear in the history. (Bug)
+4. **Agent**: Identifies the root cause: the mobile app was sending an incomplete payload and was not parsing the API response correctly. Fixes  and .
+5. **User**: Requests adding date/time pickers for the service and pre-booking times, and fixing date formats in PDFs. (Feature)
+6. **Agent**: Implements the date/time pickers in the mobile app () and robust date formatting in the backend ().
+7. **User**: Confirms the backend changes are deployed and the PDF format is now correct.
+8. **User**: Requests a new View Sheet screen to see details without opening a PDF, and an offline PDF cache. (Feature)
+9. **Agent**: Implements the , a PDF caching utility, and updates the UI with new buttons.
+10. **User**: Reports a critical bug: after registering, user data is missing in the configuration screen (web) and View Sheet screen (mobile), but appears when creating a new sheet. Also requests UI label changes. (Bug + Improvement)
+11. **Agent**: Identifies the root cause as partial user objects being returned from auth endpoints, fixes the UI labels, and begins fixing the backend auth endpoints, starting with the web login.
 
 **Project Health Check:**
-- Broken: None
-- Mocked:  (Mocked, but user recently added  to prod environment).
+- **Broken**: The core authentication flow is inconsistent. User profile data does not load correctly across the web and mobile apps after login, leading to empty fields in key screens.
+- **Mocked**: The email service () remains disabled.
 
 **3rd Party Integrations**
-  - ReportLab (PDF generation) - No key required
-  - Resend (Email) - Requires User API Key (Configured in prod, mock service needs updating)
+- **ReportLab**: PDF generation.
+- **Pillow**: Image processing.
+- **Expo**: React Native framework.
+- **GitHub Actions**: For scheduled jobs.
 
 **Testing status**
-  - Testing agent used after significant changes: YES
-  - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: Updated  and 
-  - Known regressions: None
+- **Testing agent used after significant changes:** NO
+- **Troubleshoot agent used after agent stuck in loop:** NO
+- **Test files created:** None.
+- **Known regressions:** None.
 
 **Credentials to test flow:**
-  - Test credentials for development ( falls back to admin123 only if  is false). For safety, do not print or add credentials to  files.
+- **Web Admin**:
+    - Username: 
+    - Password: 
+- **Test User (Production):**  (password unknown to agent)
+- **Test User (Local Sandbox):**  can be created and used for local backend testing.
 
 **What agent forgot to execute**
-  - The agent addressed all items from the problem statement and subsequent prompts thoroughly. No missed items.</analysis>
+- The agent correctly identified that all authentication endpoints needed to be fixed but only managed to patch the web  endpoint () in . The fix has not been applied to the web  endpoint or the two mobile authentication endpoints (, ), meaning the data inconsistency issue is still present in most scenarios.</analysis>
