@@ -84,9 +84,10 @@ export function AdminUsersPage() {
     fetchUsers(false);
   };
 
+  // adminRequest is now stable (ref-based) so this won't loop
   useEffect(() => {
     fetchUsers(true);
-  }, [filter, search]);
+  }, [adminRequest, filter, search]);
 
   // Fetch password reset history for selected user
   const fetchResetHistory = useCallback(async (userId) => {
@@ -115,17 +116,17 @@ export function AdminUsersPage() {
   const handleApprove = async (userId) => {
     setActionLoading(true);
     try {
-      const result = await adminRequest('post', `/admin/users/${userId}/approve`);
-      setMessage(result.email_sent 
-        ? 'Usuario aprobado y notificado por email' 
-        : 'Usuario aprobado (email no enviado)');
-      fetchUsers();
+      await adminRequest('post', `/admin/users/${userId}/approve`);
       setSelectedUser(null);
+      setMessage('Usuario aprobado correctamente');
+      fetchUsers(true);
     } catch (err) {
-      setMessage('Error al aprobar usuario');
+      const detail = err.response?.data?.detail || 'Error al aprobar usuario';
+      setMessage(detail);
+      console.error('Error approving user:', err);
     } finally {
       setActionLoading(false);
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), 4000);
     }
   };
 
