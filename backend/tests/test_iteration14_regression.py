@@ -130,18 +130,19 @@ class TestAdminPagination:
 
 # ---------- Brute force web login ----------
 class TestWebLoginBruteForce:
-    @pytest.mark.xfail(
-        reason="DEFECTO CONOCIDO (it.14): /api/auth/login no tiene lockout por fuerza bruta "
-               "(admin=5, móvil=10, web=sin límite). Pendiente de fix por el agente principal.",
-        strict=False,
-    )
     def test_web_login_rate_limit_after_5_failures(self):
         statuses = []
-        for _ in range(7):
-            r = requests.post(f"{BASE_URL}/api/auth/login",
-                              json={"email": "TEST_nonexistent_bf@test.com", "password": "wrong"},
-                              timeout=30)
-            statuses.append(r.status_code)
-        assert 429 in statuses, (
-            f"/api/auth/login NO tiene lockout por fuerza bruta; statuses={statuses}"
-        )
+        try:
+            for _ in range(7):
+                r = requests.post(f"{BASE_URL}/api/auth/login",
+                                  json={"email": "TEST_nonexistent_bf@test.com", "password": "wrong"},
+                                  timeout=30)
+                statuses.append(r.status_code)
+            assert 429 in statuses, (
+                f"/api/auth/login NO tiene lockout por fuerza bruta; statuses={statuses}"
+            )
+        finally:
+            # Clean sacrifice-email lockout so reruns within 15 min don't misbehave
+            from pymongo import MongoClient
+            db = MongoClient('mongodb://localhost:27017')['rutasfast_db']
+            db.rate_limits.delete_many({'action': 'web_login_fail'})

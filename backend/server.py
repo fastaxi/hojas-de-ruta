@@ -437,6 +437,55 @@ async def record_pdf_request(user_id: str, action: str):
     })
 
 
+# ============== WEB LOGIN BRUTE FORCE PROTECTION ==============
+WEB_LOGIN_MAX_ATTEMPTS = 5
+WEB_LOGIN_LOCKOUT_MINUTES = 15
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract real client IP (behind proxy)"""
+    ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+    return ip
+
+
+async def check_web_login_rate_limit(ip: str, email: str) -> None:
+    """Block web login after too many failed attempts (persistent per IP+email)"""
+    key = f"{ip}:{email.lower()}"
+    now = datetime.now(timezone.utc)
+    count = await db.rate_limits.count_documents({
+        "user_id": key,
+        "action": "web_login_fail",
+        "expires_at": {"$gt": now}
+    })
+    if count >= WEB_LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Demasiados intentos fallidos. Espera {WEB_LOGIN_LOCKOUT_MINUTES} minutos."
+        )
+
+
+async def record_web_login_failure(ip: str, email: str):
+    """Record a failed web login attempt"""
+    now = datetime.now(timezone.utc)
+    await db.rate_limits.insert_one({
+        "user_id": f"{ip}:{email.lower()}",
+        "action": "web_login_fail",
+        "created_at": now,
+        "expires_at": now + timedelta(minutes=WEB_LOGIN_LOCKOUT_MINUTES)
+    })
+
+
+async def clear_web_login_failures(ip: str, email: str):
+    """Clear failed attempts after successful login"""
+    await db.rate_limits.delete_many({
+        "user_id": f"{ip}:{email.lower()}",
+        "action": "web_login_fail"
+    })
+
+
 # ============== PDF CACHING ==============
 # Keep the cache small: mobile devices already cache/share locally.
 # Long TTL + large PDFs can explode Mongo storage.
@@ -670,15 +719,22 @@ async def register(data: UserCreate):
 
 
 @auth_router.post("/login")
-async def login(data: LoginRequest):
+async def login(data: LoginRequest, request: Request):
     """
     Login user - returns access token in JSON, sets refresh token in httpOnly cookie.
     Must be approved. Handles temp password expiry and must_change_password flag.
+    Brute force protection: 5 failed attempts per IP+email = 15 min lockout.
     """
+    client_ip = get_client_ip(request)
+    await check_web_login_rate_limit(client_ip, data.email)
+    
     user = await db.users.find_one({"email": data.email}, {"_id": 0})
     
     if not user or not verify_password(data.password, user["password_hash"]):
+        await record_web_login_failure(client_ip, data.email)
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    
+    await clear_web_login_failures(client_ip, data.email)
     
     if user["status"] != "APPROVED":
         raise HTTPException(
@@ -1507,6 +1563,7 @@ async def get_route_sheets(
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
     include_annulled: bool = False,
+    search: Optional[str] = None,
     limit: int = Query(default=50, le=200),
     cursor: Optional[str] = None,
     user: dict = Depends(get_current_user)
@@ -1536,6 +1593,21 @@ async def get_route_sheets(
             pickup_filter["$lte"] = to_end
         if pickup_filter:
             query["pickup_datetime"] = pickup_filter
+    
+    # Server-side search: sheet number (012 or 012/2026), destination, passengers
+    if search and search.strip():
+        s = search.strip()
+        or_conds = [
+            {"destination": {"$regex": re.escape(s), "$options": "i"}},
+            {"passenger_info": {"$regex": re.escape(s), "$options": "i"}},
+        ]
+        num_match = re.match(r'^(\d{1,4})(?:/(\d{4}))?$', s)
+        if num_match:
+            num_cond = {"seq_number": int(num_match.group(1))}
+            if num_match.group(2):
+                num_cond["year"] = int(num_match.group(2))
+            or_conds.append(num_cond)
+        query["$or"] = or_conds
     
     # Cursor pagination aligned with sort (year desc, seq_number desc, _id desc)
     if cursor:
@@ -2318,6 +2390,77 @@ async def admin_get_route_sheets(
     except Exception as e:
         logger.error(f"Error in admin_get_route_sheets: {str(e)}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@admin_router.get("/stats")
+async def admin_get_stats(
+    months: int = Query(12, ge=1, le=36),
+    admin: dict = Depends(get_current_admin)
+):
+    """Admin dashboard stats: sheets per month + most active taxistas + totals"""
+    now = datetime.now(timezone.utc)
+    since = now - relativedelta(months=months - 1)
+    since_month_start = datetime(since.year, since.month, 1, tzinfo=timezone.utc)
+
+    sheets_by_month = await db.route_sheets.aggregate([
+        {"$match": {"created_at": {"$gte": since_month_start}}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": "%Y-%m", "date": "$created_at", "timezone": "Europe/Madrid"}},
+            "total": {"$sum": 1},
+            "annulled": {"$sum": {"$cond": [{"$eq": ["$status", "ANNULLED"]}, 1, 0]}}
+        }},
+        {"$sort": {"_id": 1}}
+    ]).to_list(50)
+
+    top_users_raw = await db.route_sheets.aggregate([
+        {"$match": {"created_at": {"$gte": since_month_start}}},
+        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]).to_list(10)
+
+    user_ids = [u["_id"] for u in top_users_raw if u["_id"]]
+    users_map = {}
+    if user_ids:
+        users = await db.users.find(
+            {"id": {"$in": user_ids}},
+            {"_id": 0, "id": 1, "full_name": 1, "email": 1}
+        ).to_list(len(user_ids))
+        users_map = {u["id"]: u for u in users}
+
+    top_users = [{
+        "user_id": u["_id"],
+        "full_name": users_map.get(u["_id"], {}).get("full_name", "Usuario eliminado"),
+        "email": users_map.get(u["_id"], {}).get("email", ""),
+        "sheets_count": u["count"]
+    } for u in top_users_raw]
+
+    total_sheets = await db.route_sheets.count_documents({})
+    active_sheets = await db.route_sheets.count_documents({"status": "ACTIVE"})
+
+    # Zero-fill months without activity so the chart has a continuous axis
+    month_map = {s["_id"]: s for s in sheets_by_month}
+    filled_months = []
+    cur = since_month_start
+    while cur <= now:
+        key = f"{cur.year:04d}-{cur.month:02d}"
+        m = month_map.get(key, {"total": 0, "annulled": 0})
+        filled_months.append({"month": key, "total": m["total"], "annulled": m["annulled"]})
+        cur = cur + relativedelta(months=1)
+
+    return {
+        "months": months,
+        "sheets_by_month": filled_months,
+        "top_users": top_users,
+        "totals": {
+            "total_sheets": total_sheets,
+            "active_sheets": active_sheets,
+            "annulled_sheets": total_sheets - active_sheets,
+            "total_users": await db.users.count_documents({}),
+            "approved_users": await db.users.count_documents({"status": "APPROVED"}),
+            "pending_users": await db.users.count_documents({"status": "PENDING"})
+        }
+    }
 
 
 @admin_router.get("/config", response_model=dict)

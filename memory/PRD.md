@@ -151,6 +151,19 @@ Health check del deployment agent: **PASS** (sin bloqueadores). Regresión testi
 - Búsqueda del Histórico es client-side (no encuentra hojas no cargadas aún)
 - Contraste bajo del footer/píldoras de la Landing sobre la foto
 
+## 4 Mejoras nuevas (Jun 2026 - iteración 15)
+Verificado end-to-end por testing agent: 123 tests backend passed + todos los flujos UI.
+- ✅ **Límite de intentos login web**: 5 intentos fallidos por IP+email = bloqueo 15 min (HTTP 429, mensaje en español). Persistente en colección rate_limits (sobrevive reinicios). Se limpia al login correcto. No filtra existencia de emails.
+- ✅ **Panel Estadísticas admin** (/admin/stats): tarjetas de totales (hojas/usuarios/aprobados/pendientes), gráfico de barras apiladas hojas por mes (activas/anuladas, meses en español, zero-fill de meses vacíos), top 10 taxistas más activos con barras, selector 6/12/24 meses. Endpoint GET /api/admin/stats con agregaciones timezone Europe/Madrid.
+- ✅ **Búsqueda server-side del Histórico**: el buscador encuentra hojas antiguas sin "Cargar más" (busca por número '63' o '063/2026', destino y pasajeros; debounce 400ms; regex escapado, sin ReDoS).
+- ✅ **Calendarios en español**: componentes DatePickerES/DateTimePickerES (shadcn Calendar + date-fns locale es, dd/MM/yyyy, semana empieza en lunes) sustituyen todos los inputs nativos date/datetime-local en NuevaHoja (precontratación y recogida fecha+hora), Histórico (Desde/Hasta) y Admin Hojas (Desde/Hasta).
+
+### Mejoras menores anotadas (opcionales, backlog)
+- Input de hora nativo muestra AM/PM si el navegador está en inglés (el valor guardado es correcto)
+- Unificar rate limit móvil (in-memory) con el mecanismo persistente de Mongo
+- Validar Desde<=Hasta en filtros de /admin/hojas
+- Búsqueda con regex no indexado (fine hasta ~decenas de miles de hojas)
+
 ## Tareas Pendientes
 
 ### P1 - Próximas

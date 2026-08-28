@@ -10,6 +10,7 @@ import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
+import { DatePickerES } from '../../components/DatePickerES';
 import axios from 'axios';
 import { 
   Search, Download, Loader2, FileText, Calendar, 
@@ -223,22 +224,18 @@ export function AdminSheetsPage() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-stone-500">Desde</Label>
-              <Input
-                type="date"
+              <DatePickerES
                 value={filters.from_date}
-                onChange={(e) => updateFilter('from_date', e.target.value)}
-                className="h-10"
-                data-testid="filter-from"
+                onChange={(v) => updateFilter('from_date', v)}
+                testId="filter-from"
               />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-stone-500">Hasta</Label>
-              <Input
-                type="date"
+              <DatePickerES
                 value={filters.to_date}
-                onChange={(e) => updateFilter('to_date', e.target.value)}
-                className="h-10"
-                data-testid="filter-to"
+                onChange={(v) => updateFilter('to_date', v)}
+                testId="filter-to"
               />
             </div>
           </div>

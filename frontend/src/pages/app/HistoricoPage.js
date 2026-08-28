@@ -10,6 +10,7 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Switch } from '../../components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
+import { DatePickerES } from '../../components/DatePickerES';
 import { toast } from '../../hooks/use-toast';
 import { 
   FileText, Download, Ban, Search, Filter, Loader2, 
@@ -69,7 +70,14 @@ export function HistoricoPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isExportingRange, setIsExportingRange] = useState(false);
+
+  // Debounce search so we don't hit the API on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
   // Cursor pagination
   const PAGE_LIMIT = 50;
@@ -113,6 +121,7 @@ export function HistoricoPage() {
       if (fromDate) params.append('from_date', fromDate);
       if (toDate) params.append('to_date', toDate);
       if (includeAnnulled) params.append('include_annulled', 'true');
+      if (debouncedSearch) params.append('search', debouncedSearch);
 
       params.append('limit', String(PAGE_LIMIT));
       const currentCursor = cursorRef.current;
@@ -145,7 +154,7 @@ export function HistoricoPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [fromDate, toDate, includeAnnulled]);
+  }, [fromDate, toDate, includeAnnulled, debouncedSearch]);
 
   useEffect(() => {
     fetchSheets({ reset: true });
@@ -357,11 +366,8 @@ export function HistoricoPage() {
     }
   };
 
-  const filteredSheets = sheets.filter(sheet => {
-    if (!searchTerm) return true;
-    return sheet.sheet_number.includes(searchTerm) || 
-           sheet.destination?.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // Search is server-side now (finds old sheets without loading all pages)
+  const filteredSheets = sheets;
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -395,7 +401,7 @@ export function HistoricoPage() {
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por número o destino..."
+                placeholder="Buscar por número, destino o pasajero..."
                 className="pl-10 h-12"
                 data-testid="search-sheets"
               />
@@ -405,22 +411,18 @@ export function HistoricoPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-stone-500">Desde</Label>
-                <Input
-                  type="date"
+                <DatePickerES
                   value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="h-10"
-                  data-testid="filter-from"
+                  onChange={setFromDate}
+                  testId="filter-from"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-stone-500">Hasta</Label>
-                <Input
-                  type="date"
+                <DatePickerES
                   value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="h-10"
-                  data-testid="filter-to"
+                  onChange={setToDate}
+                  testId="filter-to"
                 />
               </div>
             </div>
