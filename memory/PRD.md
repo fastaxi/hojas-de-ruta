@@ -139,6 +139,18 @@ Verificado con testing agent: 104/104 tests backend + 17/17 comprobaciones UI.
 - ⏳ NO aplicado (backlog, sin impacto funcional): división de componentes grandes (ConfiguracionPage 982 líneas, AdminUsersPage, AdminSheetsPage, AdminConfigPage) y de funciones backend largas (create_route_sheet, pdf_generator)
 - ⚠️ Tras el deploy, los admins deberán volver a iniciar sesión (el token antiguo de localStorage ya no se usa)
 
+## Preparación de Deployment (Jun 2026 - iteración 14)
+Health check del deployment agent: **PASS** (sin bloqueadores). Regresión testing agent: 111 tests passed, sin regresiones.
+- ✅ Creado `mobile/.env` (EXPO_PUBLIC_BACKEND_URL, tunnel/packager vars)
+- ✅ URL móvil ya no está hardcodeada en `app.json`; `config.js` lee EXPO_PUBLIC_BACKEND_URL y `eas.json` define la URL de producción para builds EAS (los APK nuevos deben compilarse con `eas build`)
+- ✅ CORS_ORIGINS="*" (requisito del deployment agent para preview/custom domains; la web es same-origin y las cookies SameSite=lax mitigan el riesgo)
+- ✅ ELIMINADO el índice TTL destructivo en route_sheets.purge_at (startup + retry): las hojas ya NUNCA se borran automáticamente por MongoDB; la purga es exclusiva del retention job explícito (GitHub Actions / endpoint admin con dry-run). Migración con drop automático del índice legacy, verificada en BD y logs, sin pérdida de datos (los TTL de tokens/cache/rate-limits se mantienen, son efímeros)
+
+### Hallazgos menores pendientes (no bloqueantes, preexistentes)
+- El login web de usuario no tiene rate limiting/lockout (admin 5/5min y móvil 10 sí lo tienen) — recomendable migrar contadores a la colección rate_limits
+- Búsqueda del Histórico es client-side (no encuentra hojas no cargadas aún)
+- Contraste bajo del footer/píldoras de la Landing sobre la foto
+
 ## Tareas Pendientes
 
 ### P1 - Próximas

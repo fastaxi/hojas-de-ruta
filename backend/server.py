@@ -173,13 +173,24 @@ async def startup_db():
         db.route_sheets.create_index("id", unique=True), 
         False, failures_critical, failures_noncritical)
 
-    # ROUTE SHEETS - CRITICAL: unique numbering + TTL purge
+    # ROUTE SHEETS - CRITICAL: unique numbering
     await _create_index("route_sheets_unique_user_year_seq",
         db.route_sheets.create_index([("user_id", 1), ("year", 1), ("seq_number", 1)], unique=True),
         True, failures_critical, failures_noncritical)
-    await _create_index("route_sheets_ttl_purge_at",
-        db.route_sheets.create_index("purge_at", expireAfterSeconds=0),
-        True, failures_critical, failures_noncritical)
+
+    # ROUTE SHEETS - purge_at: plain index only. Deletion of user data is NEVER
+    # automatic (no TTL); it happens exclusively via the explicit retention job.
+    try:
+        index_info = await db.route_sheets.index_information()
+        for idx_name, idx_spec in index_info.items():
+            if idx_spec.get("key") == [("purge_at", 1)] and "expireAfterSeconds" in idx_spec:
+                await db.route_sheets.drop_index(idx_name)
+                logger.info(f"Dropped legacy TTL index '{idx_name}' on route_sheets.purge_at (purge is explicit via retention job)")
+    except Exception as e:
+        logger.warning(f"Could not inspect/drop legacy TTL index on route_sheets: {e}")
+    await _create_index("route_sheets_purge_at",
+        db.route_sheets.create_index("purge_at"),
+        False, failures_critical, failures_noncritical)
 
     # PASSWORD RESET TOKENS - CRITICAL TTL
     await _create_index("password_reset_tokens_unique_token_hash",
@@ -268,11 +279,9 @@ async def retry_critical_indexes_forever():
             failures_noncritical = []
             
             # Retry only critical indexes
+            # (NO TTL on route_sheets.purge_at: user data deletion is explicit via retention job)
             await _create_index("route_sheets_unique_user_year_seq",
                 db.route_sheets.create_index([("user_id", 1), ("year", 1), ("seq_number", 1)], unique=True),
-                True, failures_critical, failures_noncritical)
-            await _create_index("route_sheets_ttl_purge_at",
-                db.route_sheets.create_index("purge_at", expireAfterSeconds=0),
                 True, failures_critical, failures_noncritical)
             await _create_index("password_reset_tokens_ttl_expires_at",
                 db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0),
@@ -2776,7 +2785,7 @@ if not cors_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=cors_origins,  # Explicit list, no wildcards with credentials
+    allow_origins=cors_origins,  # Explicit list or "*" (Starlette reflects origin with credentials)
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Next-Cursor", "X-Total-Count"],
