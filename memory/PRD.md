@@ -116,14 +116,30 @@ Crear usuarios de test mediante el flujo de registro normal + aprobación admin.
 - **Web Producción:** https://asturia-taxi.emergent.host
 - **Preview:** https://taxi-rescue.preview.emergentagent.com
 
+## Revisión general y fixes (Jun 2026)
+Auditoría completa con testing agent (iteraciones 11 y 12, 53 tests pytest + UI Playwright):
+- ✅ FIX: crear empresa de asistencia solo con teléfono (la web enviaba email:'' → 422; ahora normaliza a null y el backend también acepta '' desde móvil)
+- ✅ FIX: paginación en Admin > Hojas de Ruta ("Cargar más" + contador "X de Y hojas" con X-Total-Count; antes solo se veían 50)
+- ✅ FIX CRÍTICO: cursor keyset alineado con el sort (year|seq|_id) en /api/admin/route-sheets y /api/route-sheets; antes ~60% de hojas inalcanzables y duplicados al paginar
+- ✅ FIX: migración automática en startup de fechas legacy guardadas como string (31 campos) → BSON date; corrige desfase de 2h y filtros de fecha del admin que devolvían 0 resultados
+- ✅ FIX: _ensure_utc_aware también normaliza strings ISO sin timezone
+- ✅ FIX: eliminada la ráfaga de 401/AxiosError en consola al recargar (interceptor axios registrado una vez con ref del token) y el AuthContext de usuario ya no llama /auth/refresh en rutas /admin
+- ✅ FIX: límites acotados en endpoints admin (Query le=200), error 500 genérico sin fuga de detalles, CORS expose_headers para X-Next-Cursor/X-Total-Count
+- ✅ FIX: MONGO_URL añadido a backend/.env (antes dependía del fallback hardcodeado)
+- ✅ Filtro Taxista del admin carga todos los usuarios por páginas de 200
+
 ## Tareas Pendientes
 
 ### P1 - Próximas
 - Dashboard de estadísticas en Admin (hojas creadas, usuarios activos)
+- Reemplazar inputs date/datetime nativos (formato mm/dd/yyyy en inglés) por calendario shadcn con locale es y formato dd/mm/aaaa (NuevaHojaPage, HistoricoPage, AdminSheetsPage)
 
 ### P2 - Futuras
 - Exportar datos a CSV desde admin
 - Activar servicio de email (actualmente MOCKED)
+- Aprovechar ancho de escritorio en Histórico (hoy limitado a ~360px)
+- Indicador del job de retención: diferenciar "no programado" (preview) de "fallo" (muestra 'Crítico' permanente en preview)
+- Endpoint ligero de usuarios (id+nombre) para el filtro Taxista si se superan ~2000 usuarios
 
 ## Notas Técnicas
 - El servicio de email (`email_service.py`) está deshabilitado

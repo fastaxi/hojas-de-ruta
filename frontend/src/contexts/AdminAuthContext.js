@@ -62,7 +62,7 @@ export function AdminAuthProvider({ children }) {
   }, []);
 
   // Always reads from ref - never stale, stable reference
-  const adminRequest = useCallback(async (method, endpoint, data = null) => {
+  const adminRequest = useCallback(async (method, endpoint, data = null, options = {}) => {
     const currentToken = tokenRef.current;
     if (!currentToken) {
       throw new Error('No admin token available');
@@ -80,7 +80,7 @@ export function AdminAuthProvider({ children }) {
     
     try {
       const response = await axios(config);
-      return response.data;
+      return options.fullResponse ? response : response.data;
     } catch (error) {
       if (error.response?.status === 401) {
         logout();

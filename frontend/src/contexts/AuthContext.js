@@ -23,14 +23,21 @@ export function AuthProvider({ children }) {
   // Ref to track if we're currently refreshing to prevent duplicate requests
   const isRefreshing = useRef(false);
   const refreshPromise = useRef(null);
+  // Ref mirror of accessToken so the request interceptor never reads a stale value
+  const accessTokenRef = useRef(null);
+
+  const applyAccessToken = (token) => {
+    accessTokenRef.current = token;
+    setAccessToken(token);
+  };
 
   // Setup axios interceptor for automatic token refresh on 401
   useEffect(() => {
     const requestInterceptor = axios.interceptors.request.use(
       (config) => {
         // Add access token to requests if we have one
-        if (accessToken) {
-          config.headers.Authorization = `Bearer ${accessToken}`;
+        if (accessTokenRef.current) {
+          config.headers.Authorization = `Bearer ${accessTokenRef.current}`;
         }
         return config;
       },
@@ -90,7 +97,8 @@ export function AuthProvider({ children }) {
       axios.interceptors.request.eject(requestInterceptor);
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Try to refresh token (returns new access token or throws)
   const tryRefreshToken = async () => {
@@ -99,7 +107,7 @@ export function AuthProvider({ children }) {
       const response = await axios.post(`${API_URL}/auth/refresh`);
       const { access_token, user: userData } = response.data;
       
-      setAccessToken(access_token);
+      applyAccessToken(access_token);
       setUser(userData);
       
       return access_token;
@@ -112,6 +120,11 @@ export function AuthProvider({ children }) {
   // Bootstrap: try to restore session on mount
   useEffect(() => {
     const initAuth = async () => {
+      // Admin panel uses its own auth context - skip user session restore there
+      if (window.location.pathname.startsWith('/admin')) {
+        setLoading(false);
+        return;
+      }
       try {
         // Try to refresh - if we have a valid cookie, this will work
         await tryRefreshToken();
@@ -131,7 +144,7 @@ export function AuthProvider({ children }) {
     const response = await axios.post(`${API_URL}/auth/login`, { email, password });
     const { access_token, must_change_password, user: userData } = response.data;
     
-    setAccessToken(access_token);
+    applyAccessToken(access_token);
     setUser({ ...userData, must_change_password });
     
     // If must_change_password, don't fetch full profile yet
@@ -178,6 +191,7 @@ export function AuthProvider({ children }) {
     } finally {
       // Clear local state regardless of API response
       setUser(null);
+      accessTokenRef.current = null;
       setAccessToken(null);
     }
   }, []);

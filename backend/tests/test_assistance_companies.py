@@ -44,7 +44,7 @@ class TestAssistanceCompanies:
             for company in companies:
                 if company.get("name", "").startswith("TEST_"):
                     self.session.delete(f"{BASE_URL}/api/me/assistance-companies/{company['id']}")
-        except:
+        except Exception:
             pass
     
     def test_get_assistance_companies(self):
@@ -279,7 +279,7 @@ class TestRouteSheetROADSIDE:
             for company in companies:
                 if company.get("name", "").startswith("TEST_"):
                     self.session.delete(f"{BASE_URL}/api/me/assistance-companies/{company['id']}")
-        except:
+        except Exception:
             pass
     
     def test_create_roadside_route_sheet_success(self):

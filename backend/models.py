@@ -295,6 +295,13 @@ class AssistanceCompanyCreate(BaseModel):
     contact_phone: Optional[str] = None
     contact_email: Optional[EmailStr] = None
     
+    @field_validator('contact_phone', 'contact_email', mode='before')
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+    
     @field_validator('name', 'cif')
     @classmethod
     def validate_required(cls, v, info):

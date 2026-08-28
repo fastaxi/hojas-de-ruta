@@ -495,7 +495,7 @@ export function HistoricoPage() {
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex-1" onClick={() => setDetailDialog({ open: true, sheet })}>
+                  <div className="flex-1" onClick={() => setDetailDialog({ open: true, sheet })} data-testid={`sheet-card-${sheet.sheet_number.replace('/', '-')}`}>
                     <div className="flex items-center gap-3 cursor-pointer">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                         sheet.status === 'ANNULLED' ? 'bg-red-100' : 'bg-maroon-100'
@@ -698,7 +698,7 @@ export function HistoricoPage() {
                   <div className="col-span-2 p-3 bg-amber-50 rounded-lg">
                     <p className="text-amber-700 text-sm font-medium">Empresa de Asistencia:</p>
                     <p className="text-amber-900">
-                      {detailDialog.sheet.assistance_company_snapshot.name} 
+                      {detailDialog.sheet.assistance_company_snapshot.name}{' '}
                       (CIF: {detailDialog.sheet.assistance_company_snapshot.cif})
                     </p>
                     <p className="text-amber-700 text-sm">

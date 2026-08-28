@@ -248,6 +248,11 @@ async def startup_db():
         # Launch background retry task
         asyncio.create_task(retry_critical_indexes_forever())
 
+    try:
+        await migrate_legacy_string_dates()
+    except Exception as e:
+        logger.error(f"Legacy date migration failed: {e}")
+
 
 async def retry_critical_indexes_forever():
     """Background task to retry creating critical indexes every 60s"""
@@ -308,14 +313,59 @@ async def shutdown_db_client():
 MADRID_TZ = pytz.timezone('Europe/Madrid')
 
 
+_ISO_NAIVE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$')
+
+
 def _ensure_utc_aware(doc: dict) -> dict:
     """Ensure all datetime fields have UTC tzinfo for correct JSON serialization.
     MongoDB returns naive datetimes (UTC); marking them ensures JavaScript
-    parses them correctly (ISO string gets +00:00 suffix)."""
+    parses them correctly (ISO string gets +00:00 suffix).
+    Also normalizes legacy ISO strings stored without timezone suffix."""
     for key, val in doc.items():
         if isinstance(val, datetime) and val.tzinfo is None:
             doc[key] = val.replace(tzinfo=timezone.utc)
+        elif isinstance(val, str) and _ISO_NAIVE_RE.match(val):
+            doc[key] = val + 'Z'
     return doc
+
+
+def _build_sheet_cursor_query(cursor: str) -> Optional[dict]:
+    """Parse composite cursor 'year|seq|_id' into a keyset condition matching
+    the (year desc, seq_number desc, _id desc) sort. Plain ObjectId cursors
+    (legacy clients) fall back to _id-only filtering."""
+    try:
+        parts = cursor.split("|")
+        if len(parts) == 3:
+            cy, cs, coid = int(parts[0]), int(parts[1]), ObjectId(parts[2])
+            return {"$or": [
+                {"year": {"$lt": cy}},
+                {"year": cy, "seq_number": {"$lt": cs}},
+                {"year": cy, "seq_number": cs, "_id": {"$lt": coid}},
+            ]}
+        return {"_id": {"$lt": ObjectId(cursor)}}
+    except Exception:
+        return None
+
+
+async def migrate_legacy_string_dates():
+    """Idempotent migration: convert legacy ISO string dates to BSON dates
+    so date-range filters and timezone serialization work correctly."""
+    fields = ["pickup_datetime", "created_at", "annulled_at", "hidden_at", "purge_at", "approved_at"]
+    migrated = 0
+    for coll in (db.route_sheets, db.users):
+        for field in fields:
+            async for doc in coll.find({field: {"$type": "string"}}, {"_id": 1, field: 1}):
+                raw = doc.get(field, "")
+                try:
+                    dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                await coll.update_one({"_id": doc["_id"]}, {"$set": {field: dt}})
+                migrated += 1
+    if migrated:
+        logger.info(f"Migrated {migrated} legacy string date fields to BSON dates")
 
 
 def date_to_utc_range(d: date) -> tuple[datetime, datetime]:
@@ -1475,12 +1525,11 @@ async def get_route_sheets(
         if pickup_filter:
             query["pickup_datetime"] = pickup_filter
     
-    # Cursor pagination (by _id for stability)
+    # Cursor pagination aligned with sort (year desc, seq_number desc, _id desc)
     if cursor:
-        try:
-            query["_id"] = {"$lt": ObjectId(cursor)}
-        except:
-            pass  # Invalid cursor, ignore
+        cursor_cond = _build_sheet_cursor_query(cursor)
+        if cursor_cond:
+            query = {"$and": [query, cursor_cond]}
     
     # Query with stable sort: year desc, seq_number desc (ordenado por número de hoja)
     sheets = await db.route_sheets.find(
@@ -1494,7 +1543,7 @@ async def get_route_sheets(
     for sheet in sheets:
         # Store _id for cursor before removing
         sheet_id = sheet.pop("_id")
-        next_cursor = str(sheet_id)
+        next_cursor = f"{sheet['year']}|{sheet['seq_number']}|{sheet_id}"
         sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
         _ensure_utc_aware(sheet)
         result_sheets.append(sheet)
@@ -1792,8 +1841,8 @@ async def admin_login(data: AdminLoginRequest, request: Request):
 async def admin_get_users(
     status: Optional[str] = None,
     search: Optional[str] = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     admin: dict = Depends(get_current_admin)
 ):
     """Get all users (admin) with pagination"""
@@ -2133,7 +2182,7 @@ async def admin_get_route_sheets(
     to_date: Optional[str] = None,
     status: Optional[str] = None,
     user_visible: Optional[bool] = None,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),
     cursor: Optional[str] = None,
     admin: dict = Depends(get_current_admin)
 ):
@@ -2178,12 +2227,13 @@ async def admin_get_route_sheets(
             if date_query:
                 query["pickup_datetime"] = date_query
 
-        # Cursor pagination (stable by _id)
+        total_count = await db.route_sheets.count_documents(query)
+
+        # Cursor pagination aligned with sort (year desc, seq_number desc, _id desc)
         if cursor:
-            try:
-                query["_id"] = {"$lt": ObjectId(cursor)}
-            except Exception:
-                pass
+            cursor_cond = _build_sheet_cursor_query(cursor)
+            if cursor_cond:
+                query = {"$and": [query, cursor_cond]} if query else cursor_cond
         
         # Sort by year and seq_number for consistent ordering
         sheets = await db.route_sheets.find(query).sort([("year", -1), ("seq_number", -1), ("_id", -1)]).limit(limit).to_list(limit)
@@ -2193,11 +2243,11 @@ async def admin_get_route_sheets(
         user_ids = []
         for sheet in sheets:
             oid = sheet.pop("_id", None)
-            if oid is not None:
-                next_cursor = str(oid)
             # Safe sheet_number calculation
             seq = sheet.get('seq_number', 0) or 0
             year = sheet.get('year', 0) or 0
+            if oid is not None:
+                next_cursor = f"{year}|{seq}|{oid}"
             sheet["sheet_number"] = f"{seq:03d}/{year}" if year else "---"
             user_ids.append(sheet.get("user_id"))
             
@@ -2231,14 +2281,14 @@ async def admin_get_route_sheets(
                 sheet["user_email"] = u.get("email")
                 sheet["user_name"] = u.get("full_name")
 
-        headers = {}
+        headers = {"X-Total-Count": str(total_count)}
         if len(sheets) == limit and next_cursor:
             headers["X-Next-Cursor"] = next_cursor
 
         return JSONResponse(content=sheets, headers=headers)
     except Exception as e:
         logger.error(f"Error in admin_get_route_sheets: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
 @admin_router.get("/config", response_model=dict)
@@ -2709,4 +2759,5 @@ app.add_middleware(
     allow_origins=cors_origins,  # Explicit list, no wildcards with credentials
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Next-Cursor", "X-Total-Count"],
 )
