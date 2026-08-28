@@ -41,12 +41,7 @@ export function AdminConfigPage() {
     }
   }, [adminRequest]);
 
-  useEffect(() => {
-    fetchConfig();
-    fetchLastRetentionRun();
-  }, [fetchLastRetentionRun]);
-
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       const data = await adminRequest('get', '/admin/config');
       setConfig(data);
@@ -55,7 +50,12 @@ export function AdminConfigPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminRequest]);
+
+  useEffect(() => {
+    fetchConfig();
+    fetchLastRetentionRun();
+  }, [fetchConfig, fetchLastRetentionRun]);
 
   const handleSave = async (e) => {
     e.preventDefault();

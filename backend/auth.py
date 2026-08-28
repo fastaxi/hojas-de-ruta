@@ -150,9 +150,8 @@ def _decode_admin_hash(raw_value: str) -> str:
 
 ADMIN_PASSWORD_HASH = _decode_admin_hash(_raw_admin_hash)
 
-# Default dev credentials (only used in non-production when env vars not set)
+# Default dev username (not a secret; the password hash must always come from env)
 DEFAULT_DEV_USERNAME = "admin"
-DEFAULT_DEV_PASSWORD = "admin123"
 
 
 def is_admin_env_configured() -> bool:
@@ -161,10 +160,10 @@ def is_admin_env_configured() -> bool:
 
 
 def is_admin_configured() -> bool:
-    """Check if admin login is available (either env or dev defaults)"""
+    """Check if admin login is available (password hash must be configured)"""
     if IS_PRODUCTION:
         return is_admin_env_configured()
-    return True  # Dev allows defaults
+    return bool(ADMIN_PASSWORD_HASH)
 
 
 def get_admin_username() -> str:
@@ -180,13 +179,8 @@ def verify_admin_password(username: str, password: str) -> bool:
     """
     Verify admin credentials.
     
-    Production rules:
-    - MUST have ADMIN_USERNAME and ADMIN_PASSWORD_HASH in env
-    - Default credentials NEVER work
-    
-    Development rules:
-    - If env vars set, use them
-    - Otherwise, allow admin/admin123 for convenience
+    Fail-closed everywhere:
+    - A configured bcrypt ADMIN_PASSWORD_HASH is REQUIRED (no default password)
     """
     # Get expected username
     expected_username = get_admin_username()
@@ -195,33 +189,16 @@ def verify_admin_password(username: str, password: str) -> bool:
     if not expected_username or username != expected_username:
         return False
     
-    # Production: REQUIRE proper hash, NEVER allow default password
-    if IS_PRODUCTION:
-        if not ADMIN_PASSWORD_HASH:
-            return False
-        # Block default password even if somehow username matched
-        if password == DEFAULT_DEV_PASSWORD:
-            return False
-        try:
-            return bcrypt.checkpw(
-                password.encode('utf-8'),
-                ADMIN_PASSWORD_HASH.encode('utf-8')
-            )
-        except Exception:
-            return False
-    
-    # Development: check env hash if available, else allow default
-    if ADMIN_PASSWORD_HASH:
-        try:
-            return bcrypt.checkpw(
-                password.encode('utf-8'),
-                ADMIN_PASSWORD_HASH.encode('utf-8')
-            )
-        except Exception:
-            return False
-    
-    # Dev fallback: default credentials
-    return password == DEFAULT_DEV_PASSWORD
+    # A configured hash is required in every environment
+    if not ADMIN_PASSWORD_HASH:
+        return False
+    try:
+        return bcrypt.checkpw(
+            password.encode('utf-8'),
+            ADMIN_PASSWORD_HASH.encode('utf-8')
+        )
+    except Exception:
+        return False
 
 
 def create_admin_token() -> str:
@@ -245,6 +222,22 @@ def get_cookie_settings() -> dict:
         "secure": COOKIE_SECURE,
         "samesite": COOKIE_SAMESITE,
         "max_age": COOKIE_MAX_AGE
+    }
+
+
+ADMIN_COOKIE_NAME = "admin_token"
+ADMIN_COOKIE_MAX_AGE = 8 * 60 * 60  # matches admin token expiry (8h)
+
+
+def get_admin_cookie_settings() -> dict:
+    """Cookie settings for admin session (httpOnly, not readable by JS)"""
+    return {
+        "key": ADMIN_COOKIE_NAME,
+        "path": "/",
+        "httponly": True,
+        "secure": COOKIE_SECURE,
+        "samesite": COOKIE_SAMESITE,
+        "max_age": ADMIN_COOKIE_MAX_AGE
     }
 
 

@@ -164,3 +164,5 @@ frontend/node_modules/.cache/default-development/0.pack
 # Mobile build artifacts
 mobile/.expo/
 mobile/android/
+.admin_token
+memory/test_credentials.md

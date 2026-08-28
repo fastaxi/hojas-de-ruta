@@ -10,6 +10,7 @@ import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
+import { DatePickerES } from '../../components/DatePickerES';
 import axios from 'axios';
 import { 
   Search, Download, Loader2, FileText, Calendar, 
@@ -19,7 +20,7 @@ import {
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function AdminSheetsPage() {
-  const { adminRequest, adminToken } = useAdminAuth();
+  const { adminRequest } = useAdminAuth();
   const [sheets, setSheets] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,14 +33,25 @@ export function AdminSheetsPage() {
   });
   const [selectedSheet, setSelectedSheet] = useState(null);
   const [userSearch, setUserSearch] = useState('');
+  const [nextCursor, setNextCursor] = useState(null);
+  const [totalCount, setTotalCount] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  // Fetch users for filter dropdown
+  // Fetch users for filter dropdown (paginated - loads all approved users)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const data = await adminRequest('get', '/admin/users');
+        const all = [];
+        const pageSize = 200;
+        let offset = 0;
+        while (offset < 2000) {
+          const page = await adminRequest('get', `/admin/users?limit=${pageSize}&offset=${offset}`);
+          all.push(...page);
+          if (page.length < pageSize) break;
+          offset += pageSize;
+        }
         // Only approved users
-        setUsers(data.filter(u => u.status === 'APPROVED'));
+        setUsers(all.filter(u => u.status === 'APPROVED'));
       } catch (err) {
         console.error('Error fetching users:', err);
       }
@@ -54,23 +66,48 @@ export function AdminSheetsPage() {
     u.email?.toLowerCase().includes(userSearch.toLowerCase())
   );
 
+  const buildParams = useCallback((cursor) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      // Skip 'all' values and empty strings
+      if (value !== '' && value !== 'all') params.append(key, value);
+    });
+    params.append('limit', '50');
+    if (cursor) params.append('cursor', cursor);
+    return params;
+  }, [filters]);
+
   const fetchSheets = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        // Skip 'all' values and empty strings
-        if (value !== '' && value !== 'all') params.append(key, value);
-      });
-      
-      const data = await adminRequest('get', `/admin/route-sheets?${params}`);
-      setSheets(data);
+      const response = await adminRequest('get', `/admin/route-sheets?${buildParams(null)}`, null, { fullResponse: true });
+      setSheets(response.data);
+      setNextCursor(response.headers['x-next-cursor'] || null);
+      const total = response.headers['x-total-count'];
+      setTotalCount(total !== undefined ? parseInt(total, 10) : null);
     } catch (err) {
       console.error('Error fetching sheets:', err);
     } finally {
       setLoading(false);
     }
-  }, [adminRequest, filters]);
+  }, [adminRequest, buildParams]);
+
+  const loadMoreSheets = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await adminRequest('get', `/admin/route-sheets?${buildParams(nextCursor)}`, null, { fullResponse: true });
+      setSheets(prev => {
+        const seen = new Set(prev.map(s => s.id));
+        return [...prev, ...response.data.filter(s => !seen.has(s.id))];
+      });
+      setNextCursor(response.headers['x-next-cursor'] || null);
+    } catch (err) {
+      console.error('Error fetching more sheets:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     fetchSheets();
@@ -83,7 +120,6 @@ export function AdminSheetsPage() {
   const downloadPdf = async (sheetId, sheetNumber) => {
     try {
       const response = await axios.get(`${API_URL}/admin/route-sheets/${sheetId}/pdf`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
         responseType: 'blob'
       });
       
@@ -122,9 +158,11 @@ export function AdminSheetsPage() {
           </h1>
           <p className="text-stone-600">Listado global de todas las hojas</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-stone-500">
+        <div className="flex items-center gap-2 text-sm text-stone-500" data-testid="sheets-count">
           <FileText className="w-5 h-5" />
-          {sheets.length} hojas
+          {totalCount !== null && totalCount !== sheets.length
+            ? `${sheets.length} de ${totalCount} hojas`
+            : `${sheets.length} hojas`}
         </div>
       </div>
 
@@ -186,22 +224,18 @@ export function AdminSheetsPage() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-stone-500">Desde</Label>
-              <Input
-                type="date"
+              <DatePickerES
                 value={filters.from_date}
-                onChange={(e) => updateFilter('from_date', e.target.value)}
-                className="h-10"
-                data-testid="filter-from"
+                onChange={(v) => updateFilter('from_date', v)}
+                testId="filter-from"
               />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-stone-500">Hasta</Label>
-              <Input
-                type="date"
+              <DatePickerES
                 value={filters.to_date}
-                onChange={(e) => updateFilter('to_date', e.target.value)}
-                className="h-10"
-                data-testid="filter-to"
+                onChange={(v) => updateFilter('to_date', v)}
+                testId="filter-to"
               />
             </div>
           </div>
@@ -313,6 +347,21 @@ export function AdminSheetsPage() {
           </table>
         </div>
       </Card>
+
+      {/* Load more */}
+      {nextCursor && !loading && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={loadMoreSheets}
+            disabled={loadingMore}
+            data-testid="load-more-sheets-btn"
+          >
+            {loadingMore && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            Cargar más
+          </Button>
+        </div>
+      )}
 
       {/* Sheet Detail Dialog */}
       <Dialog open={!!selectedSheet} onOpenChange={(open) => !open && setSelectedSheet(null)}>

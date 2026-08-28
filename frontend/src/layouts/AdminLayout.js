@@ -4,20 +4,21 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
-import { Users, FileText, Settings, LogOut, Shield } from 'lucide-react';
+import { Users, FileText, Settings, LogOut, Shield, BarChart3 } from 'lucide-react';
 
 export function AdminLayout() {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/admin/login');
   };
 
   const navItems = [
     { to: '/admin/usuarios', icon: Users, label: 'Usuarios' },
     { to: '/admin/hojas', icon: FileText, label: 'Hojas de Ruta' },
+    { to: '/admin/stats', icon: BarChart3, label: 'Estadísticas' },
     { to: '/admin/config', icon: Settings, label: 'Configuración' },
   ];
 

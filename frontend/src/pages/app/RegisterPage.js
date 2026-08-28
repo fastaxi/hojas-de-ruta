@@ -44,7 +44,7 @@ export function RegisterPage() {
   const addDriver = () => {
     setFormData(prev => ({
       ...prev,
-      drivers: [...prev.drivers, { full_name: '', dni: '' }]
+      drivers: [...prev.drivers, { _key: crypto.randomUUID(), full_name: '', dni: '' }]
     }));
   };
 
@@ -133,7 +133,7 @@ export function RegisterPage() {
         vehicle_brand: formData.vehicle_brand,
         vehicle_model: formData.vehicle_model,
         vehicle_plate: formData.vehicle_plate,
-        drivers: formData.hasDrivers ? formData.drivers : []
+        drivers: formData.hasDrivers ? formData.drivers.map(({ _key, ...d }) => d) : []
       };
 
       await register(submitData);
@@ -189,7 +189,7 @@ export function RegisterPage() {
           <div className="flex items-center justify-between mb-2">
             {steps.map((s, i) => (
               <div 
-                key={i}
+                key={s}
                 className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
                   i + 1 < step 
                     ? 'bg-green-500 text-white' 
@@ -203,9 +203,9 @@ export function RegisterPage() {
             ))}
           </div>
           <div className="flex gap-1">
-            {steps.map((_, i) => (
+            {steps.map((s, i) => (
               <div 
-                key={i}
+                key={`${s}-bar`}
                 className={`h-1 flex-1 rounded ${
                   i + 1 <= step ? 'bg-maroon-900' : 'bg-stone-200'
                 }`}
@@ -341,7 +341,7 @@ export function RegisterPage() {
                     {formData.hasDrivers && (
                       <div className="mt-4 space-y-4">
                         {formData.drivers.map((driver, index) => (
-                          <div key={index} className="p-4 bg-stone-50 rounded-lg space-y-3">
+                          <div key={driver._key || index} className="p-4 bg-stone-50 rounded-lg space-y-3">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-stone-600">
                                 Chofer {index + 1}
@@ -350,6 +350,7 @@ export function RegisterPage() {
                                 type="button"
                                 onClick={() => removeDriver(index)}
                                 className="text-red-500 hover:text-red-700"
+                                data-testid={`remove-driver-${index}`}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -359,12 +360,14 @@ export function RegisterPage() {
                               onChange={(e) => updateDriver(index, 'full_name', e.target.value)}
                               placeholder="Nombre y apellidos"
                               className="h-12"
+                              data-testid={`driver-name-${index}`}
                             />
                             <Input
                               value={driver.dni}
                               onChange={(e) => updateDriver(index, 'dni', e.target.value)}
                               placeholder="DNI"
                               className="h-12"
+                              data-testid={`driver-dni-${index}`}
                             />
                           </div>
                         ))}
@@ -373,6 +376,7 @@ export function RegisterPage() {
                           variant="outline"
                           onClick={addDriver}
                           className="w-full"
+                          data-testid="add-driver-btn"
                         >
                           <Plus className="w-4 h-4 mr-2" />
                           Añadir chofer

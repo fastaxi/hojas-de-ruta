@@ -53,10 +53,10 @@ def require_non_empty(v: str, field_name: str) -> str:
 class DriverCreate(BaseModel):
     """Create a new driver - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     full_name: str
     dni: str
-    
+
     @field_validator('full_name')
     @classmethod
     def validate_full_name(cls, v):
@@ -64,7 +64,7 @@ class DriverCreate(BaseModel):
         if not v:
             raise ValueError('full_name no puede estar vacío')
         return v
-    
+
     @field_validator('dni')
     @classmethod
     def validate_dni(cls, v):
@@ -77,10 +77,10 @@ class DriverCreate(BaseModel):
 class DriverUpdate(BaseModel):
     """Update a driver - all fields optional, extra forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     full_name: Optional[str] = None
     dni: Optional[str] = None
-    
+
     @field_validator('full_name')
     @classmethod
     def validate_full_name(cls, v):
@@ -90,7 +90,7 @@ class DriverUpdate(BaseModel):
         if not v:
             raise ValueError('full_name no puede estar vacío si se proporciona')
         return v
-    
+
     @field_validator('dni')
     @classmethod
     def validate_dni(cls, v):
@@ -100,7 +100,7 @@ class DriverUpdate(BaseModel):
         if not v:
             raise ValueError('dni no puede estar vacío si se proporciona')
         return v
-    
+
     @model_validator(mode='after')
     def check_at_least_one_field(self):
         if self.full_name is None and self.dni is None:
@@ -122,7 +122,7 @@ class Driver(BaseModel):
 class UserCreate(BaseModel):
     """Create a new user - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     full_name: str
     dni_cif: str
     license_number: str
@@ -135,28 +135,28 @@ class UserCreate(BaseModel):
     vehicle_plate: str
     vehicle_license_number: Optional[str] = None  # Nº licencia/permiso del vehículo
     drivers: Optional[List[DriverCreate]] = []
-    
+
     @field_validator('full_name', 'license_number', 'license_council', 'phone', 'vehicle_brand', 'vehicle_model')
     @classmethod
     def validate_required_strings(cls, v, info):
         if not v or not v.strip():
             raise ValueError(f'{info.field_name} no puede estar vacío')
         return v.strip()
-    
+
     @field_validator('dni_cif')
     @classmethod
     def validate_dni_cif(cls, v):
         if not v or not v.strip():
             raise ValueError('dni_cif no puede estar vacío')
         return v.strip().upper()
-    
+
     @field_validator('vehicle_plate')
     @classmethod
     def validate_vehicle_plate(cls, v):
         if not v or not v.strip():
             raise ValueError('vehicle_plate no puede estar vacío')
         return v.strip().upper()
-    
+
     @field_validator('vehicle_license_number')
     @classmethod
     def validate_vehicle_license_number(cls, v):
@@ -164,7 +164,7 @@ class UserCreate(BaseModel):
             return None
         v = v.strip()
         return v if v else None
-    
+
     @field_validator('password')
     @classmethod
     def validate_password(cls, v):
@@ -178,7 +178,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Update user profile - extra fields forbidden (no email, password, status, etc.)"""
     model_config = ConfigDict(extra="forbid")
-    
+
     full_name: Optional[str] = None
     dni_cif: Optional[str] = None
     license_number: Optional[str] = None
@@ -188,7 +188,7 @@ class UserUpdate(BaseModel):
     vehicle_model: Optional[str] = None
     vehicle_plate: Optional[str] = None
     vehicle_license_number: Optional[str] = None  # Nº licencia/permiso del vehículo
-    
+
     @field_validator('full_name', 'license_number', 'license_council', 'phone', 'vehicle_brand', 'vehicle_model', 'vehicle_license_number')
     @classmethod
     def validate_optional_strings(cls, v, info):
@@ -198,7 +198,7 @@ class UserUpdate(BaseModel):
         if not v:
             return None  # Permitir string vacío como None
         return v
-    
+
     @field_validator('dni_cif')
     @classmethod
     def validate_dni_cif(cls, v):
@@ -208,7 +208,7 @@ class UserUpdate(BaseModel):
         if not v:
             raise ValueError('dni_cif no puede estar vacío si se proporciona')
         return v
-    
+
     @field_validator('vehicle_plate')
     @classmethod
     def validate_vehicle_plate(cls, v):
@@ -266,17 +266,17 @@ class UserPublic(BaseModel):
 class ChangePasswordRequest(BaseModel):
     """Change password request - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     current_password: str = Field(min_length=1)
     new_password: str = Field(min_length=8, max_length=128)
-    
+
     @field_validator('current_password')
     @classmethod
     def validate_current_password(cls, v):
         if not v:
             raise ValueError('current_password no puede estar vacío')
         return v
-    
+
     @field_validator('new_password')
     @classmethod
     def validate_new_password(cls, v):
@@ -289,19 +289,26 @@ class ChangePasswordRequest(BaseModel):
 class AssistanceCompanyCreate(BaseModel):
     """Create assistance company - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     name: str
     cif: str
     contact_phone: Optional[str] = None
     contact_email: Optional[EmailStr] = None
-    
+
+    @field_validator('contact_phone', 'contact_email', mode='before')
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
     @field_validator('name', 'cif')
     @classmethod
     def validate_required(cls, v, info):
         if not v or not v.strip():
             raise ValueError(f'{info.field_name} no puede estar vacío')
         return v.strip()
-    
+
     @model_validator(mode='after')
     def validate_contact(self):
         if not self.contact_phone and not self.contact_email:
@@ -332,7 +339,7 @@ class AssistanceCompanySnapshot(BaseModel):
 class RouteSheetCreate(BaseModel):
     """Create a new route sheet - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     conductor_driver_id: Optional[str] = None
     contractor_phone: Optional[str] = None
     contractor_email: Optional[EmailStr] = None
@@ -345,7 +352,7 @@ class RouteSheetCreate(BaseModel):
     destination: str
     passenger_info: str  # Obligatorio: datos de la persona o personas a recoger
     assistance_company_id: Optional[str] = None  # Required if ROADSIDE
-    
+
     @field_validator('conductor_driver_id', 'contractor_phone', 'flight_number', 'pickup_address', 'assistance_company_id')
     @classmethod
     def normalize_optional_strings(cls, v):
@@ -353,7 +360,7 @@ class RouteSheetCreate(BaseModel):
             return None
         v = v.strip()
         return v if v else None
-    
+
     @field_validator('prebooked_date', 'prebooked_locality', 'pickup_datetime', 'destination', 'passenger_info')
     @classmethod
     def validate_required_strings(cls, v, info):
@@ -393,9 +400,9 @@ class RouteSheet(BaseModel):
 class RouteSheetAnnul(BaseModel):
     """Annul a route sheet - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     reason: Optional[str] = Field(default=None, max_length=500)
-    
+
     @field_validator('reason')
     @classmethod
     def normalize_reason(cls, v):
@@ -423,14 +430,14 @@ class AppConfig(BaseModel):
 class AppConfigUpdate(BaseModel):
     """Update app configuration - extra fields forbidden"""
     model_config = ConfigDict(extra="forbid")
-    
+
     header_title: Optional[str] = None
     header_line1: Optional[str] = None
     header_line2: Optional[str] = None
     legend_text: Optional[str] = None
     hide_after_months: Optional[int] = Field(default=None, ge=1, le=36)
     purge_after_months: Optional[int] = Field(default=None, ge=2, le=60)
-    
+
     @field_validator('header_title', 'header_line1', 'header_line2', 'legend_text')
     @classmethod
     def normalize_optional_strings(cls, v):
@@ -438,7 +445,7 @@ class AppConfigUpdate(BaseModel):
             return None
         v = v.strip()
         return v if v else None
-    
+
     @model_validator(mode='after')
     def validate_retention_months(self):
         # Only validate if both are provided in the same request

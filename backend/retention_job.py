@@ -8,8 +8,8 @@ Usage:
   python retention_job.py          # Run once
   python retention_job.py --dry-run # Preview without changes
 
-Note: MongoDB TTL index on purge_at handles auto-delete,
-but this job ensures hide_at logic works correctly.
+Note: This job is the ONLY mechanism that deletes route sheets
+(there is no MongoDB TTL auto-delete on user data).
 """
 import os
 import sys
@@ -38,7 +38,7 @@ async def run_retention_job(dry_run: bool = False):
     """
     Execute retention policies:
     1. Set user_visible=false for sheets where hide_at <= now AND user_visible=true
-    2. Delete sheets where purge_at <= now (backup to TTL index)
+    2. Delete sheets where purge_at <= now (explicit purge, no TTL)
     
     Note: Annulled sheets (status=ANNULLED) are also subject to retention,
     but admin can always see them until purge.
@@ -69,8 +69,7 @@ async def run_retention_job(dry_run: bool = False):
             )
             logger.info(f"Hidden {result.modified_count} sheets")
         
-        # 2. PURGE: Delete sheets past purge_at (backup to TTL)
-        # TTL index should handle this, but we run it anyway as safety
+        # 2. PURGE: Delete sheets past purge_at (explicit and only purge mechanism)
         purge_query = {
             "purge_at": {"$lte": now}  # datetime comparison
         }

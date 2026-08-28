@@ -1,7 +1,7 @@
 /**
  * RutasFast - Admin Users Page
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAdminAuth } from '../../contexts/AdminAuthContext';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -26,7 +26,7 @@ export function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [totalCount, setTotalCount] = useState(0);
-  const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(0);
   const LIMIT = 100;
   
   // Password reset states
@@ -43,7 +43,7 @@ export function AdminUsersPage() {
   const fetchUsers = useCallback(async (resetOffset = true) => {
     if (resetOffset) {
       setLoading(true);
-      setOffset(0);
+      offsetRef.current = 0;
     } else {
       setLoadingMore(true);
     }
@@ -53,16 +53,16 @@ export function AdminUsersPage() {
       if (filter) params.append('status', filter);
       if (search) params.append('search', search);
       params.append('limit', LIMIT.toString());
-      params.append('offset', resetOffset ? '0' : offset.toString());
+      params.append('offset', resetOffset ? '0' : offsetRef.current.toString());
       
       const data = await adminRequest('get', `/admin/users?${params}`);
       
       if (resetOffset) {
         setUsers(data);
-        setOffset(LIMIT);
+        offsetRef.current = LIMIT;
       } else {
         setUsers(prev => [...prev, ...data]);
-        setOffset(prev => prev + LIMIT);
+        offsetRef.current += LIMIT;
       }
       
       // Get total count
@@ -78,16 +78,16 @@ export function AdminUsersPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [adminRequest, filter, search, offset]);
+  }, [adminRequest, filter, search]);
 
   const loadMore = () => {
     fetchUsers(false);
   };
 
-  // adminRequest is now stable (ref-based) so this won't loop
+  // adminRequest is stable (context useCallback) so this won't loop
   useEffect(() => {
     fetchUsers(true);
-  }, [adminRequest, filter, search]);
+  }, [fetchUsers]);
 
   // Fetch password reset history for selected user
   const fetchResetHistory = useCallback(async (userId) => {
@@ -441,7 +441,7 @@ export function AdminUsersPage() {
                 ) : (
                   <ul className="space-y-2">
                     {resetHistory.slice(0, 5).map((reset, idx) => (
-                      <li key={idx} className="text-sm border-b border-stone-200 pb-2 last:border-0 last:pb-0">
+                      <li key={reset.timestamp || idx} className="text-sm border-b border-stone-200 pb-2 last:border-0 last:pb-0">
                         <div className="flex justify-between items-start">
                           <span className="text-stone-700">
                             {new Date(reset.timestamp).toLocaleDateString('es-ES', {
