@@ -164,12 +164,19 @@ export function ConfiguracionPage() {
     }
 
     setSavingCompany(true);
+    const payload = {
+      ...companyForm,
+      name: companyForm.name.trim(),
+      cif: companyForm.cif.trim(),
+      contact_phone: companyForm.contact_phone.trim() || null,
+      contact_email: companyForm.contact_email.trim() || null
+    };
     try {
       if (editingCompany) {
-        await axios.put(`${API_URL}/me/assistance-companies/${editingCompany.id}`, companyForm);
+        await axios.put(`${API_URL}/me/assistance-companies/${editingCompany.id}`, payload);
         showSuccess('Empresa actualizada');
       } else {
-        await axios.post(`${API_URL}/me/assistance-companies`, companyForm);
+        await axios.post(`${API_URL}/me/assistance-companies`, payload);
         showSuccess('Empresa añadida');
       }
       setCompanyDialog(false);
@@ -178,7 +185,9 @@ export function ConfiguracionPage() {
       // Handle Pydantic validation errors (array of objects)
       const errorDetail = err.response?.data?.detail;
       if (Array.isArray(errorDetail)) {
-        const messages = errorDetail.map(e => e.msg).join(', ');
+        const messages = errorDetail.map(e =>
+          e.msg?.toLowerCase().includes('email') ? 'El email de contacto no es válido' : e.msg
+        ).join(', ');
         showError(messages);
       } else {
         showError(errorDetail || 'Error al guardar');
@@ -409,7 +418,7 @@ export function ConfiguracionPage() {
             <Users className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">Choferes</span>
           </TabsTrigger>
-          <TabsTrigger value="asistencia" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white text-xs sm:text-sm">
+          <TabsTrigger value="asistencia" data-testid="tab-asistencia" className="data-[state=active]:bg-maroon-900 data-[state=active]:text-white text-xs sm:text-sm">
             <Truck className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">Asistencia</span>
           </TabsTrigger>
@@ -655,7 +664,7 @@ export function ConfiguracionPage() {
                   <CardTitle>Empresas de Asistencia</CardTitle>
                   <CardDescription>Gestiona las empresas de asistencia en carretera con las que trabajas</CardDescription>
                 </div>
-                <Button onClick={() => openCompanyDialog()} size="sm" className="bg-maroon-900 hover:bg-maroon-800">
+                <Button onClick={() => openCompanyDialog()} size="sm" data-testid="add-company-btn" className="bg-maroon-900 hover:bg-maroon-800">
                   <Plus className="w-4 h-4 mr-2" />
                   Añadir
                 </Button>
@@ -689,6 +698,7 @@ export function ConfiguracionPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          data-testid={`edit-company-${company.id}`}
                           onClick={() => openCompanyDialog(company)}
                         >
                           <Pencil className="w-4 h-4" />
@@ -696,6 +706,7 @@ export function ConfiguracionPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          data-testid={`delete-company-${company.id}`}
                           className="text-red-600 hover:bg-red-50"
                           onClick={() => setDeleteCompanyConfirm(company.id)}
                         >

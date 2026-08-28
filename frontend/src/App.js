@@ -23,6 +23,7 @@ import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminSheetsPage } from './pages/admin/AdminSheetsPage';
 import { AdminConfigPage } from './pages/admin/AdminConfigPage';
+import { AdminStatsPage } from './pages/admin/AdminStatsPage';
 
 import './App.css';
 
@@ -128,6 +129,7 @@ function AppRoutes() {
         <Route path="usuarios" element={<AdminUsersPage />} />
         <Route path="hojas" element={<AdminSheetsPage />} />
         <Route path="config" element={<AdminConfigPage />} />
+        <Route path="stats" element={<AdminStatsPage />} />
       </Route>
       
       {/* Catch all */}

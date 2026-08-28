@@ -3,8 +3,12 @@
  */
 import Constants from 'expo-constants';
 
-// Production API URL (from app.json extra or fallback)
-const BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || 'https://asturia-taxi.emergent.host';
+// Backend URL from env (EXPO_PUBLIC_* is inlined at build time by Expo/EAS)
+// or from app config extra (legacy builds)
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || Constants.expoConfig?.extra?.API_BASE_URL;
+if (!BASE_URL) {
+  throw new Error('EXPO_PUBLIC_BACKEND_URL no configurada (mobile/.env o eas.json build env)');
+}
 export const API_BASE_URL = `${BASE_URL}/api`;
 
 // API Endpoints

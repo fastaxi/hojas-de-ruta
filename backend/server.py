@@ -41,6 +41,7 @@ from auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
     verify_admin_password, create_admin_token, get_cookie_settings,
+    ADMIN_COOKIE_NAME, get_admin_cookie_settings,
     is_admin_configured, is_admin_env_configured, get_admin_username,
     ACCESS_TOKEN_EXPIRE_MINUTES, IS_PRODUCTION,
     create_mobile_refresh_token, hash_token, get_mobile_refresh_expiry,
@@ -140,45 +141,56 @@ async def startup_db():
     failures_noncritical = []
 
     # USERS (non-critical - app works but slower queries)
-    await _create_index("users_unique_email", 
-        db.users.create_index("email", unique=True), 
+    await _create_index("users_unique_email",
+        db.users.create_index("email", unique=True),
         False, failures_critical, failures_noncritical)
-    await _create_index("users_unique_id", 
-        db.users.create_index("id", unique=True), 
+    await _create_index("users_unique_id",
+        db.users.create_index("id", unique=True),
         False, failures_critical, failures_noncritical)
 
     # DRIVERS (non-critical)
-    await _create_index("drivers_user_id", 
-        db.drivers.create_index("user_id"), 
+    await _create_index("drivers_user_id",
+        db.drivers.create_index("user_id"),
         False, failures_critical, failures_noncritical)
-    await _create_index("drivers_unique_id", 
-        db.drivers.create_index("id", unique=True), 
+    await _create_index("drivers_unique_id",
+        db.drivers.create_index("id", unique=True),
         False, failures_critical, failures_noncritical)
 
     # ROUTE SHEETS - query indexes (non-critical)
-    await _create_index("route_sheets_user_created_at", 
-        db.route_sheets.create_index([("user_id", 1), ("created_at", -1)]), 
+    await _create_index("route_sheets_user_created_at",
+        db.route_sheets.create_index([("user_id", 1), ("created_at", -1)]),
         False, failures_critical, failures_noncritical)
-    await _create_index("route_sheets_user_pickup_datetime", 
-        db.route_sheets.create_index([("user_id", 1), ("pickup_datetime", -1)]), 
+    await _create_index("route_sheets_user_pickup_datetime",
+        db.route_sheets.create_index([("user_id", 1), ("pickup_datetime", -1)]),
         False, failures_critical, failures_noncritical)
-    await _create_index("route_sheets_status", 
-        db.route_sheets.create_index("status"), 
+    await _create_index("route_sheets_status",
+        db.route_sheets.create_index("status"),
         False, failures_critical, failures_noncritical)
-    await _create_index("route_sheets_user_visible", 
-        db.route_sheets.create_index("user_visible"), 
+    await _create_index("route_sheets_user_visible",
+        db.route_sheets.create_index("user_visible"),
         False, failures_critical, failures_noncritical)
-    await _create_index("route_sheets_unique_id", 
-        db.route_sheets.create_index("id", unique=True), 
+    await _create_index("route_sheets_unique_id",
+        db.route_sheets.create_index("id", unique=True),
         False, failures_critical, failures_noncritical)
 
-    # ROUTE SHEETS - CRITICAL: unique numbering + TTL purge
+    # ROUTE SHEETS - CRITICAL: unique numbering
     await _create_index("route_sheets_unique_user_year_seq",
         db.route_sheets.create_index([("user_id", 1), ("year", 1), ("seq_number", 1)], unique=True),
         True, failures_critical, failures_noncritical)
-    await _create_index("route_sheets_ttl_purge_at",
-        db.route_sheets.create_index("purge_at", expireAfterSeconds=0),
-        True, failures_critical, failures_noncritical)
+
+    # ROUTE SHEETS - purge_at: plain index only. Deletion of user data is NEVER
+    # automatic (no TTL); it happens exclusively via the explicit retention job.
+    try:
+        index_info = await db.route_sheets.index_information()
+        for idx_name, idx_spec in index_info.items():
+            if idx_spec.get("key") == [("purge_at", 1)] and "expireAfterSeconds" in idx_spec:
+                await db.route_sheets.drop_index(idx_name)
+                logger.info(f"Dropped legacy TTL index '{idx_name}' on route_sheets.purge_at (purge is explicit via retention job)")
+    except Exception as e:
+        logger.warning(f"Could not inspect/drop legacy TTL index on route_sheets: {e}")
+    await _create_index("route_sheets_purge_at",
+        db.route_sheets.create_index("purge_at"),
+        False, failures_critical, failures_noncritical)
 
     # PASSWORD RESET TOKENS - CRITICAL TTL
     await _create_index("password_reset_tokens_unique_token_hash",
@@ -248,25 +260,28 @@ async def startup_db():
         # Launch background retry task
         asyncio.create_task(retry_critical_indexes_forever())
 
+    try:
+        await migrate_legacy_string_dates()
+    except Exception as e:
+        logger.error(f"Legacy date migration failed: {e}")
+
 
 async def retry_critical_indexes_forever():
     """Background task to retry creating critical indexes every 60s"""
     global INDEXES_OK, MISSING_CRITICAL_INDEXES, LAST_INDEX_ERROR
-    
+
     while not INDEXES_OK:
         logger.warning("Retrying critical indexes in 60s...")
         await asyncio.sleep(60)
-        
+
         try:
             failures_critical = []
             failures_noncritical = []
-            
+
             # Retry only critical indexes
+            # (NO TTL on route_sheets.purge_at: user data deletion is explicit via retention job)
             await _create_index("route_sheets_unique_user_year_seq",
                 db.route_sheets.create_index([("user_id", 1), ("year", 1), ("seq_number", 1)], unique=True),
-                True, failures_critical, failures_noncritical)
-            await _create_index("route_sheets_ttl_purge_at",
-                db.route_sheets.create_index("purge_at", expireAfterSeconds=0),
                 True, failures_critical, failures_noncritical)
             await _create_index("password_reset_tokens_ttl_expires_at",
                 db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0),
@@ -289,10 +304,10 @@ async def retry_critical_indexes_forever():
             await _create_index("mobile_refresh_tokens_ttl_expires_at",
                 db.mobile_refresh_tokens.create_index("expires_at", expireAfterSeconds=0),
                 True, failures_critical, failures_noncritical)
-            
+
             MISSING_CRITICAL_INDEXES = failures_critical
             INDEXES_OK = (len(failures_critical) == 0)
-            
+
             if INDEXES_OK:
                 logger.info("Critical indexes recovered; readiness is now healthy")
         except Exception as e:
@@ -308,14 +323,59 @@ async def shutdown_db_client():
 MADRID_TZ = pytz.timezone('Europe/Madrid')
 
 
+_ISO_NAIVE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$')
+
+
 def _ensure_utc_aware(doc: dict) -> dict:
     """Ensure all datetime fields have UTC tzinfo for correct JSON serialization.
     MongoDB returns naive datetimes (UTC); marking them ensures JavaScript
-    parses them correctly (ISO string gets +00:00 suffix)."""
+    parses them correctly (ISO string gets +00:00 suffix).
+    Also normalizes legacy ISO strings stored without timezone suffix."""
     for key, val in doc.items():
         if isinstance(val, datetime) and val.tzinfo is None:
             doc[key] = val.replace(tzinfo=timezone.utc)
+        elif isinstance(val, str) and _ISO_NAIVE_RE.match(val):
+            doc[key] = val + 'Z'
     return doc
+
+
+def _build_sheet_cursor_query(cursor: str) -> Optional[dict]:
+    """Parse composite cursor 'year|seq|_id' into a keyset condition matching
+    the (year desc, seq_number desc, _id desc) sort. Plain ObjectId cursors
+    (legacy clients) fall back to _id-only filtering."""
+    try:
+        parts = cursor.split("|")
+        if len(parts) == 3:
+            cy, cs, coid = int(parts[0]), int(parts[1]), ObjectId(parts[2])
+            return {"$or": [
+                {"year": {"$lt": cy}},
+                {"year": cy, "seq_number": {"$lt": cs}},
+                {"year": cy, "seq_number": cs, "_id": {"$lt": coid}},
+            ]}
+        return {"_id": {"$lt": ObjectId(cursor)}}
+    except Exception:
+        return None
+
+
+async def migrate_legacy_string_dates():
+    """Idempotent migration: convert legacy ISO string dates to BSON dates
+    so date-range filters and timezone serialization work correctly."""
+    fields = ["pickup_datetime", "created_at", "annulled_at", "hidden_at", "purge_at", "approved_at"]
+    migrated = 0
+    for coll in (db.route_sheets, db.users):
+        for field in fields:
+            async for doc in coll.find({field: {"$type": "string"}}, {"_id": 1, field: 1}):
+                raw = doc.get(field, "")
+                try:
+                    dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                await coll.update_one({"_id": doc["_id"]}, {"$set": {field: dt}})
+                migrated += 1
+    if migrated:
+        logger.info(f"Migrated {migrated} legacy string date fields to BSON dates")
 
 
 def date_to_utc_range(d: date) -> tuple[datetime, datetime]:
@@ -344,23 +404,23 @@ async def check_pdf_rate_limit(user_id: str, action: str) -> bool:
     limits = PDF_RATE_LIMITS.get(action)
     if not limits:
         return True
-    
+
     now = datetime.now(timezone.utc)
     window_start = now - timedelta(minutes=limits["window_minutes"])
-    
+
     # Count requests in window
     count = await db.rate_limits.count_documents({
         "user_id": user_id,
         "action": action,
         "created_at": {"$gte": window_start}
     })
-    
+
     if count >= limits["max_requests"]:
         raise HTTPException(
             status_code=429,
             detail=f"Límite de {limits['max_requests']} solicitudes de PDF por {limits['window_minutes']} minutos excedido. Intenta más tarde."
         )
-    
+
     return True
 
 
@@ -368,12 +428,61 @@ async def record_pdf_request(user_id: str, action: str):
     """Record a PDF request for rate limiting"""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(minutes=PDF_RATE_LIMITS[action]["window_minutes"])
-    
+
     await db.rate_limits.insert_one({
         "user_id": user_id,
         "action": action,
         "created_at": now,
         "expires_at": expires_at
+    })
+
+
+# ============== WEB LOGIN BRUTE FORCE PROTECTION ==============
+WEB_LOGIN_MAX_ATTEMPTS = 5
+WEB_LOGIN_LOCKOUT_MINUTES = 15
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract real client IP (behind proxy)"""
+    ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+    return ip
+
+
+async def check_web_login_rate_limit(ip: str, email: str) -> None:
+    """Block web login after too many failed attempts (persistent per IP+email)"""
+    key = f"{ip}:{email.lower()}"
+    now = datetime.now(timezone.utc)
+    count = await db.rate_limits.count_documents({
+        "user_id": key,
+        "action": "web_login_fail",
+        "expires_at": {"$gt": now}
+    })
+    if count >= WEB_LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Demasiados intentos fallidos. Espera {WEB_LOGIN_LOCKOUT_MINUTES} minutos."
+        )
+
+
+async def record_web_login_failure(ip: str, email: str):
+    """Record a failed web login attempt"""
+    now = datetime.now(timezone.utc)
+    await db.rate_limits.insert_one({
+        "user_id": f"{ip}:{email.lower()}",
+        "action": "web_login_fail",
+        "created_at": now,
+        "expires_at": now + timedelta(minutes=WEB_LOGIN_LOCKOUT_MINUTES)
+    })
+
+
+async def clear_web_login_failures(ip: str, email: str):
+    """Clear failed attempts after successful login"""
+    await db.rate_limits.delete_many({
+        "user_id": f"{ip}:{email.lower()}",
+        "action": "web_login_fail"
     })
 
 
@@ -390,7 +499,7 @@ async def get_cached_pdf(sheet_id: str, config_version: int, status: str) -> Opt
         "config_version": config_version,
         "status": status
     })
-    
+
     if cache and cache.get("pdf_bytes"):
         return cache["pdf_bytes"]
     return None
@@ -400,7 +509,7 @@ async def cache_pdf(sheet_id: str, config_version: int, sheet_status: str, pdf_b
     """Cache PDF bytes with TTL. Key is (sheet_id, config_version, status)"""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=PDF_CACHE_DAYS)
-    
+
     await db.pdf_cache.update_one(
         {"sheet_id": sheet_id, "config_version": config_version, "status": sheet_status},
         {
@@ -434,37 +543,39 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     """Validate access token and return user"""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token no proporcionado")
-    
+
     token = authorization.split(" ")[1]
     payload = decode_token(token)
-    
+
     if not payload or payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
-    
+
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
-    
+
     if user["status"] != "APPROVED":
         raise HTTPException(
-            status_code=403, 
+            status_code=403,
             detail="Este usuario aun no ha sido verificado por el administrador."
         )
-    
+
     return user
 
 
-async def get_current_admin(authorization: Optional[str] = Header(None)) -> dict:
-    """Validate admin token"""
-    if not authorization or not authorization.startswith("Bearer "):
+async def get_current_admin(request: Request, authorization: Optional[str] = Header(None)) -> dict:
+    """Validate admin token from httpOnly cookie or Authorization Bearer header"""
+    token = request.cookies.get(ADMIN_COOKIE_NAME)
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    if not token:
         raise HTTPException(status_code=401, detail="Token no proporcionado")
-    
-    token = authorization.split(" ")[1]
+
     payload = decode_token(token)
-    
+
     if not payload or payload.get("type") != "admin":
         raise HTTPException(status_code=401, detail="Token de administrador inválido")
-    
+
     return {"role": "admin"}
 
 
@@ -486,12 +597,12 @@ def _get_git_commit() -> str:
                     return commit
         except Exception:
             pass
-    
+
     # 2. Try environment variable (set during deployment)
     commit = os.environ.get("GIT_COMMIT")
     if commit:
         return commit
-    
+
     # 3. Try git rev-parse (works in dev/preview)
     try:
         import subprocess
@@ -505,7 +616,7 @@ def _get_git_commit() -> str:
             return result.stdout.strip()
     except Exception:
         pass
-    
+
     # 4. Fallback
     return "unknown"
 
@@ -567,7 +678,7 @@ async def register(data: UserCreate):
     existing = await db.users.find_one({"email": data.email}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="Este email ya está registrado")
-    
+
     # Create user
     user = User(
         full_name=data.full_name,
@@ -582,12 +693,12 @@ async def register(data: UserCreate):
         vehicle_plate=data.vehicle_plate,
         status="PENDING"
     )
-    
+
     # Keep datetime fields as native datetime for MongoDB
     user_dict = user.model_dump()
-    
+
     await db.users.insert_one(user_dict)
-    
+
     # Create drivers if provided
     if data.drivers:
         for driver_data in data.drivers:
@@ -599,7 +710,7 @@ async def register(data: UserCreate):
             # Keep datetime as native
             driver_dict = driver.model_dump()
             await db.drivers.insert_one(driver_dict)
-    
+
     logger.info(f"New user registered: {data.email}")
     return {
         "message": "Solicitud enviada. Pendiente de verificación por el administrador.",
@@ -608,26 +719,33 @@ async def register(data: UserCreate):
 
 
 @auth_router.post("/login")
-async def login(data: LoginRequest):
+async def login(data: LoginRequest, request: Request):
     """
     Login user - returns access token in JSON, sets refresh token in httpOnly cookie.
     Must be approved. Handles temp password expiry and must_change_password flag.
+    Brute force protection: 5 failed attempts per IP+email = 15 min lockout.
     """
+    client_ip = get_client_ip(request)
+    await check_web_login_rate_limit(client_ip, data.email)
+
     user = await db.users.find_one({"email": data.email}, {"_id": 0})
-    
+
     if not user or not verify_password(data.password, user["password_hash"]):
+        await record_web_login_failure(client_ip, data.email)
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-    
+
+    await clear_web_login_failures(client_ip, data.email)
+
     if user["status"] != "APPROVED":
         raise HTTPException(
             status_code=403,
             detail="Este usuario aun no ha sido verificado por el administrador."
         )
-    
+
     # Check if temp password has expired
     must_change = user.get("must_change_password", False)
     temp_expires = user.get("temp_password_expires_at")
-    
+
     if must_change and temp_expires:
         # Ensure temp_expires is timezone-aware UTC
         if isinstance(temp_expires, datetime):
@@ -635,20 +753,20 @@ async def login(data: LoginRequest):
                 temp_expires = temp_expires.replace(tzinfo=timezone.utc)
         elif isinstance(temp_expires, str):
             temp_expires = datetime.fromisoformat(temp_expires.replace('Z', '+00:00'))
-        
+
         now_utc = datetime.now(timezone.utc)
         if now_utc > temp_expires:
             raise HTTPException(
                 status_code=403,
                 detail="Contraseña temporal expirada. Contacte con la Federación."
             )
-    
+
     # Get or initialize token_version
     token_version = user.get("token_version", 0)
-    
+
     access_token = create_access_token(user["id"], user["email"])
     refresh_token = create_refresh_token(user["id"], token_version)
-    
+
     # Create response with access token in JSON
     response = JSONResponse(content={
         "access_token": access_token,
@@ -673,14 +791,14 @@ async def login(data: LoginRequest):
             "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
         }
     })
-    
+
     # Set refresh token in httpOnly cookie
     cookie_settings = get_cookie_settings()
     response.set_cookie(
         value=refresh_token,
         **cookie_settings
     )
-    
+
     logger.info(f"User logged in: {user['email']} (must_change_password: {must_change})")
     return response
 
@@ -695,30 +813,30 @@ async def refresh_tokens(
     """
     if not refresh_token:
         raise HTTPException(status_code=401, detail="No hay sesión activa")
-    
+
     payload = decode_token(refresh_token)
-    
+
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
-    
+
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
-    
+
     if user["status"] != "APPROVED":
         raise HTTPException(status_code=403, detail="Usuario no verificado")
-    
+
     # Check token_version for revocation (logout invalidates all tokens)
     current_version = user.get("token_version", 0)
     token_version = payload.get("v", 0)
-    
+
     if token_version < current_version:
         raise HTTPException(status_code=401, detail="Sesión revocada. Por favor, inicia sesión de nuevo.")
-    
+
     # Create new tokens (rotation)
     access_token = create_access_token(user["id"], user["email"])
     new_refresh_token = create_refresh_token(user["id"], current_version)
-    
+
     # Create response with access token in JSON - return COMPLETE user object
     response = JSONResponse(content={
         "access_token": access_token,
@@ -741,14 +859,14 @@ async def refresh_tokens(
             "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
         }
     })
-    
+
     # Rotate refresh token in cookie
     cookie_settings = get_cookie_settings()
     response.set_cookie(
         value=new_refresh_token,
         **cookie_settings
     )
-    
+
     return response
 
 
@@ -761,7 +879,7 @@ async def logout(
     Clears the refresh token cookie.
     """
     response = JSONResponse(content={"message": "Sesión cerrada correctamente"})
-    
+
     # Clear the cookie regardless
     cookie_settings = get_cookie_settings()
     response.delete_cookie(
@@ -771,7 +889,7 @@ async def logout(
         secure=cookie_settings["secure"],
         samesite=cookie_settings["samesite"]
     )
-    
+
     # If we have a valid token, increment user's token_version to invalidate all sessions
     if refresh_token:
         payload = decode_token(refresh_token)
@@ -784,7 +902,7 @@ async def logout(
                     {"$inc": {"token_version": 1}}
                 )
                 logger.info(f"User logged out (all sessions invalidated): {user_id}")
-    
+
     return response
 
 
@@ -829,7 +947,7 @@ def check_mobile_login_rate_limit(key: str) -> bool:
     """Check if login attempt is allowed (10 attempts per 10 min)"""
     now = time_module.time()
     mobile_login_attempts[key] = [
-        t for t in mobile_login_attempts[key] 
+        t for t in mobile_login_attempts[key]
         if now - t < MOBILE_LOGIN_WINDOW_SECONDS
     ]
     return len(mobile_login_attempts[key]) < MOBILE_LOGIN_MAX_ATTEMPTS
@@ -848,48 +966,48 @@ async def mobile_login(data: LoginRequest, request: Request):
     # Rate limiting by IP + email
     client_ip = request.client.host if request.client else "unknown"
     rate_key = f"{client_ip}:{data.email}"
-    
+
     if not check_mobile_login_rate_limit(rate_key):
         raise HTTPException(
             status_code=429,
             detail="Demasiados intentos. Espera unos minutos."
         )
-    
+
     user = await db.users.find_one({"email": data.email}, {"_id": 0})
-    
+
     if not user or not verify_password(data.password, user["password_hash"]):
         record_mobile_login_attempt(rate_key)
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-    
+
     if user["status"] != "APPROVED":
         raise HTTPException(
             status_code=403,
             detail="Este usuario aun no ha sido verificado por el administrador."
         )
-    
+
     # Check temp password expiry
     must_change = user.get("must_change_password", False)
     temp_expires = user.get("temp_password_expires_at")
-    
+
     if must_change and temp_expires:
         if isinstance(temp_expires, datetime):
             if temp_expires.tzinfo is None:
                 temp_expires = temp_expires.replace(tzinfo=timezone.utc)
         elif isinstance(temp_expires, str):
             temp_expires = datetime.fromisoformat(temp_expires.replace('Z', '+00:00'))
-        
+
         if datetime.now(timezone.utc) > temp_expires:
             raise HTTPException(
                 status_code=403,
                 detail="Contraseña temporal expirada. Contacte con la Federación."
             )
-    
+
     token_version = user.get("token_version", 0)
-    
+
     # Create tokens
     access_token = create_access_token(user["id"], user["email"])
     refresh_token, jti = create_mobile_refresh_token(user["id"], token_version)
-    
+
     # Store refresh token hash in DB (never store token in clear)
     await db.mobile_refresh_tokens.insert_one({
         "jti": jti,
@@ -901,9 +1019,9 @@ async def mobile_login(data: LoginRequest, request: Request):
         "revoked": False,
         "replaced_by_jti": None
     })
-    
+
     logger.info(f"Mobile login: {user['email']} (jti: {jti[:8]}...)")
-    
+
     # Return tokens in JSON (NO cookie) - return COMPLETE user object
     return {
         "access_token": access_token,
@@ -945,17 +1063,17 @@ async def mobile_refresh(data: MobileRefreshRequest):
     """
     # Decode token
     payload = decode_token(data.refresh_token)
-    
+
     if not payload or payload.get("type") != "mobile_refresh":
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
-    
+
     jti = payload.get("jti")
     user_id = payload.get("sub")
     token_version_in_token = payload.get("v", 0)
-    
+
     if not jti or not user_id:
         raise HTTPException(status_code=401, detail="Token malformado")
-    
+
     # Find token in DB by hash (atomic operation)
     token_hash = hash_token(data.refresh_token)
     token_doc = await db.mobile_refresh_tokens.find_one_and_update(
@@ -967,30 +1085,30 @@ async def mobile_refresh(data: MobileRefreshRequest):
         {"$set": {"revoked": True}},  # Mark as used atomically
         return_document=ReturnDocument.BEFORE
     )
-    
+
     if not token_doc:
         # Token already used, revoked, or doesn't exist
         logger.warning(f"Mobile refresh attempted with invalid/used token (jti: {jti[:8] if jti else 'N/A'})")
         raise HTTPException(status_code=401, detail="Token inválido, expirado o ya utilizado")
-    
+
     # Verify user exists and is approved
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
-    
+
     if user["status"] != "APPROVED":
         raise HTTPException(status_code=403, detail="Usuario no verificado")
-    
+
     # Check token_version for global revocation (password change, etc.)
     current_version = user.get("token_version", 0)
     if token_version_in_token < current_version:
         logger.warning(f"Mobile refresh with outdated token_version for user {user_id}")
         raise HTTPException(status_code=401, detail="Sesión revocada. Por favor, inicia sesión de nuevo.")
-    
+
     # Create new tokens
     new_access_token = create_access_token(user["id"], user["email"])
     new_refresh_token, new_jti = create_mobile_refresh_token(user["id"], current_version)
-    
+
     # Store new refresh token
     await db.mobile_refresh_tokens.insert_one({
         "jti": new_jti,
@@ -1002,15 +1120,15 @@ async def mobile_refresh(data: MobileRefreshRequest):
         "revoked": False,
         "replaced_by_jti": None
     })
-    
+
     # Update old token with replacement reference
     await db.mobile_refresh_tokens.update_one(
         {"jti": jti},
         {"$set": {"replaced_by_jti": new_jti}}
     )
-    
+
     logger.info(f"Mobile refresh rotated: {jti[:8]}... -> {new_jti[:8]}...")
-    
+
     return {
         "access_token": new_access_token,
         "refresh_token": new_refresh_token,
@@ -1047,7 +1165,7 @@ async def mobile_logout(data: MobileLogoutRequest):
     Client should also delete the token from SecureStore.
     """
     payload = decode_token(data.refresh_token)
-    
+
     if payload and payload.get("type") == "mobile_refresh":
         token_hash = hash_token(data.refresh_token)
         result = await db.mobile_refresh_tokens.update_one(
@@ -1056,7 +1174,7 @@ async def mobile_logout(data: MobileLogoutRequest):
         )
         if result.modified_count > 0:
             logger.info(f"Mobile logout: token revoked (jti: {payload.get('jti', 'N/A')[:8]}...)")
-    
+
     return {"message": "Sesión cerrada correctamente"}
 
 
@@ -1071,11 +1189,11 @@ async def get_me(user: dict = Depends(get_current_user)):
 async def update_me(data: UserUpdate, user: dict = Depends(get_current_user)):
     """Update current user profile"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    
+
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc)  # datetime, not string
         await db.users.update_one({"id": user["id"]}, {"$set": update_data})
-    
+
     updated_user = await db.users.find_one({"id": user["id"]}, {"_id": 0})
     return UserPublic(**updated_user)
 
@@ -1117,7 +1235,7 @@ async def update_driver(
         update_fields["full_name"] = data.full_name
     if data.dni is not None:
         update_fields["dni"] = data.dni
-    
+
     result = await db.drivers.update_one(
         {"id": driver_id, "user_id": user["id"]},
         {"$set": update_fields}
@@ -1175,7 +1293,7 @@ async def update_assistance_company(
         "contact_phone": data.contact_phone,
         "contact_email": data.contact_email
     }
-    
+
     result = await db.assistance_companies.update_one(
         {"id": company_id, "user_id": user["id"]},
         {"$set": update_fields}
@@ -1208,7 +1326,7 @@ async def change_password(
     # Verify current password
     if not verify_password(data.current_password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Contraseña actual incorrecta")
-    
+
     # Validate new password (min 8 chars, 1 uppercase, 1 number)
     new_pass = data.new_password
     if len(new_pass) < 8:
@@ -1217,11 +1335,11 @@ async def change_password(
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos una mayúscula")
     if not any(c.isdigit() for c in new_pass):
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos un número")
-    
+
     # Update password, clear flags, and INCREMENT token_version to invalidate all sessions
     new_hash = hash_password(new_pass)
     now = datetime.now(timezone.utc)
-    
+
     await db.users.update_one(
         {"id": user["id"]},
         {
@@ -1234,15 +1352,15 @@ async def change_password(
             "$inc": {"token_version": 1}  # Invalidate ALL refresh tokens
         }
     )
-    
+
     logger.info(f"Password changed for user {user['id']} - all sessions invalidated")
-    
+
     # Build response with cookie clearing
     result = JSONResponse(content={
         "message": "Contraseña actualizada. Vuelve a iniciar sesión.",
         "session_invalidated": True
     })
-    
+
     # Clear refresh token cookie
     cookie_settings = get_cookie_settings()
     result.delete_cookie(
@@ -1252,7 +1370,7 @@ async def change_password(
         secure=cookie_settings["secure"],
         samesite=cookie_settings["samesite"]
     )
-    
+
     return result
 
 
@@ -1270,9 +1388,9 @@ async def create_route_sheet(
             status_code=400,
             detail="Debe proporcionar teléfono o email del contratante"
         )
-    
+
     assistance_snapshot = None
-    
+
     # 2. Validation based on pickup_type
     if data.pickup_type == "AIRPORT":
         # Flight number required and validated
@@ -1293,7 +1411,7 @@ async def create_route_sheet(
         data.flight_number = fn_normalized
         # Force pickup_address to Aeropuerto de Asturias
         data.pickup_address = "Aeropuerto de Asturias"
-    
+
     elif data.pickup_type == "OTHER":
         # Pickup address required
         if not data.pickup_address or not data.pickup_address.strip():
@@ -1307,7 +1425,7 @@ async def create_route_sheet(
                 status_code=400,
                 detail="Número de vuelo no aplica para este tipo de recogida"
             )
-    
+
     elif data.pickup_type == "ROADSIDE":
         # Pickup address required (location of breakdown)
         if not data.pickup_address or not data.pickup_address.strip():
@@ -1356,11 +1474,11 @@ async def create_route_sheet(
                 status_code=400,
                 detail="Conductor seleccionado no encontrado"
             )
-    
+
     # ============== ATOMIC NUMBERING ==============
     # Use local year (Europe/Madrid) to avoid edge cases around New Year.
     current_year = datetime.now(MADRID_TZ).year
-    
+
     # findOneAndUpdate with $inc is atomic - no race conditions
     # ReturnDocument.AFTER ensures we get the incremented value
     counter_result = await db.counters.find_one_and_update(
@@ -1370,17 +1488,17 @@ async def create_route_sheet(
         return_document=ReturnDocument.AFTER
     )
     next_seq = counter_result["seq"]
-    
+
     # ============== RETENTION DATES ==============
     # Use relativedelta for precise calendar months (not 30-day approximation)
     config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
     hide_months = config.get("hide_after_months", 14) if config else 14
     purge_months = config.get("purge_after_months", 24) if config else 24
-    
+
     now = datetime.now(timezone.utc)
     hide_at = now + relativedelta(months=+hide_months)
     purge_at = now + relativedelta(months=+purge_months)
-    
+
     # ============== CREATE SHEET ==============
     # Convert pickup_datetime from ISO string to datetime for MongoDB filtering
     pickup_dt_str = data.pickup_datetime
@@ -1397,12 +1515,12 @@ async def create_route_sheet(
             pickup_dt = local_dt.astimezone(timezone.utc)
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha/hora inválido")
-    
+
     # Build sheet data
     sheet_data = data.model_dump()
     # Remove assistance_company_id (we store snapshot instead)
     sheet_data.pop('assistance_company_id', None)
-    
+
     sheet = RouteSheet(
         user_id=user["id"],
         year=current_year,
@@ -1412,14 +1530,14 @@ async def create_route_sheet(
         assistance_company_snapshot=assistance_snapshot,
         **sheet_data
     )
-    
+
     # Keep datetimes as native Python datetime for MongoDB BSON Date storage
     # TTL indexes require BSON Date, not ISO strings
     sheet_dict = sheet.model_dump()
     # CRITICAL: Store pickup_datetime as datetime object for date range queries
     sheet_dict["pickup_datetime"] = pickup_dt
     # created_at, hide_at, purge_at remain as datetime objects
-    
+
     try:
         await db.route_sheets.insert_one(sheet_dict)
     except Exception as e:
@@ -1428,11 +1546,11 @@ async def create_route_sheet(
             logger.error(f"Duplicate sheet number {next_seq}/{current_year} for user {user['id']}")
             raise HTTPException(status_code=500, detail="Error de numeración, reintente")
         raise
-    
+
     # Format: 001/2026, 1000/2026 (natural expansion beyond 999)
     sheet_number = f"{next_seq:03d}/{current_year}"
     logger.info(f"Route sheet created: {sheet_number} for user {user['id']}")
-    
+
     return {
         "id": sheet.id,
         "sheet_number": sheet_number,
@@ -1445,6 +1563,7 @@ async def get_route_sheets(
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
     include_annulled: bool = False,
+    search: Optional[str] = None,
     limit: int = Query(default=50, le=200),
     cursor: Optional[str] = None,
     user: dict = Depends(get_current_user)
@@ -1458,11 +1577,11 @@ async def get_route_sheets(
     """
     # Base query: always user_visible=true for user endpoints
     query = {"user_id": user["id"], "user_visible": True}
-    
+
     # Exclude annulled by default
     if not include_annulled:
         query["status"] = "ACTIVE"
-    
+
     # Date range filter on pickup_datetime (converted to UTC from Europe/Madrid)
     if from_date or to_date:
         pickup_filter = {}
@@ -1474,31 +1593,45 @@ async def get_route_sheets(
             pickup_filter["$lte"] = to_end
         if pickup_filter:
             query["pickup_datetime"] = pickup_filter
-    
-    # Cursor pagination (by _id for stability)
+
+    # Server-side search: sheet number (012 or 012/2026), destination, passengers
+    if search and search.strip():
+        s = search.strip()
+        or_conds = [
+            {"destination": {"$regex": re.escape(s), "$options": "i"}},
+            {"passenger_info": {"$regex": re.escape(s), "$options": "i"}},
+        ]
+        num_match = re.match(r'^(\d{1,4})(?:/(\d{4}))?$', s)
+        if num_match:
+            num_cond = {"seq_number": int(num_match.group(1))}
+            if num_match.group(2):
+                num_cond["year"] = int(num_match.group(2))
+            or_conds.append(num_cond)
+        query["$or"] = or_conds
+
+    # Cursor pagination aligned with sort (year desc, seq_number desc, _id desc)
     if cursor:
-        try:
-            query["_id"] = {"$lt": ObjectId(cursor)}
-        except:
-            pass  # Invalid cursor, ignore
-    
+        cursor_cond = _build_sheet_cursor_query(cursor)
+        if cursor_cond:
+            query = {"$and": [query, cursor_cond]}
+
     # Query with stable sort: year desc, seq_number desc (ordenado por número de hoja)
     sheets = await db.route_sheets.find(
         query
     ).sort([("year", -1), ("seq_number", -1), ("_id", -1)]).limit(limit).to_list(limit)
-    
+
     # Build response
     result_sheets = []
     next_cursor = None
-    
+
     for sheet in sheets:
         # Store _id for cursor before removing
         sheet_id = sheet.pop("_id")
-        next_cursor = str(sheet_id)
+        next_cursor = f"{sheet['year']}|{sheet['seq_number']}|{sheet_id}"
         sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
         _ensure_utc_aware(sheet)
         result_sheets.append(sheet)
-    
+
     return {
         "sheets": result_sheets,
         "next_cursor": next_cursor if len(result_sheets) == limit else None,
@@ -1515,7 +1648,7 @@ async def get_route_sheet(sheet_id: str, user: dict = Depends(get_current_user))
     )
     if not sheet:
         raise HTTPException(status_code=404, detail="Hoja no encontrada")
-    
+
     sheet["sheet_number"] = f"{sheet['seq_number']:03d}/{sheet['year']}"
     _ensure_utc_aware(sheet)
     return sheet
@@ -1532,13 +1665,13 @@ async def annul_route_sheet(
         {"id": sheet_id, "user_id": user["id"]},
         {"_id": 0}
     )
-    
+
     if not sheet:
         raise HTTPException(status_code=404, detail="Hoja no encontrada")
-    
+
     if sheet["status"] == "ANNULLED":
         raise HTTPException(status_code=400, detail="La hoja ya está anulada")
-    
+
     await db.route_sheets.update_one(
         {"id": sheet_id},
         {"$set": {
@@ -1547,10 +1680,10 @@ async def annul_route_sheet(
             "annul_reason": data.reason
         }}
     )
-    
+
     # Invalidate only ACTIVE cache - ANNULLED will be cached separately
     await invalidate_pdf_cache(sheet_id, status="ACTIVE")
-    
+
     return {"message": "Hoja anulada correctamente"}
 
 
@@ -1565,31 +1698,31 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
     """
     # Check rate limit
     await check_pdf_rate_limit(user["id"], "pdf_individual")
-    
+
     sheet = await db.route_sheets.find_one(
         {"id": sheet_id, "user_id": user["id"], "user_visible": True},
         {"_id": 0}
     )
     if not sheet:
         raise HTTPException(status_code=404, detail="Hoja no encontrada")
-    
+
     # Get config for PDF headers and version
     config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
     if not config:
         config = AppConfig().model_dump()
-    
+
     config_version = config.get("pdf_config_version", 1)
     sheet_status = sheet["status"]
-    
+
     # Check cache (both ACTIVE and ANNULLED are cached)
     cached_pdf = await get_cached_pdf(sheet_id, config_version, sheet_status)
     if cached_pdf:
         # Record request for rate limiting
         await record_pdf_request(user["id"], "pdf_individual")
-        
+
         sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
         filename = f"hoja_ruta_{sheet_number}.pdf"
-        
+
         return Response(
             content=cached_pdf,
             media_type="application/pdf",
@@ -1600,10 +1733,10 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
                 "X-Cache": "HIT"
             }
         )
-    
+
     # Get user full data
     user_data = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    
+
     # Get driver name if not titular
     driver_name = "Titular"
     if sheet.get("conductor_driver_id"):
@@ -1613,21 +1746,21 @@ async def get_route_sheet_pdf(sheet_id: str, user: dict = Depends(get_current_us
         )
         if driver:
             driver_name = driver["full_name"]
-    
+
     # Generate PDF (includes watermark for ANNULLED)
     from pdf_generator import generate_route_sheet_pdf
     pdf_buffer = await asyncio.to_thread(generate_route_sheet_pdf, sheet, user_data, config, driver_name)
     pdf_bytes = pdf_buffer.getvalue()
-    
+
     # Cache the PDF (both ACTIVE and ANNULLED)
     await cache_pdf(sheet_id, config_version, sheet_status, pdf_bytes)
-    
+
     # Record request for rate limiting
     await record_pdf_request(user["id"], "pdf_individual")
-    
+
     sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
     filename = f"hoja_ruta_{sheet_number}.pdf"
-    
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -1655,47 +1788,47 @@ async def get_route_sheets_pdf_range(
     """
     # Check rate limit
     await check_pdf_rate_limit(user["id"], "pdf_range")
-    
+
     # Convert dates to UTC range
     from_start, _ = date_to_utc_range(from_date)
     _, to_end = date_to_utc_range(to_date)
-    
+
     query = {
         "user_id": user["id"],
         "user_visible": True,
         "status": "ACTIVE",  # Never include annulled in range PDF
         "pickup_datetime": {"$gte": from_start, "$lte": to_end}
     }
-    
+
     sheets = await db.route_sheets.find(
         query,
         {"_id": 0}
     ).sort("pickup_datetime", 1).to_list(1000)
-    
+
     if not sheets:
         raise HTTPException(status_code=404, detail="No hay hojas en el rango seleccionado")
-    
+
     # Get config and user data
     config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
     if not config:
         config = AppConfig().model_dump()
-    
+
     user_data = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    
+
     # Get all drivers for this user
     drivers = await db.drivers.find({"user_id": user["id"]}, {"_id": 0}).to_list(100)
     drivers_map = {d["id"]: d["full_name"] for d in drivers}
-    
+
     # Generate multi-page PDF
     from pdf_generator import generate_multi_sheet_pdf
     pdf_buffer = await asyncio.to_thread(generate_multi_sheet_pdf, sheets, user_data, config, drivers_map)
     pdf_bytes = pdf_buffer.getvalue()
-    
+
     # Record request for rate limiting
     await record_pdf_request(user["id"], "pdf_range")
-    
+
     filename = f"hojas_ruta_{from_date}_a_{to_date}.pdf"
-    
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -1724,7 +1857,7 @@ def check_admin_rate_limit(ip: str) -> bool:
     now = time.time()
     # Clean old attempts
     admin_login_attempts[ip] = [
-        t for t in admin_login_attempts[ip] 
+        t for t in admin_login_attempts[ip]
         if now - t < ADMIN_LOGIN_LOCKOUT_SECONDS
     ]
     return len(admin_login_attempts[ip]) < ADMIN_LOGIN_MAX_ATTEMPTS
@@ -1744,11 +1877,11 @@ def clear_admin_login_attempts(ip: str):
 async def admin_login(data: AdminLoginRequest, request: Request):
     """
     Admin login with rate limiting and fail-closed in production.
-    
+
     Production requirements:
     - ADMIN_USERNAME and ADMIN_PASSWORD_HASH must be set in environment
     - Default credentials (admin/admin123) are NEVER accepted
-    
+
     Rate limiting:
     - 5 failed attempts per IP = 5 minute lockout
     """
@@ -1757,7 +1890,7 @@ async def admin_login(data: AdminLoginRequest, request: Request):
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         client_ip = forwarded.split(",")[0].strip()
-    
+
     # Check rate limit first
     if not check_admin_rate_limit(client_ip):
         logger.warning(f"Admin login rate limited: {client_ip}")
@@ -1765,7 +1898,7 @@ async def admin_login(data: AdminLoginRequest, request: Request):
             status_code=429,
             detail="Demasiados intentos. Espera 5 minutos."
         )
-    
+
     # Check if admin is configured (fail-closed in production)
     if not is_admin_configured():
         logger.error("Admin login attempted but admin not configured in production")
@@ -1773,47 +1906,64 @@ async def admin_login(data: AdminLoginRequest, request: Request):
             status_code=503,
             detail="Administrador no configurado. Contacte al administrador del sistema."
         )
-    
+
     # Verify credentials
     if not verify_admin_password(data.username, data.password):
         record_admin_login_attempt(client_ip)
         remaining = ADMIN_LOGIN_MAX_ATTEMPTS - len(admin_login_attempts[client_ip])
         logger.warning(f"Failed admin login attempt from {client_ip} ({remaining} attempts remaining)")
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-    
-    # Success - clear rate limit and create token
+
+    # Success - clear rate limit and set httpOnly session cookie
     clear_admin_login_attempts(client_ip)
     token = create_admin_token()
     logger.info(f"Admin login successful from {client_ip}")
-    return {"access_token": token, "token_type": "bearer"}
+    response = JSONResponse(content={"message": "Login correcto"})
+    response.set_cookie(value=token, **get_admin_cookie_settings())
+    return response
+
+
+@admin_router.post("/logout")
+async def admin_logout():
+    """Clear admin session cookie"""
+    settings = get_admin_cookie_settings()
+    response = JSONResponse(content={"message": "Sesión cerrada"})
+    response.delete_cookie(
+        key=settings["key"],
+        path=settings["path"],
+        httponly=settings["httponly"],
+        secure=settings["secure"],
+        samesite=settings["samesite"]
+    )
+    return response
 
 
 @admin_router.get("/users", response_model=List[dict])
 async def admin_get_users(
     status: Optional[str] = None,
     search: Optional[str] = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     admin: dict = Depends(get_current_admin)
 ):
     """Get all users (admin) with pagination"""
     query = {}
-    
+
     if status:
         query["status"] = status
-    
+
     if search:
         query["$or"] = [
             {"full_name": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}},
             {"dni_cif": {"$regex": search, "$options": "i"}}
         ]
-    
+
     users = await db.users.find(
         query,
         {"_id": 0, "password_hash": 0}
     ).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
-    
+
     return users
 
 
@@ -1825,17 +1975,17 @@ async def admin_get_users_count(
 ):
     """Get total user count for pagination"""
     query = {}
-    
+
     if status:
         query["status"] = status
-    
+
     if search:
         query["$or"] = [
             {"full_name": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}},
             {"dni_cif": {"$regex": search, "$options": "i"}}
         ]
-    
+
     count = await db.users.count_documents(query)
     return {"count": count}
 
@@ -1846,11 +1996,11 @@ async def admin_get_user(user_id: str, admin: dict = Depends(get_current_admin))
     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
+
     # Get drivers
     drivers = await db.drivers.find({"user_id": user_id}, {"_id": 0}).to_list(100)
     user["drivers"] = drivers
-    
+
     return user
 
 
@@ -1862,13 +2012,13 @@ async def admin_update_user(
 ):
     """Update user (admin)"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    
+
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc)  # datetime
         result = await db.users.update_one({"id": user_id}, {"$set": update_data})
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
+
     return {"message": "Usuario actualizado"}
 
 
@@ -1878,10 +2028,10 @@ async def admin_approve_user(user_id: str, admin: dict = Depends(get_current_adm
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
+
     if user["status"] == "APPROVED":
         raise HTTPException(status_code=400, detail="Usuario ya está aprobado")
-    
+
     await db.users.update_one(
         {"id": user_id},
         {"$set": {
@@ -1889,9 +2039,9 @@ async def admin_approve_user(user_id: str, admin: dict = Depends(get_current_adm
             "updated_at": datetime.now(timezone.utc)
         }}
     )
-    
+
     logger.info(f"User approved: {user['email']}")
-    
+
     return {
         "message": "Usuario aprobado",
         "user_email": user["email"],
@@ -1915,7 +2065,7 @@ def generate_temp_password(length: int = 14) -> str:
 
 @admin_router.post("/users/{user_id}/reset-password-temp")
 async def admin_reset_password_temp(
-    user_id: str, 
+    user_id: str,
     request: Request,
     admin: dict = Depends(get_current_admin)
 ):
@@ -1927,13 +2077,13 @@ async def admin_reset_password_temp(
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
+
     # Generate temp password
     temp_password = generate_temp_password(14)
     temp_hash = hash_password(temp_password)
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(hours=72)
-    
+
     # Update user with temp password
     await db.users.update_one(
         {"id": user_id},
@@ -1946,12 +2096,12 @@ async def admin_reset_password_temp(
             }
         }
     )
-    
+
     # Get client IP (behind proxy)
     client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
     if client_ip and "," in client_ip:
         client_ip = client_ip.split(",")[0].strip()
-    
+
     # Audit log (NEVER include password)
     audit_entry = {
         "action": "RESET_PASSWORD_TEMP",
@@ -1964,9 +2114,9 @@ async def admin_reset_password_temp(
         "client_ip": client_ip
     }
     await db.admin_audit_logs.insert_one(audit_entry)
-    
+
     logger.info(f"Temp password generated for user {user_id} by admin (expires: {expires_at.isoformat()})")
-    
+
     # Return temp password ONLY HERE - not logged, not stored
     return {
         "message": "Contraseña temporal generada",
@@ -1990,34 +2140,34 @@ async def admin_get_password_reset_audit(
     Returns list of reset events sorted by timestamp (newest first).
     """
     query = {"action": "RESET_PASSWORD_TEMP"}
-    
+
     if user_id:
         query["user_id"] = user_id
-    
+
     if cursor:
         try:
             cursor_dt = datetime.fromisoformat(cursor.replace("Z", "+00:00"))
             query["timestamp"] = {"$lt": cursor_dt}
         except ValueError:
             pass
-    
+
     logs = await db.admin_audit_logs.find(
         query,
         {"_id": 0}
     ).sort("timestamp", -1).limit(limit).to_list(limit)
-    
+
     # Convert datetime to ISO string
     for log in logs:
         if isinstance(log.get("timestamp"), datetime):
             log["timestamp"] = log["timestamp"].isoformat()
         if isinstance(log.get("expires_at"), datetime):
             log["expires_at"] = log["expires_at"].isoformat()
-    
+
     # Next cursor
     next_cursor = None
     if len(logs) == limit and logs:
         next_cursor = logs[-1]["timestamp"]
-    
+
     return {
         "items": logs,
         "next_cursor": next_cursor,
@@ -2038,14 +2188,14 @@ async def admin_get_user_password_reset_audit(
         {"action": "RESET_PASSWORD_TEMP", "user_id": user_id},
         {"_id": 0}
     ).sort("timestamp", -1).limit(limit).to_list(limit)
-    
+
     # Convert datetime to ISO string
     for log in logs:
         if isinstance(log.get("timestamp"), datetime):
             log["timestamp"] = log["timestamp"].isoformat()
         if isinstance(log.get("expires_at"), datetime):
             log["expires_at"] = log["expires_at"].isoformat()
-    
+
     return logs
 
 
@@ -2062,21 +2212,21 @@ async def admin_get_route_sheet_pdf(
     sheet = await db.route_sheets.find_one({"id": sheet_id}, {"_id": 0})
     if not sheet:
         raise HTTPException(status_code=404, detail="Hoja no encontrada")
-    
+
     # Get config for PDF headers and version
     config = await db.app_config.find_one({"id": "global"}, {"_id": 0})
     if not config:
         config = AppConfig().model_dump()
-    
+
     config_version = config.get("pdf_config_version", 1)
     sheet_status = sheet["status"]
-    
+
     # Check cache
     cached_pdf = await get_cached_pdf(sheet_id, config_version, sheet_status)
     if cached_pdf:
         sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
         filename = f"hoja_ruta_{sheet_number}.pdf"
-        
+
         return Response(
             content=cached_pdf,
             media_type="application/pdf",
@@ -2087,12 +2237,12 @@ async def admin_get_route_sheet_pdf(
                 "X-Cache": "HIT"
             }
         )
-    
+
     # Get user data (owner of the sheet)
     user_data = await db.users.find_one({"id": sheet["user_id"]}, {"_id": 0})
     if not user_data:
         raise HTTPException(status_code=404, detail="Usuario propietario no encontrado")
-    
+
     # Get driver name if not titular
     driver_name = "Titular"
     if sheet.get("conductor_driver_id"):
@@ -2102,18 +2252,18 @@ async def admin_get_route_sheet_pdf(
         )
         if driver:
             driver_name = driver["full_name"]
-    
+
     # Generate PDF
     from pdf_generator import generate_route_sheet_pdf
     pdf_buffer = await asyncio.to_thread(generate_route_sheet_pdf, sheet, user_data, config, driver_name)
     pdf_bytes = pdf_buffer.getvalue()
-    
+
     # Cache the PDF
     await cache_pdf(sheet_id, config_version, sheet_status, pdf_bytes)
-    
+
     sheet_number = f"{sheet['seq_number']:03d}_{sheet['year']}"
     filename = f"hoja_ruta_{sheet_number}.pdf"
-    
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -2133,28 +2283,28 @@ async def admin_get_route_sheets(
     to_date: Optional[str] = None,
     status: Optional[str] = None,
     user_visible: Optional[bool] = None,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),
     cursor: Optional[str] = None,
     admin: dict = Depends(get_current_admin)
 ):
     """Get all route sheets (admin) with pagination - can see ALL including hidden"""
     try:
         query = {}
-        
+
         if user_id:
             query["user_id"] = user_id
         if status:
             query["status"] = status
         if user_visible is not None:
             query["user_visible"] = user_visible
-        
+
         # Date filtering using pickup_datetime (same as user endpoints)
         # Convert Europe/Madrid local dates to UTC datetime
         madrid_tz = pytz.timezone("Europe/Madrid")
-        
+
         if from_date or to_date:
             date_query = {}
-            
+
             if from_date:
                 try:
                     from_dt_local = madrid_tz.localize(
@@ -2164,7 +2314,7 @@ async def admin_get_route_sheets(
                     date_query["$gte"] = from_dt_utc
                 except ValueError:
                     pass
-            
+
             if to_date:
                 try:
                     to_dt_local = madrid_tz.localize(
@@ -2174,17 +2324,18 @@ async def admin_get_route_sheets(
                     date_query["$lte"] = to_dt_utc
                 except ValueError:
                     pass
-            
+
             if date_query:
                 query["pickup_datetime"] = date_query
 
-        # Cursor pagination (stable by _id)
+        total_count = await db.route_sheets.count_documents(query)
+
+        # Cursor pagination aligned with sort (year desc, seq_number desc, _id desc)
         if cursor:
-            try:
-                query["_id"] = {"$lt": ObjectId(cursor)}
-            except Exception:
-                pass
-        
+            cursor_cond = _build_sheet_cursor_query(cursor)
+            if cursor_cond:
+                query = {"$and": [query, cursor_cond]} if query else cursor_cond
+
         # Sort by year and seq_number for consistent ordering
         sheets = await db.route_sheets.find(query).sort([("year", -1), ("seq_number", -1), ("_id", -1)]).limit(limit).to_list(limit)
 
@@ -2193,17 +2344,17 @@ async def admin_get_route_sheets(
         user_ids = []
         for sheet in sheets:
             oid = sheet.pop("_id", None)
-            if oid is not None:
-                next_cursor = str(oid)
             # Safe sheet_number calculation
             seq = sheet.get('seq_number', 0) or 0
             year = sheet.get('year', 0) or 0
+            if oid is not None:
+                next_cursor = f"{year}|{seq}|{oid}"
             sheet["sheet_number"] = f"{seq:03d}/{year}" if year else "---"
             user_ids.append(sheet.get("user_id"))
-            
+
             # Ensure datetimes are UTC-aware before serialization
             _ensure_utc_aware(sheet)
-            
+
             # Convert ALL datetime objects to ISO strings for JSON serialization
             for key, val in list(sheet.items()):
                 if hasattr(val, 'isoformat'):
@@ -2223,7 +2374,7 @@ async def admin_get_route_sheets(
                 {"_id": 0, "id": 1, "email": 1, "full_name": 1}
             ).to_list(len(unique_user_ids))
             users_map = {u["id"]: u for u in users}
-        
+
         # Attach user info
         for sheet in sheets:
             u = users_map.get(sheet.get("user_id"))
@@ -2231,14 +2382,85 @@ async def admin_get_route_sheets(
                 sheet["user_email"] = u.get("email")
                 sheet["user_name"] = u.get("full_name")
 
-        headers = {}
+        headers = {"X-Total-Count": str(total_count)}
         if len(sheets) == limit and next_cursor:
             headers["X-Next-Cursor"] = next_cursor
 
         return JSONResponse(content=sheets, headers=headers)
     except Exception as e:
         logger.error(f"Error in admin_get_route_sheets: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@admin_router.get("/stats")
+async def admin_get_stats(
+    months: int = Query(12, ge=1, le=36),
+    admin: dict = Depends(get_current_admin)
+):
+    """Admin dashboard stats: sheets per month + most active taxistas + totals"""
+    now = datetime.now(timezone.utc)
+    since = now - relativedelta(months=months - 1)
+    since_month_start = datetime(since.year, since.month, 1, tzinfo=timezone.utc)
+
+    sheets_by_month = await db.route_sheets.aggregate([
+        {"$match": {"created_at": {"$gte": since_month_start}}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": "%Y-%m", "date": "$created_at", "timezone": "Europe/Madrid"}},
+            "total": {"$sum": 1},
+            "annulled": {"$sum": {"$cond": [{"$eq": ["$status", "ANNULLED"]}, 1, 0]}}
+        }},
+        {"$sort": {"_id": 1}}
+    ]).to_list(50)
+
+    top_users_raw = await db.route_sheets.aggregate([
+        {"$match": {"created_at": {"$gte": since_month_start}}},
+        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]).to_list(10)
+
+    user_ids = [u["_id"] for u in top_users_raw if u["_id"]]
+    users_map = {}
+    if user_ids:
+        users = await db.users.find(
+            {"id": {"$in": user_ids}},
+            {"_id": 0, "id": 1, "full_name": 1, "email": 1}
+        ).to_list(len(user_ids))
+        users_map = {u["id"]: u for u in users}
+
+    top_users = [{
+        "user_id": u["_id"],
+        "full_name": users_map.get(u["_id"], {}).get("full_name", "Usuario eliminado"),
+        "email": users_map.get(u["_id"], {}).get("email", ""),
+        "sheets_count": u["count"]
+    } for u in top_users_raw]
+
+    total_sheets = await db.route_sheets.count_documents({})
+    active_sheets = await db.route_sheets.count_documents({"status": "ACTIVE"})
+
+    # Zero-fill months without activity so the chart has a continuous axis
+    month_map = {s["_id"]: s for s in sheets_by_month}
+    filled_months = []
+    cur = since_month_start
+    while cur <= now:
+        key = f"{cur.year:04d}-{cur.month:02d}"
+        m = month_map.get(key, {"total": 0, "annulled": 0})
+        filled_months.append({"month": key, "total": m["total"], "annulled": m["annulled"]})
+        cur = cur + relativedelta(months=1)
+
+    return {
+        "months": months,
+        "sheets_by_month": filled_months,
+        "top_users": top_users,
+        "totals": {
+            "total_sheets": total_sheets,
+            "active_sheets": active_sheets,
+            "annulled_sheets": total_sheets - active_sheets,
+            "total_users": await db.users.count_documents({}),
+            "approved_users": await db.users.count_documents({"status": "APPROVED"}),
+            "pending_users": await db.users.count_documents({"status": "PENDING"})
+        }
+    }
 
 
 @admin_router.get("/config", response_model=dict)
@@ -2257,29 +2479,29 @@ async def admin_update_config(
 ):
     """Update app configuration with validation"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    
+
     # Validate retention months
     if "hide_after_months" in update_data or "purge_after_months" in update_data:
         # Get current values
         current = await db.app_config.find_one({"id": "global"}, {"_id": 0})
         hide_months = update_data.get("hide_after_months", current.get("hide_after_months", 14) if current else 14)
         purge_months = update_data.get("purge_after_months", current.get("purge_after_months", 24) if current else 24)
-        
+
         if purge_months <= hide_months:
             raise HTTPException(
                 status_code=400,
                 detail=f"purge_after_months ({purge_months}) debe ser mayor que hide_after_months ({hide_months})"
             )
-        
+
         if hide_months < 1 or purge_months < 1:
             raise HTTPException(
                 status_code=400,
                 detail="Los meses de retención deben ser al menos 1"
             )
-    
+
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc)
-        
+
         # Check if PDF-affecting fields changed -> increment pdf_config_version
         pdf_fields = {"header_title", "header_line1", "header_line2", "legend_text"}
         if any(field in update_data for field in pdf_fields):
@@ -2299,7 +2521,7 @@ async def admin_update_config(
                 {"$set": update_data},
                 upsert=True
             )
-    
+
     return {"message": "Configuración actualizada"}
 
 
@@ -2312,24 +2534,24 @@ async def admin_run_retention(
     Execute retention job manually (admin only).
     - Hides sheets older than hide_after_months
     - Purges sheets older than purge_after_months
-    
+
     Use dry_run=true (default) to preview without changes.
     """
     import time
     start_time = time.time()
     now = datetime.now(timezone.utc)
-    
+
     # Count before
     total_before = await db.route_sheets.count_documents({})
     visible_before = await db.route_sheets.count_documents({"user_visible": True})
-    
+
     # Get sheets that would be affected
     hide_query = {"hide_at": {"$lte": now}, "user_visible": True}
     purge_query = {"purge_at": {"$lte": now}}
-    
+
     to_hide = await db.route_sheets.count_documents(hide_query)
     to_purge = await db.route_sheets.count_documents(purge_query)
-    
+
     result = {
         "dry_run": dry_run,
         "executed_at": now.isoformat(),
@@ -2342,14 +2564,14 @@ async def admin_run_retention(
         "to_purge": to_purge,
         "message": ""
     }
-    
+
     if dry_run:
         result["message"] = f"DRY RUN: Se ocultarían {to_hide} hojas y se eliminarían {to_purge}"
     else:
         try:
             hidden_count = 0
             purged_count = 0
-            
+
             # Execute HIDE
             if to_hide > 0:
                 hide_result = await db.route_sheets.update_many(
@@ -2357,18 +2579,18 @@ async def admin_run_retention(
                     {"$set": {"user_visible": False}}
                 )
                 hidden_count = hide_result.modified_count
-            
+
             # Execute PURGE
             if to_purge > 0:
                 purge_result = await db.route_sheets.delete_many(purge_query)
                 purged_count = purge_result.deleted_count
-            
+
             # Count after
             total_after = await db.route_sheets.count_documents({})
             visible_after = await db.route_sheets.count_documents({"user_visible": True})
-            
+
             duration_ms = int((time.time() - start_time) * 1000)
-            
+
             # Log to retention_runs collection
             run_log = {
                 "run_at": now,
@@ -2387,7 +2609,7 @@ async def admin_run_retention(
                 }
             }
             await db.retention_runs.insert_one(run_log)
-            
+
             result["stats_after"] = {
                 "total": total_after,
                 "visible": visible_after,
@@ -2397,12 +2619,12 @@ async def admin_run_retention(
             result["purged"] = purged_count
             result["duration_ms"] = duration_ms
             result["message"] = f"Ejecutado: {hidden_count} hojas ocultas, {purged_count} hojas eliminadas"
-            
+
             logger.info(f"Retention job executed by admin: {result['message']}")
         except Exception as e:
             logger.error(f"Retention job failed: {e}")
             raise HTTPException(status_code=500, detail=f"Error ejecutando retention: {str(e)}")
-    
+
     return result
 
 
@@ -2413,14 +2635,14 @@ async def verify_job_token(x_job_token: Optional[str] = Header(None)) -> str:
     if not RETENTION_JOB_TOKEN:
         logger.error("RETENTION_JOB_TOKEN not configured - internal endpoints disabled")
         raise HTTPException(status_code=503, detail="Job token not configured")
-    
+
     if not x_job_token:
         raise HTTPException(status_code=401, detail="X-Job-Token header required")
-    
+
     if x_job_token != RETENTION_JOB_TOKEN:
         logger.warning(f"Invalid job token attempt")
         raise HTTPException(status_code=403, detail="Invalid job token")
-    
+
     return x_job_token
 
 
@@ -2428,14 +2650,14 @@ async def verify_job_token(x_job_token: Optional[str] = Header(None)) -> str:
 async def internal_run_retention(token: str = Depends(verify_job_token)):
     """
     Execute retention job (for automated schedulers).
-    
+
     Authentication: X-Job-Token header with RETENTION_JOB_TOKEN value.
     Always executes real retention (no dry_run).
     Uses atomic lock to prevent concurrent executions.
-    
+
     Returns:
         - hidden_count: sheets hidden this run
-        - purged_count: sheets purged this run  
+        - purged_count: sheets purged this run
         - duration_ms: execution time
         - run_at: ISO timestamp
     """
@@ -2443,7 +2665,7 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
     start_time = time.time()
     now = datetime.now(timezone.utc)
     lock_expiry = now + timedelta(minutes=5)  # Lock expires after 5 min max
-    
+
     # Acquire lock atomically
     lock_result = await db.retention_locks.find_one_and_update(
         {
@@ -2463,28 +2685,28 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
         return_document=ReturnDocument.AFTER,
         upsert=True
     )
-    
+
     if not lock_result or not lock_result.get("locked"):
         raise HTTPException(
-            status_code=409, 
+            status_code=409,
             detail="Retention job already running. Try again later."
         )
-    
+
     try:
         # Count before
         total_before = await db.route_sheets.count_documents({})
         visible_before = await db.route_sheets.count_documents({"user_visible": True})
-        
+
         # Get sheets that will be affected
         hide_query = {"hide_at": {"$lte": now}, "user_visible": True}
         purge_query = {"purge_at": {"$lte": now}}
-        
+
         to_hide = await db.route_sheets.count_documents(hide_query)
         to_purge = await db.route_sheets.count_documents(purge_query)
-        
+
         hidden_count = 0
         purged_count = 0
-        
+
         # Execute HIDE
         if to_hide > 0:
             hide_result = await db.route_sheets.update_many(
@@ -2492,7 +2714,7 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
                 {"$set": {"user_visible": False}}
             )
             hidden_count = hide_result.modified_count
-        
+
         # Execute PURGE (backup to TTL index)
         if to_purge > 0:
             # Log sheets being purged (without sensitive data)
@@ -2500,19 +2722,19 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
                 purge_query,
                 {"_id": 0, "id": 1, "user_id": 1, "year": 1, "seq_number": 1}
             ).to_list(100)
-            
+
             for s in sheets:
                 logger.info(f"Purging sheet: {s['seq_number']:03d}/{s['year']} (user: {s['user_id'][:8]}...)")
-            
+
             purge_result = await db.route_sheets.delete_many(purge_query)
             purged_count = purge_result.deleted_count
-        
+
         # Count after
         total_after = await db.route_sheets.count_documents({})
         visible_after = await db.route_sheets.count_documents({"user_visible": True})
-        
+
         duration_ms = int((time.time() - start_time) * 1000)
-        
+
         # Log to retention_runs collection
         run_log = {
             "run_at": now,
@@ -2531,16 +2753,16 @@ async def internal_run_retention(token: str = Depends(verify_job_token)):
             }
         }
         await db.retention_runs.insert_one(run_log)
-        
+
         logger.info(f"Internal retention job completed: hidden={hidden_count}, purged={purged_count}, duration={duration_ms}ms")
-        
+
         return {
             "hidden_count": hidden_count,
             "purged_count": purged_count,
             "duration_ms": duration_ms,
             "run_at": now.isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2564,12 +2786,12 @@ async def admin_get_retention_runs(
         {},
         {"_id": 0}
     ).sort("run_at", -1).limit(limit).to_list(limit)
-    
+
     # Convert datetime to ISO string for JSON
     for run in runs:
         if isinstance(run.get("run_at"), datetime):
             run["run_at"] = run["run_at"].isoformat()
-    
+
     return runs
 
 
@@ -2577,7 +2799,7 @@ async def admin_get_retention_runs(
 async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin)):
     """
     Get the most recent retention job execution with status indicator.
-    
+
     Status:
     - OK: last run < 36 hours ago
     - WARN: last run 36-72 hours ago
@@ -2588,9 +2810,9 @@ async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin))
         {"_id": 0},
         sort=[("run_at", -1)]
     )
-    
+
     now = datetime.now(timezone.utc)
-    
+
     if not run:
         return {
             "last_run_at": None,
@@ -2602,7 +2824,7 @@ async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin))
             "purged_count": None,
             "duration_ms": None
         }
-    
+
     # Calculate hours since last run
     run_at = run.get("run_at")
     if isinstance(run_at, datetime):
@@ -2611,7 +2833,7 @@ async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin))
         hours_since = (now - run_at).total_seconds() / 3600
     else:
         hours_since = None
-    
+
     # Determine status
     if hours_since is None:
         status = "CRIT"
@@ -2625,7 +2847,7 @@ async def admin_get_last_retention_run(admin: dict = Depends(get_current_admin))
     else:
         status = "OK"
         status_message = f"Última ejecución hace {int(hours_since)} horas"
-    
+
     return {
         "last_run_at": run_at.isoformat() if isinstance(run_at, datetime) else run_at,
         "hours_since_last_run": round(hours_since, 1) if hours_since else None,
@@ -2647,21 +2869,21 @@ async def admin_debug_db_info(admin: dict = Depends(get_current_admin)):
     # Get counts
     users_count = await db.users.count_documents({})
     sheets_count = await db.route_sheets.count_documents({})
-    
+
     # Get latest user
     last_user = await db.users.find_one(
         {},
         {"_id": 0, "email": 1, "created_at": 1},
         sort=[("created_at", -1)]
     )
-    
+
     # Get latest sheet
     last_sheet = await db.route_sheets.find_one(
         {},
         {"_id": 0, "sheet_number": 1, "created_at": 1},
         sort=[("created_at", -1)]
     )
-    
+
     return {
         "app_env": os.environ.get("ENVIRONMENT", "development"),
         "db_name": db.name,
@@ -2706,7 +2928,8 @@ if not cors_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=cors_origins,  # Explicit list, no wildcards with credentials
+    allow_origins=cors_origins,  # Explicit list or "*" (Starlette reflects origin with credentials)
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Next-Cursor", "X-Total-Count"],
 )

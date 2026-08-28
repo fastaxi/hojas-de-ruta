@@ -10,6 +10,7 @@ import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
+import { DatePickerES, DateTimePickerES } from '../../components/DatePickerES';
 import { AlertCircle, Loader2, Check, Plane, MapPin, Truck } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -310,12 +311,11 @@ export function NuevaHojaPage() {
                 <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                   Fecha Precontratación *
                 </Label>
-                <Input
-                  type="date"
+                <DatePickerES
                   value={formData.prebooked_date}
-                  onChange={(e) => updateField('prebooked_date', e.target.value)}
+                  onChange={(v) => updateField('prebooked_date', v)}
                   className="h-14 text-lg"
-                  data-testid="prebooked-date"
+                  testId="prebooked-date"
                 />
               </div>
               <div className="space-y-2">
@@ -460,12 +460,11 @@ export function NuevaHojaPage() {
               <Label className="text-stone-600 font-medium text-sm uppercase tracking-wide">
                 Fecha y Hora de Recogida *
               </Label>
-              <Input
-                type="datetime-local"
+              <DateTimePickerES
                 value={formData.pickup_datetime}
-                onChange={(e) => updateField('pickup_datetime', e.target.value)}
+                onChange={(v) => updateField('pickup_datetime', v)}
                 className="h-14 text-lg"
-                data-testid="pickup-datetime"
+                testId="pickup-datetime"
               />
             </div>
 
