@@ -19,7 +19,7 @@ import {
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function AdminSheetsPage() {
-  const { adminRequest, adminToken } = useAdminAuth();
+  const { adminRequest } = useAdminAuth();
   const [sheets, setSheets] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +119,6 @@ export function AdminSheetsPage() {
   const downloadPdf = async (sheetId, sheetNumber) => {
     try {
       const response = await axios.get(`${API_URL}/admin/route-sheets/${sheetId}/pdf`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
         responseType: 'blob'
       });
       

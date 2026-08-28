@@ -54,6 +54,11 @@ export function AuthProvider({ children }) {
           return Promise.reject(error);
         }
         
+        // Admin endpoints use their own session cookie - never try user refresh
+        if (originalRequest.url?.includes('/admin/')) {
+          return Promise.reject(error);
+        }
+        
         // If 401 and we haven't tried to refresh yet
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
@@ -97,6 +102,7 @@ export function AuthProvider({ children }) {
       axios.interceptors.request.eject(requestInterceptor);
       axios.interceptors.response.eject(responseInterceptor);
     };
+    // Intentional mount-only registration (reads token via ref)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -112,7 +118,10 @@ export function AuthProvider({ children }) {
       
       return access_token;
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      // 401 without session is expected on public pages - keep console clean
+      if (error.response?.status !== 401) {
+        console.error('Token refresh failed:', error);
+      }
       throw error;
     }
   };
@@ -137,6 +146,8 @@ export function AuthProvider({ children }) {
     };
 
     initAuth();
+    // Intentional mount-only session restore
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Login

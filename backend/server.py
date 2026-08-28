@@ -41,6 +41,7 @@ from auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
     verify_admin_password, create_admin_token, get_cookie_settings,
+    ADMIN_COOKIE_NAME, get_admin_cookie_settings,
     is_admin_configured, is_admin_env_configured, get_admin_username,
     ACCESS_TOKEN_EXPIRE_MINUTES, IS_PRODUCTION,
     create_mobile_refresh_token, hash_token, get_mobile_refresh_expiry,
@@ -504,12 +505,14 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     return user
 
 
-async def get_current_admin(authorization: Optional[str] = Header(None)) -> dict:
-    """Validate admin token"""
-    if not authorization or not authorization.startswith("Bearer "):
+async def get_current_admin(request: Request, authorization: Optional[str] = Header(None)) -> dict:
+    """Validate admin token from httpOnly cookie or Authorization Bearer header"""
+    token = request.cookies.get(ADMIN_COOKIE_NAME)
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    if not token:
         raise HTTPException(status_code=401, detail="Token no proporcionado")
     
-    token = authorization.split(" ")[1]
     payload = decode_token(token)
     
     if not payload or payload.get("type") != "admin":
@@ -1830,11 +1833,28 @@ async def admin_login(data: AdminLoginRequest, request: Request):
         logger.warning(f"Failed admin login attempt from {client_ip} ({remaining} attempts remaining)")
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     
-    # Success - clear rate limit and create token
+    # Success - clear rate limit and set httpOnly session cookie
     clear_admin_login_attempts(client_ip)
     token = create_admin_token()
     logger.info(f"Admin login successful from {client_ip}")
-    return {"access_token": token, "token_type": "bearer"}
+    response = JSONResponse(content={"message": "Login correcto"})
+    response.set_cookie(value=token, **get_admin_cookie_settings())
+    return response
+
+
+@admin_router.post("/logout")
+async def admin_logout():
+    """Clear admin session cookie"""
+    settings = get_admin_cookie_settings()
+    response = JSONResponse(content={"message": "Sesión cerrada"})
+    response.delete_cookie(
+        key=settings["key"],
+        path=settings["path"],
+        httponly=settings["httponly"],
+        secure=settings["secure"],
+        samesite=settings["samesite"]
+    )
+    return response
 
 
 @admin_router.get("/users", response_model=List[dict])

@@ -1,83 +1,62 @@
 /**
  * RutasFast - Admin Auth Context
- * Manages admin JWT authentication
+ * Admin session stored in an httpOnly cookie (no tokens in localStorage)
  */
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Cookies must travel with every request (independent of AuthContext side-effects)
+axios.defaults.withCredentials = true;
 
 const AdminAuthContext = createContext(null);
 
 export function AdminAuthProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken'));
-  const tokenRef = useRef(adminToken);
-
-  // Keep ref in sync with state - prevents stale closure issues
-  useEffect(() => {
-    tokenRef.current = adminToken;
-  }, [adminToken]);
 
   useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (token) {
-      verifyAdminToken(token);
-    } else {
+    // Cleanup: tokens are no longer kept in localStorage
+    localStorage.removeItem('adminToken');
+    // Only check the admin session cookie on admin routes
+    if (!window.location.pathname.startsWith('/admin')) {
       setLoading(false);
+      return;
     }
+    const verifySession = async () => {
+      try {
+        await axios.get(`${API_URL}/admin/config`);
+        setIsAdmin(true);
+      } catch (error) {
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+    verifySession();
   }, []);
-
-  const verifyAdminToken = async (token) => {
-    try {
-      await axios.get(`${API_URL}/admin/config`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setIsAdmin(true);
-    } catch (error) {
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const login = async (username, password) => {
     const response = await axios.post(`${API_URL}/admin/login`, { username, password });
-    const { access_token } = response.data;
-    
-    tokenRef.current = access_token;
-    setAdminToken(access_token);
-    localStorage.setItem('adminToken', access_token);
     setIsAdmin(true);
-    
     return response.data;
   };
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await axios.post(`${API_URL}/admin/logout`);
+    } catch (error) {
+      // Clearing local state regardless of API response
+    }
     setIsAdmin(false);
-    setAdminToken(null);
-    tokenRef.current = null;
-    localStorage.removeItem('adminToken');
   }, []);
 
-  // Always reads from ref - never stale, stable reference
   const adminRequest = useCallback(async (method, endpoint, data = null, options = {}) => {
-    const currentToken = tokenRef.current;
-    if (!currentToken) {
-      throw new Error('No admin token available');
-    }
-
-    const config = {
-      method,
-      url: `${API_URL}${endpoint}`,
-      headers: { Authorization: `Bearer ${currentToken}` }
-    };
-    
+    const config = { method, url: `${API_URL}${endpoint}` };
     if (data) {
       config.data = data;
     }
-    
     try {
       const response = await axios(config);
       return options.fullResponse ? response : response.data;
@@ -94,7 +73,6 @@ export function AdminAuthProvider({ children }) {
     loading,
     login,
     logout,
-    adminToken,
     adminRequest
   };
 

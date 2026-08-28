@@ -10,8 +10,8 @@ export function AdminLayout() {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/admin/login');
   };
 

@@ -128,6 +128,17 @@ Auditoría completa con testing agent (iteraciones 11 y 12, 53 tests pytest + UI
 - ✅ FIX: MONGO_URL añadido a backend/.env (antes dependía del fallback hardcodeado)
 - ✅ Filtro Taxista del admin carga todos los usuarios por páginas de 200
 
+## Correcciones del Code Review (Jun 2026 - iteración 13)
+Verificado con testing agent: 104/104 tests backend + 17/17 comprobaciones UI.
+- ✅ SEGURIDAD: token admin migrado de localStorage a cookie httpOnly `admin_token` (login la setea, nuevo POST /api/admin/logout la limpia; get_current_admin acepta cookie o Bearer como fallback para tests)
+- ✅ SEGURIDAD: eliminada la contraseña dev hardcodeada (admin123); fail-closed: sin ADMIN_PASSWORD_HASH no hay login admin en ningún entorno
+- ✅ Hooks React: deps corregidas (AdminUsersPage con offsetRef, AdminConfigPage fetchConfig con useCallback); interceptor axios no intenta refresh de usuario en endpoints /admin/
+- ✅ Keys estables en listas (RegisterPage steps/conductores con _key, historial de resets por timestamp)
+- ✅ Consola limpia: el 401 esperado del bootstrap de sesión ya no se loguea como error
+- ℹ️ Falsos positivos del reporte descartados: comparaciones `is None` (correctas en Python), "variables indefinidas" (ruff F821 limpio)
+- ⏳ NO aplicado (backlog, sin impacto funcional): división de componentes grandes (ConfiguracionPage 982 líneas, AdminUsersPage, AdminSheetsPage, AdminConfigPage) y de funciones backend largas (create_route_sheet, pdf_generator)
+- ⚠️ Tras el deploy, los admins deberán volver a iniciar sesión (el token antiguo de localStorage ya no se usa)
+
 ## Tareas Pendientes
 
 ### P1 - Próximas
