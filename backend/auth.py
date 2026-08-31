@@ -20,11 +20,18 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _jwt_secret_raw = os.environ.get("JWT_SECRET")
 
 # Detect production environment (defined early for JWT validation)
+_app_base_url = os.environ.get("APP_BASE_URL", "")
+
 IS_PRODUCTION = (
     os.environ.get("ENVIRONMENT") == "production" or  # Explicit (preferred)
     os.environ.get("VERCEL_ENV") == "production" or   # Vercel
     os.environ.get("RAILWAY_ENVIRONMENT") == "production" or  # Railway
-    (bool(os.environ.get("RENDER")) and os.environ.get("ENVIRONMENT") != "development")  # Render (with dev override)
+    (bool(os.environ.get("RENDER")) and os.environ.get("ENVIRONMENT") != "development") or  # Render (with dev override)
+    (  # Emergent fallback: public HTTPS APP_BASE_URL implies deployed environment
+        _app_base_url.startswith("https://")
+        and "localhost" not in _app_base_url
+        and "127.0.0.1" not in _app_base_url
+    )
 )
 
 # Fail-closed: Production MUST have JWT_SECRET configured
@@ -121,7 +128,6 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
 
 # Handle ADMIN_PASSWORD_HASH - support both plain and Base64 encoded
 _raw_admin_hash = os.environ.get("ADMIN_PASSWORD_HASH", "")
-
 def _decode_admin_hash(raw_value: str) -> str:
     """
     Decode admin password hash from env.
